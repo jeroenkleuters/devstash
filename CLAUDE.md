@@ -5,7 +5,7 @@ A developer knowlege hub for snippets, commands, promps, notes, files, images, l
 ## Context Files
 
 Read the following to get the full context of the project
-- @context/project-overwiew.md
+- @context/project-overview.md
 - @context/coding-standards.md
 - @context/ai-interaction.md
 - @context/current-feature.md
