@@ -501,16 +501,21 @@ Freemium. Foundation for Pro gating should exist from day one, but **during deve
 
 ## 9. UI / UX
 
-### Design language: modern, minimal, dev-focused. Dark mode by default, light mode optional. Clean typography, generous whitespace, subtle borders/shadows. 
+### Design language
 
-### Design References:  Notion, Linear, Raycast. Syntax highlighting on all code blocks.
+Modern, minimal, dev-focused. Dark mode by default, light mode optional. Clean typography, generous whitespace, subtle borders/shadows.
+
+### Design references
+
+Notion, Linear, Raycast. Syntax highlighting on all code blocks.
 
 ### Screenshots
-Refer to the screenshots below for the dashboard UI. It does not have to be exact. Usu it as a reference:
+
+Refer to the screenshots below for the dashboard UI. It does not have to be exact. Use it as a reference:
 @context/screenshots/dashboard-ui-main.png
 @context/screenshots/dashboard-ui-drawer.png
 
-### Layout Structure: 
+### Layout structure
 
 - Collapsible sidebar (types + links to their items, latest collections) → becomes a drawer on mobile
 - Main area: grid of collection cards, background color-coded by the item type they contain most of; items inside show as border color-coded cards by type
