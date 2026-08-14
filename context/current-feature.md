@@ -1,27 +1,18 @@
 # Current Feature
 
-Dashboard UI — Phase 1: base layout shell at `/dashboard` with ShadCN set up, dark mode by default, and a display-only top bar. Full spec: @context/features/dashboard-phase-1-spec.md
+<!-- Feature name and short description -->
 
 ## Status
 
-In Progress
+<!-- Not Started | In Progress | Completed -->
 
 ## Goals
 
-Phase 1 of 3 for the dashboard UI layout. Use @context/screenshots/dashboard-ui-main.png as the visual reference.
-
-- Initialize ShadCN UI and install the components needed for this phase
-- Dashboard route at `/dashboard`
-- Main dashboard layout plus any global styles
-- Dark mode by default
-- Top bar with search and "new item" button (display only — no behavior yet)
-- Placeholder sidebar and main area: just an `h2` with "Sidebar" and "Main" for now
+<!-- Goals and requirements -->
 
 ## Notes
 
-- Phases 2 and 3 are specced separately (@context/features/dashboard-phase-2-spec.md, @context/features/dashboard-phase-3-spec.md) — keep this phase to the shell only.
-- Mock data lives in @src/lib/mock-data.ts.
-- Top bar controls are non-functional in this phase; wiring comes later.
+<!--  Any extra notes -->
 
 ## History
 
@@ -29,3 +20,4 @@ Phase 1 of 3 for the dashboard UI layout. Use @context/screenshots/dashboard-ui-
 
 - **2026-08-06 — Initial Next.js setup.** Scaffolded with `create-next-app`: Next.js 16.3, React 19.2, TypeScript strict, Tailwind CSS v4, ESLint, App Router, `@/*` path alias.
 - **2026-08-07 — Project structure cleanup.** Stripped the starter boilerplate down to a minimal `layout.tsx` / `page.tsx`, added the `context/` docs (project overview, coding standards, AI interaction, this template).
+- **2026-08-14 — Dashboard UI phase 1: layout shell.** Initialized ShadCN UI (radix base, nova preset; `button` / `input` / `separator`), added `/dashboard` with a sidebar + top bar + scrollable main shell, dark mode by default via `.dark` on `<html>`, and a display-only top bar (search, New Collection, New Item). Sidebar and main are `h2` placeholders. Layout styles live in `globals.css` as semantic classes so the markup carries no Tailwind utility strings. Spec: @context/features/dashboard-phase-1-spec.md

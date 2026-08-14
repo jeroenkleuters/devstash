@@ -1,11 +1,11 @@
-import { Plus, Search } from "lucide-react";
+import { FolderPlus, Plus, Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 /**
  * Dashboard top bar. Display only for now — the search field and the
- * "New Item" button are not wired up yet.
+ * action buttons are not wired up yet.
  */
 export function TopBar() {
   return (
@@ -21,6 +21,10 @@ export function TopBar() {
       </div>
 
       <div className="dashboard-topbar-actions">
+        <Button variant="outline" size="lg">
+          <FolderPlus aria-hidden />
+          New Collection
+        </Button>
         <Button size="lg">
           <Plus aria-hidden />
           New Item
