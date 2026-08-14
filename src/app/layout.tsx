@@ -13,13 +13,17 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Devstash",
-  description: "Devstash",
+  title: "DevStash",
+  description: "Your developer knowledge hub",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
+  // Dark mode is the default; a light-mode toggle comes later.
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
+    <html
+      lang="en"
+      className={`dark ${geistSans.variable} ${geistMono.variable}`}
+    >
       <body>{children}</body>
     </html>
   );
