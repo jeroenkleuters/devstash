@@ -1,10 +1,26 @@
 import type { Metadata } from "next";
 
+import { CollectionsSection } from "@/components/dashboard/collections-section";
+import { PinnedItemsSection } from "@/components/dashboard/pinned-items-section";
+import { RecentItemsSection } from "@/components/dashboard/recent-items-section";
+import { StatCards } from "@/components/dashboard/stat-cards";
+
 export const metadata: Metadata = {
   title: "Dashboard · DevStash",
 };
 
-/** Placeholder — collection grid and pinned items land in phase 2. */
 export default function DashboardPage() {
-  return <h2>Main</h2>;
+  return (
+    <>
+      <div className="dashboard-heading">
+        <h1>Dashboard</h1>
+        <p>Your developer knowledge hub</p>
+      </div>
+
+      <StatCards />
+      <CollectionsSection />
+      <PinnedItemsSection />
+      <RecentItemsSection />
+    </>
+  );
 }

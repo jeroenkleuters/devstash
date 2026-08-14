@@ -1,18 +1,26 @@
 # Current Feature
 
-<!-- Feature name and short description -->
+**Dashboard UI phase 3: main area.** Fill the `/dashboard` placeholder with the content column — stats cards, recent collections, pinned items and recent items — driven by mock data. Spec: @context/features/dashboard-phase-3-spec.md
 
 ## Status
 
-<!-- Not Started | In Progress | Completed -->
+In Progress
 
 ## Goals
 
-<!-- Goals and requirements -->
+- The main area to the right
+- 4 stats cards at the top: item count, collection count, favorite items, favorite collections (not in the screenshot)
+- Recent collections
+- Pinned items
+- 10 recent items
 
 ## Notes
 
-<!--  Any extra notes -->
+- Data comes straight from @src/lib/mock-data.ts (direct import) until the database exists. The spec references `mock-data.js` — the file is TypeScript.
+- Layout reference: @context/screenshots/dashboard-ui-main.png
+- Keep the phase 1/2 conventions: semantic classes in `globals.css`, no Tailwind utility strings in the markup.
+- Collection cards are color-coded by `primaryTypeId`, item cards by their type — reuse the `--type-*` custom properties added in phase 2.
+- The mock data has only 8 items, so "10 recent items" caps out at whatever exists.
 
 ## History
 
