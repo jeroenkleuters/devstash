@@ -1,12 +1,14 @@
 /**
- * Connection smoke test for the Neon database.
+ * Connection and seed-data check for the Neon database.
  *
- *   npx tsx scripts/test-db.ts
+ *   npm run db:test
  *
- * Checks that the connection string works, the migration has been applied and
- * the system item types are seeded. Read-only — it writes nothing.
+ * Prints what is in the database and asserts it hangs together: migration
+ * applied, system types present, demo account usable, every item wired to a
+ * collection and carrying the right payload for its content type. Read-only.
  */
 import { config } from "dotenv";
+import { compare } from "bcryptjs";
 import { PrismaNeon } from "@prisma/adapter-neon";
 
 import { PrismaClient } from "../src/generated/prisma/client";
@@ -21,26 +23,29 @@ if (!connectionString) {
   process.exit(1);
 }
 
+const DEMO_EMAIL = "demo@devstash.io";
+const DEMO_PASSWORD = "12345678";
+
 const prisma = new PrismaClient({
   adapter: new PrismaNeon({ connectionString }),
 });
 
-async function main() {
-  const startedAt = Date.now();
+const failures: string[] = [];
+
+function check(ok: boolean, description: string) {
+  console.log(`  ${ok ? "✓" : "✗"} ${description}`);
+  if (!ok) failures.push(description);
+}
+
+async function checkConnection() {
+  console.log("Connection");
 
   // `name`-typed catalog columns cannot be deserialized by the adapter, so
   // everything coming out of information_schema is cast to text.
-  const [connection] = await prisma.$queryRaw<
-    { database: string; host: string }[]
-  >`select current_database()::text as database, inet_server_addr()::text as host`;
-
-  console.log(`Connected to "${connection.database}" (${connection.host})`);
-
-  const tables = await prisma.$queryRaw<{ name: string }[]>`
-    select table_name::text as name from information_schema.tables
-    where table_schema = 'public' order by table_name
+  const [connection] = await prisma.$queryRaw<{ database: string }[]>`
+    select current_database()::text as database
   `;
-  console.log(`Tables (${tables.length}): ${tables.map((t) => t.name).join(", ")}`);
+  console.log(`  database: ${connection.database}`);
 
   const migrations = await prisma.$queryRaw<
     { name: string; applied: Date | null }[]
@@ -49,43 +54,143 @@ async function main() {
     from "_prisma_migrations" order by started_at
   `;
 
-  if (migrations.length === 0) {
-    console.error("No migrations applied — run `npm run db:migrate`.");
-    process.exitCode = 1;
-  }
-
   for (const migration of migrations) {
-    const state = migration.applied ? "applied" : "PENDING";
-    console.log(`Migration ${migration.name}: ${state}`);
+    check(migration.applied !== null, `migration ${migration.name} applied`);
   }
 
-  const counts = {
-    users: await prisma.user.count(),
-    itemTypes: await prisma.itemType.count(),
-    items: await prisma.item.count(),
-    collections: await prisma.collection.count(),
-    tags: await prisma.tag.count(),
-  };
-  console.log("Row counts:", counts);
+  check(migrations.length > 0, "at least one migration applied");
+}
 
-  const systemTypes = await prisma.itemType.findMany({
+async function checkItemTypes() {
+  console.log("\nSystem item types");
+
+  const types = await prisma.itemType.findMany({
     where: { userId: null },
     orderBy: { name: "asc" },
-    select: { name: true, slug: true },
+    include: { _count: { select: { items: true } } },
   });
 
-  if (systemTypes.length === 0) {
-    console.error("No system item types — run `npm run db:seed`.");
-    process.exitCode = 1;
-  } else {
+  for (const type of types) {
     console.log(
-      `System item types (${systemTypes.length}): ${systemTypes
-        .map((type) => type.slug)
-        .join(", ")}`,
+      `  ${type.name.padEnd(8)} /${type.slug.padEnd(9)} ${type.color}  ${type.icon} (${type._count.items} items)`,
     );
   }
 
-  console.log(`Done in ${Date.now() - startedAt}ms`);
+  check(types.length === 7, `7 system types seeded (found ${types.length})`);
+  check(
+    types.every((type) => type.isSystem),
+    "all marked isSystem",
+  );
+  check(
+    types.every((type) => /^#[0-9a-f]{6}$/i.test(type.color)),
+    "all have a hex color",
+  );
+}
+
+async function checkDemoUser() {
+  console.log("\nDemo user");
+
+  const user = await prisma.user.findUnique({ where: { email: DEMO_EMAIL } });
+
+  if (!user) {
+    check(false, `${DEMO_EMAIL} exists — run \`npm run db:seed\``);
+    return null;
+  }
+
+  console.log(`  ${user.name} <${user.email}>`);
+  console.log(
+    `  isPro: ${user.isPro} | verified: ${user.emailVerified?.toISOString().slice(0, 10) ?? "no"}`,
+  );
+
+  check(
+    user.passwordHash !== null &&
+      (await compare(DEMO_PASSWORD, user.passwordHash)),
+    "password hash verifies",
+  );
+  check(user.emailVerified !== null, "email verified");
+
+  return user;
+}
+
+async function checkContent(userId: string) {
+  console.log("\nCollections");
+
+  const collections = await prisma.collection.findMany({
+    where: { userId },
+    orderBy: { name: "asc" },
+    include: {
+      defaultType: true,
+      items: { include: { item: { include: { itemType: true } } } },
+    },
+  });
+
+  for (const collection of collections) {
+    console.log(
+      `  ${collection.name} — ${collection.items.length} items, default ${collection.defaultType?.name ?? "none"}`,
+    );
+    console.log(`    ${collection.description ?? ""}`);
+
+    for (const { item } of collection.items) {
+      const payload = item.url ?? item.content?.split("\n")[0] ?? "";
+      const preview =
+        payload.length > 58 ? `${payload.slice(0, 58)}…` : payload;
+      console.log(
+        `    · [${item.itemType.name}] ${item.title} — ${preview || "(empty)"}`,
+      );
+    }
+  }
+
+  check(collections.length > 0, "collections seeded");
+  check(
+    collections.every((collection) => collection.items.length > 0),
+    "every collection has items",
+  );
+
+  console.log("\nItems");
+
+  const items = await prisma.item.findMany({
+    where: { userId },
+    include: { itemType: true, collections: true },
+  });
+
+  const orphans = items.filter((item) => item.collections.length === 0);
+  const emptyText = items.filter(
+    (item) => item.contentType === "TEXT" && !item.content,
+  );
+  const badLinks = items.filter(
+    (item) => item.contentType === "URL" && !item.url?.startsWith("http"),
+  );
+  const mixed = items.filter((item) => item.content && item.url);
+
+  console.log(`  ${items.length} items across ${collections.length} collections`);
+
+  check(items.length > 0, "items seeded");
+  check(orphans.length === 0, `every item is in a collection (${orphans.length} orphans)`);
+  check(emptyText.length === 0, `every TEXT item has content (${emptyText.length} empty)`);
+  check(badLinks.length === 0, `every URL item has an http url (${badLinks.length} bad)`);
+  check(mixed.length === 0, `no item has both content and url (${mixed.length} mixed)`);
+}
+
+async function main() {
+  const startedAt = Date.now();
+
+  await checkConnection();
+  await checkItemTypes();
+  const user = await checkDemoUser();
+
+  if (user) {
+    await checkContent(user.id);
+  }
+
+  console.log(`\nDone in ${Date.now() - startedAt}ms`);
+
+  if (failures.length > 0) {
+    console.error(`\n${failures.length} check(s) failed:`);
+    for (const failure of failures) console.error(`  - ${failure}`);
+    process.exitCode = 1;
+  } else {
+    console.log("All checks passed.");
+  }
 }
 
 main()
