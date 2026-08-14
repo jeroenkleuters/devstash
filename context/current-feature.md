@@ -1,18 +1,30 @@
 # Current Feature
 
-<!-- Feature name and short description -->
+**Seed data.** Rewrite `prisma/seed.ts` to populate the database with a demo user, the system item types, and five collections of sample items for development and demos. Spec: @context/features/seed-spec.md
 
 ## Status
 
-<!-- Not Started | In Progress | Completed -->
+In Progress
 
 ## Goals
 
-<!-- Goals and requirements -->
+- Demo user: `demo@devstash.io` / "Demo User", password `12345678` hashed with bcryptjs (12 rounds), `isPro: false`, `emailVerified` set to now
+- The seven system item types (`isSystem: true`) with the icons and colors from the spec table
+- Five collections with their items — 18 in total:
+  - **React Patterns** — 3 TypeScript snippets (custom hooks, component patterns, utilities)
+  - **AI Workflows** — 3 prompts (code review, documentation generation, refactoring)
+  - **DevOps** — 1 snippet, 1 command, 2 links (real URLs)
+  - **Terminal Commands** — 4 commands (git, docker, process management, package managers)
+  - **Design Resources** — 4 links (real URLs: CSS/Tailwind, component libraries, design systems, icons)
 
 ## Notes
 
-<!--  Any extra notes -->
+- The existing seed (system types only, imported from @src/lib/mock-data.ts) can be overwritten wholesale.
+- `bcryptjs` is not installed yet — it becomes a runtime dependency, since auth will hash passwords with it too.
+- The spec names types in the singular (`snippet`); `ItemType` also needs the `slug` used by `/items/[type]`, so derive the plural slug (`snippets`) and pick a display name.
+- Keep the seed idempotent — `npm run db:seed` should be safe to re-run. System types have `userId: null`, and Postgres treats NULLs as distinct, so they need a find-then-write instead of `upsert`.
+- Every item needs `contentType` (`TEXT` / `URL` / `FILE`) alongside its type, and links need `url` rather than `content`.
+- Verify afterwards with `npm run db:test`, which reports row counts and seeded types.
 
 ## History
 
