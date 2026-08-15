@@ -9,6 +9,9 @@ export const metadata: Metadata = {
   title: "Dashboard · DevStash",
 };
 
+// Collections are read per request — don't prerender them at build time.
+export const dynamic = "force-dynamic";
+
 export default function DashboardPage() {
   return (
     <>
