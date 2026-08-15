@@ -506,6 +506,23 @@ body {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--card);
+  /* Overridden per card below. */
+  --stat-color: var(--muted-foreground);
+}
+
+/* Each card accents its icon. These are not item types, so they borrow the
+   palette tokens rather than going through the `data-type` map. */
+.stat-card[data-stat="items"] {
+  --stat-color: var(--type-snippet);
+}
+
+.stat-card[data-stat="collections"] {
+  --stat-color: var(--type-prompt);
+}
+
+.stat-card[data-stat="favorite-items"],
+.stat-card[data-stat="favorite-collections"] {
+  --stat-color: var(--type-favorite);
 }
 
 .stat-card-icon {
@@ -517,7 +534,7 @@ body {
   height: 2.25rem;
   border-radius: var(--radius-md);
   background: var(--muted);
-  color: var(--muted-foreground);
+  color: var(--stat-color);
 }
 
 .stat-card-value {

@@ -13,10 +13,21 @@ export async function StatCards() {
     : [EMPTY_STATS, EMPTY_STATS];
 
   const stats = [
-    { label: "Items", value: items.total, Icon: Boxes },
-    { label: "Collections", value: collections.total, Icon: Folder },
-    { label: "Favorite items", value: items.favorites, Icon: Star },
+    { stat: "items", label: "Items", value: items.total, Icon: Boxes },
     {
+      stat: "collections",
+      label: "Collections",
+      value: collections.total,
+      Icon: Folder,
+    },
+    {
+      stat: "favorite-items",
+      label: "Favorite items",
+      value: items.favorites,
+      Icon: Star,
+    },
+    {
+      stat: "favorite-collections",
       label: "Favorite collections",
       value: collections.favorites,
       Icon: FolderHeart,
@@ -25,8 +36,8 @@ export async function StatCards() {
 
   return (
     <ul className="stat-cards">
-      {stats.map(({ label, value, Icon }) => (
-        <li key={label} className="stat-card">
+      {stats.map(({ stat, label, value, Icon }) => (
+        <li key={stat} data-stat={stat} className="stat-card">
           <span className="stat-card-icon">
             <Icon size={16} aria-hidden />
           </span>
