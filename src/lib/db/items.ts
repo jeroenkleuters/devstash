@@ -1,4 +1,8 @@
-import { itemTypeSelect, type ItemTypeSummary } from "@/lib/db/item-types";
+import {
+  compareItemTypes,
+  itemTypeSelect,
+  type ItemTypeSummary,
+} from "@/lib/db/item-types";
 import { prisma } from "@/lib/prisma";
 
 export interface ItemSummary {
@@ -16,6 +20,11 @@ export interface ItemSummary {
 export interface ItemStats {
   total: number;
   favorites: number;
+}
+
+/** An item type plus how many of the user's items carry it. */
+export interface ItemTypeWithCount extends ItemTypeSummary {
+  itemCount: number;
 }
 
 const itemSelect = {
@@ -52,6 +61,26 @@ export async function getRecentItems(
   });
 
   return items.map(toSummary);
+}
+
+/**
+ * The system item types the sidebar lists, each with the user's item count.
+ * System types are shared (`userId: null`), so only the count is per user.
+ */
+export async function getItemTypesWithCounts(
+  userId: string,
+): Promise<ItemTypeWithCount[]> {
+  const types = await prisma.itemType.findMany({
+    where: { isSystem: true },
+    select: {
+      ...itemTypeSelect,
+      _count: { select: { items: { where: { userId } } } },
+    },
+  });
+
+  return types
+    .map(({ _count, ...type }) => ({ ...type, itemCount: _count.items }))
+    .sort(compareItemTypes);
 }
 
 export async function getItemStats(userId: string): Promise<ItemStats> {

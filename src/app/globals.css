@@ -206,6 +206,7 @@ body {
       .sidebar-link-label,
       .sidebar-link-count,
       .sidebar-link-star,
+      .sidebar-view-all,
       .sidebar-user-meta,
       .sidebar-user-settings
     ) {
@@ -364,6 +365,29 @@ body {
 
 .sidebar-type-icon {
   color: var(--type-color);
+}
+
+/* Stands in for an icon on recent collections — the margins make it occupy the
+   same 1rem slot, so labels stay aligned with the lists above. */
+.sidebar-link-dot {
+  flex-shrink: 0;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin: 0 0.25rem;
+  border-radius: 9999px;
+  background: var(--type-color);
+}
+
+.sidebar-view-all {
+  display: block;
+  padding: 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--muted-foreground);
+  text-decoration: none;
+}
+
+.sidebar-view-all:hover {
+  color: var(--sidebar-foreground);
 }
 
 .sidebar-user {
