@@ -1,10 +1,17 @@
 import { Pin } from "lucide-react";
 
 import { ItemList } from "@/components/items/item-list";
-import { items } from "@/lib/mock-data";
+import { getPinnedItems } from "@/lib/db/items";
+import { getCurrentUserId } from "@/lib/db/user";
 
-export function PinnedItemsSection() {
-  const pinnedItems = items.filter((item) => item.isPinned);
+export async function PinnedItemsSection() {
+  const userId = await getCurrentUserId();
+  const pinnedItems = userId ? await getPinnedItems(userId) : [];
+
+  // Nothing pinned — the section stays out of the page entirely.
+  if (pinnedItems.length === 0) {
+    return null;
+  }
 
   return (
     <section className="dashboard-section">

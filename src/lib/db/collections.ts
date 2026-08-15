@@ -1,14 +1,5 @@
+import { itemTypeSelect, type ItemTypeSummary } from "@/lib/db/item-types";
 import { prisma } from "@/lib/prisma";
-
-/** The item type metadata a collection card needs to render its icons. */
-export interface CollectionType {
-  id: string;
-  /** URL segment used by /items/[type], also the CSS `data-type` value */
-  slug: string;
-  name: string;
-  /** lucide-react icon name */
-  icon: string;
-}
 
 export interface CollectionSummary {
   id: string;
@@ -17,7 +8,7 @@ export interface CollectionSummary {
   isFavorite: boolean;
   itemCount: number;
   /** types present in the collection, most common first */
-  types: CollectionType[];
+  types: ItemTypeSummary[];
   updatedAt: Date;
 }
 
@@ -25,13 +16,6 @@ export interface CollectionStats {
   total: number;
   favorites: number;
 }
-
-const collectionTypeSelect = {
-  id: true,
-  slug: true,
-  name: true,
-  icon: true,
-} as const;
 
 /**
  * Collections ordered by most recently updated, each with the item types it
@@ -53,7 +37,7 @@ export async function getRecentCollections(
       updatedAt: true,
       items: {
         select: {
-          item: { select: { itemType: { select: collectionTypeSelect } } },
+          item: { select: { itemType: { select: itemTypeSelect } } },
         },
       },
     },
@@ -78,8 +62,8 @@ export async function getCollectionStats(
 }
 
 /** Deduplicates types, most common first, ties broken by name for stability. */
-function rankTypes(types: CollectionType[]): CollectionType[] {
-  const counts = new Map<string, { type: CollectionType; count: number }>();
+function rankTypes(types: ItemTypeSummary[]): ItemTypeSummary[] {
+  const counts = new Map<string, { type: ItemTypeSummary; count: number }>();
 
   for (const type of types) {
     const entry = counts.get(type.id);

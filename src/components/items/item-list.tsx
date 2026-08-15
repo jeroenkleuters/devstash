@@ -1,8 +1,8 @@
 import { ItemCard } from "@/components/items/item-card";
-import type { Item } from "@/lib/mock-data";
+import type { ItemSummary } from "@/lib/db/items";
 
 interface ItemListProps {
-  items: Item[];
+  items: ItemSummary[];
   emptyMessage: string;
 }
 

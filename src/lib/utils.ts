@@ -12,6 +12,6 @@ const shortDate = new Intl.DateTimeFormat("en-US", {
 })
 
 /** "Jan 15" — used on item cards. */
-export function formatShortDate(isoDate: string) {
-  return shortDate.format(new Date(isoDate))
+export function formatShortDate(date: Date | string) {
+  return shortDate.format(new Date(date))
 }
