@@ -1,12 +1,14 @@
 import { CollectionGrid } from "@/components/collections/collection-grid";
-import { collections } from "@/lib/mock-data";
+import { getRecentCollections } from "@/lib/db/collections";
+import { getCurrentUserId } from "@/lib/db/user";
 
 const RECENT_COLLECTION_LIMIT = 6;
 
-export function CollectionsSection() {
-  const recentCollections = [...collections]
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-    .slice(0, RECENT_COLLECTION_LIMIT);
+export async function CollectionsSection() {
+  const userId = await getCurrentUserId();
+  const recentCollections = userId
+    ? await getRecentCollections(userId, RECENT_COLLECTION_LIMIT)
+    : [];
 
   return (
     <section className="dashboard-section">

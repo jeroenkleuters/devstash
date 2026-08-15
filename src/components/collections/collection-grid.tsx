@@ -1,8 +1,8 @@
 import { CollectionCard } from "@/components/collections/collection-card";
-import type { Collection } from "@/lib/mock-data";
+import type { CollectionSummary } from "@/lib/db/collections";
 
 interface CollectionGridProps {
-  collections: Collection[];
+  collections: CollectionSummary[];
 }
 
 export function CollectionGrid({ collections }: CollectionGridProps) {

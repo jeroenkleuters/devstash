@@ -1,11 +1,19 @@
 import { Boxes, Folder, FolderHeart, Star } from "lucide-react";
 
-import { collections, items } from "@/lib/mock-data";
+import { getCollectionStats } from "@/lib/db/collections";
+import { getCurrentUserId } from "@/lib/db/user";
+import { items } from "@/lib/mock-data";
 
-export function StatCards() {
+export async function StatCards() {
+  const userId = await getCurrentUserId();
+  // Item counts stay on mock data until items are wired up to the database.
+  const collections = userId
+    ? await getCollectionStats(userId)
+    : { total: 0, favorites: 0 };
+
   const stats = [
     { label: "Items", value: items.length, Icon: Boxes },
-    { label: "Collections", value: collections.length, Icon: Folder },
+    { label: "Collections", value: collections.total, Icon: Folder },
     {
       label: "Favorite items",
       value: items.filter((item) => item.isFavorite).length,
@@ -13,7 +21,7 @@ export function StatCards() {
     },
     {
       label: "Favorite collections",
-      value: collections.filter((collection) => collection.isFavorite).length,
+      value: collections.favorites,
       Icon: FolderHeart,
     },
   ];
