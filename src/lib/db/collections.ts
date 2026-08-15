@@ -17,6 +17,25 @@ export interface CollectionStats {
   favorites: number;
 }
 
+/** The sidebar's two collection lists. */
+export interface SidebarCollections {
+  favorites: CollectionSummary[];
+  recent: CollectionSummary[];
+}
+
+const collectionSelect = {
+  id: true,
+  name: true,
+  description: true,
+  isFavorite: true,
+  updatedAt: true,
+  items: {
+    select: {
+      item: { select: { itemType: { select: itemTypeSelect } } },
+    },
+  },
+} as const;
+
 /**
  * Collections ordered by most recently updated, each with the item types it
  * holds. `types[0]` is the type it holds most of — the card's color coding.
@@ -25,29 +44,23 @@ export async function getRecentCollections(
   userId: string,
   limit: number,
 ): Promise<CollectionSummary[]> {
-  const collections = await prisma.collection.findMany({
-    where: { userId },
-    orderBy: { updatedAt: "desc" },
-    take: limit,
-    select: {
-      id: true,
-      name: true,
-      description: true,
-      isFavorite: true,
-      updatedAt: true,
-      items: {
-        select: {
-          item: { select: { itemType: { select: itemTypeSelect } } },
-        },
-      },
-    },
-  });
+  return findCollections({ userId }, limit);
+}
 
-  return collections.map(({ items, ...collection }) => ({
-    ...collection,
-    itemCount: items.length,
-    types: rankTypes(items.map(({ item }) => item.itemType)),
-  }));
+/**
+ * Every favorite collection plus the most recently updated non-favorites — the
+ * sidebar lists them separately, so a favorite never shows up twice.
+ */
+export async function getSidebarCollections(
+  userId: string,
+  recentLimit: number,
+): Promise<SidebarCollections> {
+  const [favorites, recent] = await Promise.all([
+    findCollections({ userId, isFavorite: true }),
+    findCollections({ userId, isFavorite: false }, recentLimit),
+  ]);
+
+  return { favorites, recent };
 }
 
 export async function getCollectionStats(
@@ -59,6 +72,24 @@ export async function getCollectionStats(
   ]);
 
   return { total, favorites };
+}
+
+async function findCollections(
+  where: { userId: string; isFavorite?: boolean },
+  take?: number,
+): Promise<CollectionSummary[]> {
+  const collections = await prisma.collection.findMany({
+    where,
+    orderBy: { updatedAt: "desc" },
+    take,
+    select: collectionSelect,
+  });
+
+  return collections.map(({ items, ...collection }) => ({
+    ...collection,
+    itemCount: items.length,
+    types: rankTypes(items.map(({ item }) => item.itemType)),
+  }));
 }
 
 /** Deduplicates types, most common first, ties broken by name for stability. */

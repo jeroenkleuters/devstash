@@ -8,19 +8,16 @@ import { ChevronDown, Folder, Layers, Settings, Star } from "lucide-react";
 import { useSidebar } from "@/components/layout/sidebar-provider";
 import { Separator } from "@/components/ui/separator";
 import { TYPE_ICONS } from "@/constants/item-types";
-import { collections, currentUser, itemTypes } from "@/lib/mock-data";
+import type { CollectionSummary } from "@/lib/db/collections";
+import type { ItemTypeWithCount } from "@/lib/db/items";
+import type { CurrentUser } from "@/lib/db/user";
 
-/** How many non-favorite collections the "Recent" list shows. */
-const RECENT_LIMIT = 5;
-
-const favoriteCollections = collections.filter(
-  (collection) => collection.isFavorite,
-);
-
-const recentCollections = collections
-  .filter((collection) => !collection.isFavorite)
-  .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-  .slice(0, RECENT_LIMIT);
+interface SidebarProps {
+  types: ItemTypeWithCount[];
+  favoriteCollections: CollectionSummary[];
+  recentCollections: CollectionSummary[];
+  user: CurrentUser | null;
+}
 
 function initials(name: string) {
   return name
@@ -30,11 +27,18 @@ function initials(name: string) {
     .join("");
 }
 
-export function Sidebar() {
+export function Sidebar({
+  types,
+  favoriteCollections,
+  recentCollections,
+  user,
+}: SidebarProps) {
   const pathname = usePathname();
   const { closeOnMobile } = useSidebar();
   const [typesOpen, setTypesOpen] = useState(true);
   const [collectionsOpen, setCollectionsOpen] = useState(true);
+
+  const userName = user?.name ?? user?.email ?? "";
 
   return (
     <aside className="dashboard-sidebar" aria-label="Sidebar">
@@ -64,7 +68,7 @@ export function Sidebar() {
 
           {typesOpen && (
             <ul className="sidebar-list">
-              {itemTypes.map((type) => {
+              {types.map((type) => {
                 const Icon = TYPE_ICONS[type.icon];
                 const href = `/items/${type.slug}`;
 
@@ -112,62 +116,88 @@ export function Sidebar() {
 
           {collectionsOpen && (
             <>
-              <p className="sidebar-subheading">Favorites</p>
-              <ul className="sidebar-list">
-                {favoriteCollections.map((collection) => {
-                  const href = `/collections/${collection.id}`;
+              {favoriteCollections.length > 0 && (
+                <>
+                  <p className="sidebar-subheading">Favorites</p>
+                  <ul className="sidebar-list">
+                    {favoriteCollections.map((collection) => {
+                      const href = `/collections/${collection.id}`;
 
-                  return (
-                    <li key={collection.id}>
-                      <Link
-                        href={href}
-                        className="sidebar-link"
-                        data-active={pathname === href}
-                        title={collection.name}
-                        onClick={closeOnMobile}
-                      >
-                        <Folder className="sidebar-link-icon" size={16} aria-hidden />
-                        <span className="sidebar-link-label">
-                          {collection.name}
-                        </span>
-                        <Star
-                          className="sidebar-link-star"
-                          size={14}
-                          fill="currentColor"
-                          aria-hidden
-                        />
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
+                      return (
+                        <li key={collection.id}>
+                          <Link
+                            href={href}
+                            className="sidebar-link"
+                            data-active={pathname === href}
+                            title={collection.name}
+                            onClick={closeOnMobile}
+                          >
+                            <Folder
+                              className="sidebar-link-icon"
+                              size={16}
+                              aria-hidden
+                            />
+                            <span className="sidebar-link-label">
+                              {collection.name}
+                            </span>
+                            <Star
+                              className="sidebar-link-star"
+                              size={14}
+                              fill="currentColor"
+                              aria-hidden
+                            />
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </>
+              )}
 
-              <p className="sidebar-subheading">Recent</p>
-              <ul className="sidebar-list">
-                {recentCollections.map((collection) => {
-                  const href = `/collections/${collection.id}`;
+              {recentCollections.length > 0 && (
+                <>
+                  <p className="sidebar-subheading">Recent</p>
+                  <ul className="sidebar-list">
+                    {recentCollections.map((collection) => {
+                      const href = `/collections/${collection.id}`;
+                      // Color-coded by the type the collection holds most of.
+                      const [primaryType] = collection.types;
 
-                  return (
-                    <li key={collection.id}>
-                      <Link
-                        href={href}
-                        className="sidebar-link"
-                        data-active={pathname === href}
-                        title={collection.name}
-                        onClick={closeOnMobile}
-                      >
-                        <Folder className="sidebar-link-icon" size={16} aria-hidden />
-                        <span className="sidebar-link-label">
-                          {collection.name}
-                        </span>
-                        <span className="sidebar-link-count">
-                          {collection.itemCount}
-                        </span>
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
+                      return (
+                        <li key={collection.id}>
+                          <Link
+                            href={href}
+                            className="sidebar-link"
+                            data-active={pathname === href}
+                            title={collection.name}
+                            onClick={closeOnMobile}
+                          >
+                            <span
+                              className="sidebar-link-dot"
+                              data-type={primaryType?.slug}
+                              aria-hidden
+                            />
+                            <span className="sidebar-link-label">
+                              {collection.name}
+                            </span>
+                            <span className="sidebar-link-count">
+                              {collection.itemCount}
+                            </span>
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </>
+              )}
+
+              <Link
+                href="/collections"
+                className="sidebar-view-all"
+                onClick={closeOnMobile}
+              >
+                View all collections
+              </Link>
             </>
           )}
         </nav>
@@ -175,11 +205,11 @@ export function Sidebar() {
 
       <div className="sidebar-user">
         <span className="sidebar-user-avatar" aria-hidden>
-          {initials(currentUser.name)}
+          {initials(userName)}
         </span>
         <span className="sidebar-user-meta">
-          <span className="sidebar-user-name">{currentUser.name}</span>
-          <span className="sidebar-user-email">{currentUser.email}</span>
+          <span className="sidebar-user-name">{userName}</span>
+          <span className="sidebar-user-email">{user?.email}</span>
         </span>
         <button
           type="button"
