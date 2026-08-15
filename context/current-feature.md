@@ -1,6 +1,6 @@
 # Current Feature
 
-**Dashboard collections from the database.** Replace the mock collection data in the dashboard's main area with real collections read from Neon through Prisma. Spec: @context/features/dashboard-collections-spec.md
+**Dashboard items from the database.** Replace the mock item data in the dashboard's main area — both the Pinned and Recent sections — with real items read from Neon through Prisma. Spec: @context/features/dashboard-items-spec.md
 
 ## Status
 
@@ -8,18 +8,21 @@ Completed
 
 ## Goals
 
-- New `src/lib/db/collections.ts` holding the collection data-fetching functions
-- The dashboard server component fetches collections directly (no API route)
-- Card border color derived from the most-used content type within each collection
-- Small icons for every type present in a collection
-- Collection stats display updated to match the real data
-- Keep the existing design — same six recent-collection cards as now
+- New `src/lib/db/items.ts` holding the item data-fetching functions
+- The dashboard server components fetch items directly (no API route)
+- Item card icon and border color derived from the item's type
+- Keep everything the card shows today: type icon, title, pin/favorite flags, description, tags, updated date
+- The Pinned section renders nothing at all when there are no pinned items
+- Stats display updated to match the real data
 
 ## Notes
 
-- Items under the collections stay on mock data for now; that comes in a later step.
+- This finishes the mock-data removal from the dashboard main area; the collection grid already reads from the database.
+- `ItemCard` still resolves its type through `ITEM_TYPES_BY_ID` (mock-backed) — switch it to type metadata carried on the fetched item, the way `CollectionCard` now works.
+- Tags are a relation (`Item.tags`), so they need selecting alongside the item.
+- The item stat cards (Items, Favorite items) are still mock; they become real here.
 - Reference @context/screenshots/dashboard-ui-main.png if needed, but the layout and styling already exist.
-- The seed (from the previous feature) provides the five demo collections to render against.
+- The seed provides 18 items across five collections, none pinned or favorited — worth checking the empty Pinned case renders as nothing.
 
 ## History
 
@@ -33,3 +36,4 @@ Completed
 - **2026-08-14 — Prisma 7 + Neon PostgreSQL.** Stood up the database layer. Schema in `prisma/schema.prisma` follows the project-overview draft (NextAuth models, `ContentType` enum, cascade deletes, indexes) plus `ItemType.slug` and `@@index([userId, updatedAt])` on Item. Migration `20260814120000_init` applied to the Neon dev branch and verified end to end through the app. `prisma/seed.ts` seeds the seven system item types idempotently. Prisma 7 specifics: `prisma-client` generator (not `prisma-client-js`) outputting TypeScript to `src/generated/prisma` (gitignored, rebuilt by `postinstall`), the mandatory driver adapter (`@prisma/adapter-neon` over `@neondatabase/serverless`) in `src/lib/prisma.ts`, connection URLs moved to `prisma.config.ts`, and dotenv loading `.env.local`/`.env` since v7 no longer reads env files itself. CLI uses `DIRECT_URL` (Neon's pooler cannot hold the schema engine's advisory locks), runtime uses pooled `DATABASE_URL`. Scripts: `db:migrate`, `db:deploy`, `db:status`, `db:seed`, `db:studio`. Spec: @context/features/database-spec.md
 - **2026-08-14 — Seed data.** Rewrote `prisma/seed.ts` to populate a demo account and sample content: `demo@devstash.io` / "Demo User" (password `12345678`, bcryptjs 12 rounds, `isPro: false`), the seven system item types (`isSystem: true`, `userId: null`, find-then-write since Postgres treats NULLs as distinct in the unique index), and five collections holding 18 items — React Patterns (3 snippets), AI Workflows (3 prompts), DevOps (snippet + command + 2 links), Terminal Commands (4 commands), Design Resources (4 links). Re-running rebuilds the demo user's content instead of duplicating it. Added `bcryptjs` as a runtime dependency (auth will reuse it). `scripts/test-db.ts` now prints the seeded data and asserts integrity: no orphaned items, TEXT items have `content`, URL items have `url`, and no item carries both. Spec: @context/features/seed-spec.md
 - **2026-08-15 — Dashboard collections from the database.** The dashboard's collection grid now reads from Neon instead of `src/lib/mock-data.ts`. New `src/lib/db/collections.ts` holds `getRecentCollections(userId, limit)` — one query ordered by `updatedAt` desc that selects each collection's items down to their `itemType` — and `getCollectionStats(userId)`; a `rankTypes` helper dedupes types most-common-first so `types[0]` drives the card's border color and the icon row shows every type present. `src/lib/db/user.ts` resolves the seeded `demo@devstash.io` account as a stand-in for the session until NextAuth lands. `CollectionsSection` and `StatCards` became async server components fetching directly; `CollectionCard` / `CollectionGrid` are typed on `CollectionSummary` and take the type metadata embedded in the collection instead of going through `ITEM_TYPES_BY_ID`. `/dashboard` is `force-dynamic` so it is not prerendered against build-time data. Item stats and the item lists stay on mock data — those come later. Spec: @context/features/dashboard-collections-spec.md
+- **2026-08-15 — Dashboard items from the database.** The Pinned and Recent sections now read from Neon, finishing the mock-data removal from the dashboard's main area. New `src/lib/db/items.ts` holds `getPinnedItems`, `getRecentItems(userId, limit)` and `getItemStats`; both list queries share one `select` that pulls the item's `itemType` and tags, so a card needs no follow-up lookups. `ItemTypeSummary` and its Prisma select moved to `src/lib/db/item-types.ts`, shared by items and collections (`CollectionType` is gone; `CollectionSummary.types` is unchanged). `ItemCard` resolves its icon and `data-type` from `item.type` instead of the mock-backed `ITEM_TYPES_BY_ID`, `PinnedItemsSection` returns `null` when nothing is pinned so the heading disappears with the list, and all four stat cards are real (item and collection counts fetched in parallel). `formatShortDate` now also accepts a `Date`. `src/lib/item-types.ts` is left in place but has no callers; the sidebar still runs on `src/lib/mock-data.ts`. Spec: @context/features/dashboard-items-spec.md

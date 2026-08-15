@@ -1,14 +1,16 @@
 import { Clock } from "lucide-react";
 
 import { ItemList } from "@/components/items/item-list";
-import { items } from "@/lib/mock-data";
+import { getRecentItems } from "@/lib/db/items";
+import { getCurrentUserId } from "@/lib/db/user";
 
 const RECENT_ITEM_LIMIT = 10;
 
-export function RecentItemsSection() {
-  const recentItems = [...items]
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-    .slice(0, RECENT_ITEM_LIMIT);
+export async function RecentItemsSection() {
+  const userId = await getCurrentUserId();
+  const recentItems = userId
+    ? await getRecentItems(userId, RECENT_ITEM_LIMIT)
+    : [];
 
   return (
     <section className="dashboard-section">
