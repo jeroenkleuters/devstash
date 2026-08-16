@@ -15,6 +15,11 @@ import type { ContentType } from "../src/generated/prisma/enums";
 
 config({ path: [".env.local", ".env"], quiet: true });
 
+// The demo account has a known password — never create it in production.
+if (process.env.NODE_ENV === "production") {
+  throw new Error("Refusing to seed: NODE_ENV is production");
+}
+
 const connectionString = process.env.DATABASE_URL;
 
 if (!connectionString) {
