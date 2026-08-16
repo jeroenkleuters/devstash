@@ -1,3 +1,5 @@
+import { cache } from "react";
+
 import { itemTypeSelect, type ItemTypeSummary } from "@/lib/db/item-types";
 import { prisma } from "@/lib/prisma";
 
@@ -37,14 +39,38 @@ const collectionSelect = {
 } as const;
 
 /**
- * Collections ordered by most recently updated, each with the item types it
- * holds. `types[0]` is the type it holds most of — the card's color coding.
+ * Every collection the user owns, most recently updated first, each with the
+ * item types it holds. `types[0]` is the type it holds most of — the card's
+ * color coding.
+ *
+ * The sidebar, the dashboard grid and the stat cards all narrow this same list,
+ * and `cache` memoizes per request, so one render costs one query. Unbounded on
+ * purpose: the sidebar needs every favorite, not the most recent few.
  */
+const getCollections = cache(
+  async (userId: string): Promise<CollectionSummary[]> => {
+    const collections = await prisma.collection.findMany({
+      where: { userId },
+      orderBy: { updatedAt: "desc" },
+      select: collectionSelect,
+    });
+
+    return collections.map(({ items, ...collection }) => ({
+      ...collection,
+      itemCount: items.length,
+      types: rankTypes(items.map(({ item }) => item.itemType)),
+    }));
+  },
+);
+
+/** The most recently updated collections — the dashboard's card grid. */
 export async function getRecentCollections(
   userId: string,
   limit: number,
 ): Promise<CollectionSummary[]> {
-  return findCollections({ userId }, limit);
+  const collections = await getCollections(userId);
+
+  return collections.slice(0, limit);
 }
 
 /**
@@ -55,41 +81,25 @@ export async function getSidebarCollections(
   userId: string,
   recentLimit: number,
 ): Promise<SidebarCollections> {
-  const [favorites, recent] = await Promise.all([
-    findCollections({ userId, isFavorite: true }),
-    findCollections({ userId, isFavorite: false }, recentLimit),
-  ]);
+  const collections = await getCollections(userId);
 
-  return { favorites, recent };
+  return {
+    favorites: collections.filter((collection) => collection.isFavorite),
+    recent: collections
+      .filter((collection) => !collection.isFavorite)
+      .slice(0, recentLimit),
+  };
 }
 
 export async function getCollectionStats(
   userId: string,
 ): Promise<CollectionStats> {
-  const [total, favorites] = await Promise.all([
-    prisma.collection.count({ where: { userId } }),
-    prisma.collection.count({ where: { userId, isFavorite: true } }),
-  ]);
+  const collections = await getCollections(userId);
 
-  return { total, favorites };
-}
-
-async function findCollections(
-  where: { userId: string; isFavorite?: boolean },
-  take?: number,
-): Promise<CollectionSummary[]> {
-  const collections = await prisma.collection.findMany({
-    where,
-    orderBy: { updatedAt: "desc" },
-    take,
-    select: collectionSelect,
-  });
-
-  return collections.map(({ items, ...collection }) => ({
-    ...collection,
-    itemCount: items.length,
-    types: rankTypes(items.map(({ item }) => item.itemType)),
-  }));
+  return {
+    total: collections.length,
+    favorites: collections.filter((collection) => collection.isFavorite).length,
+  };
 }
 
 /** Deduplicates types, most common first, ties broken by name for stability. */
