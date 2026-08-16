@@ -1,30 +1,27 @@
-# Current Feature
+# Current Feature: Add Pro Badge to Sidebar
 
-**Stats & sidebar from the database.** Point the sidebar at Neon — system item types with their icons and counts, real collections split into Favorites and Recent — and confirm the main-area stats read from the database rather than `src/lib/mock-data.ts`. Spec: @context/features/stats-sidebar-spec.md
+**Pro badge on the Pro-only sidebar types.** Mark the File and Image entries in the sidebar's Types list as Pro with a small, subtle uppercase `PRO` badge built from the ShadCN badge component. Spec: @context/features/add-pro-badge-sidebar.md
 
 ## Status
 
-Completed
+In Progress
 
 ## Goals
 
-- Stats in the main area reflect database data, keeping the current design/layout
-- Sidebar Types list shows the system item types with their icons, linking to `/items/[slug]`
-- Sidebar Collections list shows real collections: Favorites first, then Recent
-- Recent collections show a colored circle for the collection's most-used item type; Favorites keep the star icon
-- A "View all collections" link under the collections list pointing at `/collections`
-- Item data-fetching functions live in `src/lib/db/items.ts`, following the shape of `src/lib/db/collections.ts`
+- The File and Image type links in the sidebar show a `PRO` badge
+- The badge uses the ShadCN `badge` component (not yet installed — add it via the ShadCN CLI)
+- Styling is clean and subtle, and the label is uppercase `PRO`
+- Every other sidebar type is unchanged
 
 ## Notes
 
-- Two spec items are already done by the previous feature: `src/lib/db/items.ts` exists (`getPinnedItems`, `getRecentItems`, `getItemStats`) and all four stat cards are real. Verify against the spec, extend `items.ts` with what the sidebar needs, and don't rebuild them.
-- The sidebar needs per-type item counts, which nothing fetches yet — a new query (a `groupBy` on `Item.itemTypeId`, or counts joined onto the item types) alongside the existing helpers in `src/lib/db/item-types.ts` / `items.ts`.
-- `Sidebar` is a `"use client"` component and derives its lists from mock data at module scope. The data has to come in as props from a server component (the `(app)` layout) so the client half keeps only the collapse/toggle state.
-- Favorites vs Recent is a real split now: `getRecentCollections` orders by `updatedAt` and does not filter on `isFavorite`, so the sidebar either gets its own query or filters what it is handed.
-- The colored circle reuses the existing `--type-color` / `data-type` mechanism; `types[0]` from `CollectionSummary` is already the most-used type.
-- `/collections` and `/items/[type]` do not exist yet — the links will 404 until those routes land. That's expected.
-- `src/lib/mock-data.ts` should have no callers left after this; `src/lib/item-types.ts` already has none.
-- Seed data: 5 collections, 18 items, 7 system types — several types have zero items, so check how a 0 count renders.
+- Pro-only types per the project overview (§3A, §8) are **File** and **Image** — slugs `files` and `images` in the seed (`prisma/seed.ts`).
+- The badge lives in the type row in [sidebar.tsx](src/components/layout/sidebar.tsx#L71-L99), which today renders icon + label + `sidebar-link-count`. Decide whether the badge replaces or sits alongside the count for those two rows.
+- `src/components/ui/` only has `button`, `input`, and `separator` so far — `npx shadcn@latest add badge` is needed.
+- ShadCN primitives ship with Tailwind utility classes; that is fine inside `src/components/ui/`. Our own markup stays unstyled, so any positioning/sizing for the badge belongs in `globals.css` as a semantic class, matching the rest of the sidebar.
+- The sidebar collapses to a 3.5rem icon rail — check the badge is hidden or doesn't overflow in that state, and in the mobile drawer.
+- Which types are Pro isn't in the database (`ItemType` has no `isPro` column). Simplest route is a constant next to `TYPE_ICONS` in `src/constants/item-types.ts`; a schema change is out of scope unless asked.
+- Nothing gates access yet — this is display only. Per §8, during development all users get full access, so the badge must not disable the link.
 
 ## History
 

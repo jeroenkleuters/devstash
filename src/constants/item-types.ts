@@ -22,3 +22,9 @@ export const TYPE_ICONS: Record<string, LucideIcon> = {
   Image,
   Link,
 };
+
+/**
+ * `ItemType.slug`s reserved for Pro accounts. Labelled only — nothing is gated
+ * while all users get full access during development.
+ */
+export const PRO_TYPE_SLUGS = new Set(["files", "images"]);

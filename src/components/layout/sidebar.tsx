@@ -6,8 +6,9 @@ import { usePathname } from "next/navigation";
 import { ChevronDown, Folder, Layers, Settings, Star } from "lucide-react";
 
 import { useSidebar } from "@/components/layout/sidebar-provider";
+import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { TYPE_ICONS } from "@/constants/item-types";
+import { PRO_TYPE_SLUGS, TYPE_ICONS } from "@/constants/item-types";
 import type { CollectionSummary } from "@/lib/db/collections";
 import type { ItemTypeWithCount } from "@/lib/db/items";
 import type { CurrentUser } from "@/lib/db/user";
@@ -71,6 +72,7 @@ export function Sidebar({
               {types.map((type) => {
                 const Icon = TYPE_ICONS[type.icon];
                 const href = `/items/${type.slug}`;
+                const isPro = PRO_TYPE_SLUGS.has(type.slug);
 
                 return (
                   <li key={type.id}>
@@ -90,6 +92,11 @@ export function Sidebar({
                         />
                       )}
                       <span className="sidebar-link-label">{type.name}</span>
+                      {isPro && (
+                        <Badge variant="outline" className="sidebar-pro-badge">
+                          PRO
+                        </Badge>
+                      )}
                       <span className="sidebar-link-count">
                         {type.itemCount}
                       </span>
