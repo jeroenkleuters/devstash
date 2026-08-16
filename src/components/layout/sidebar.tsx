@@ -20,12 +20,23 @@ interface SidebarProps {
   user: CurrentUser | null;
 }
 
-function initials(name: string) {
-  return name
-    .split(" ")
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("");
+/**
+ * Two letters for the avatar. Accounts without a name fall back to their email,
+ * which has no space to split on — use its local part and the separators that
+ * actually show up there instead.
+ */
+function initials(source: string) {
+  const name = source.split("@")[0];
+  const parts = name.split(/[\s._-]+/).filter(Boolean);
+
+  if (parts.length > 1) {
+    return parts
+      .slice(0, 2)
+      .map((part) => part[0].toUpperCase())
+      .join("");
+  }
+
+  return name.slice(0, 2).toUpperCase();
 }
 
 export function Sidebar({
