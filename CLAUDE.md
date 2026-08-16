@@ -26,7 +26,7 @@ npm run db:test     # integrity checks against the seeded data (not a test suite
 npm run db:studio   # prisma studio
 ```
 
-No test runner is configured — there is no test script, framework, or test file in the repo. If tests are needed, pick a runner and add the script rather than assuming one exists.
+No test runner is configured — there is no test framework or test file in the repo. `db:test` is not one: it runs `scripts/test-db.ts`, which asserts the seeded data is intact and prints it. If tests are needed, pick a runner and add the script rather than assuming one exists.
 
 ## Stack
 
