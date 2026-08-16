@@ -2,59 +2,15 @@
 
 ## Status
 
-In Progress — branch `fixes-after-code-scanner`
+Not Started
 
 ## Goals
 
-Fix the two duplicate-query findings from the code-scanner pass, plus the quick
-wins it rated low risk. No user-visible change — the dashboard must render
-exactly as it does today, on fewer queries.
-
-- **Five identical user lookups per dashboard render → one.** The layout calls
-  `getCurrentUser()` and each of the four dashboard sections calls
-  `getCurrentUserId()`, so the same `demo@devstash.io` row is fetched five times
-  per render. Dedupe with React's `cache()` and derive `getCurrentUserId` from
-  `getCurrentUser` instead of running a second query for the same row.
-- **Collections fetched repeatedly → one query.** Per render the collections
-  table is hit five times: the sidebar's favorites, the sidebar's recents, the
-  dashboard grid's six most recent, and two `count` queries for the stat cards.
-  Collapse all five onto one cached `findMany` and derive each list in memory.
-- **`initials()` fallback for accounts with no name.** An email-only user gets a
-  one-letter avatar (`demo@devstash.io` → `D`) because the email has no space to
-  split on. Fall back to the local part so it still renders two letters.
-- **Production guard on the seed script.** `npm run db:seed` runs against
-  whatever `DATABASE_URL` is loaded, with no check that it isn't production —
-  it would create a known-password demo account there. Refuse to run when
-  `NODE_ENV=production`.
-- **Hide the Next dev-tools badge.** The `data-next-badge` element overlaps the
-  sidebar's user area in development. It isn't our markup — the dev overlay
-  injects it — so it comes off via `devIndicators: false` in `next.config.ts`.
+<!-- Bullet points of what success looks like -->
 
 ## Notes
 
-- `cache()` is React's per-request memoization, not a persistent cache: the
-  layout and the page render in the same request, so they share one result and
-  nothing goes stale between requests. `force-dynamic` on both routes stays.
-- `getCollectionStats` stops using SQL `COUNT` and derives its numbers from the
-  fetched rows. Same values, two fewer round trips.
-- The shared collections query is unbounded (no `take`) — it has to be, since
-  the sidebar needs *every* favorite. Fine at this stage: the free tier caps
-  collections at 3 and there is no `/collections` page yet. Revisit together
-  with the finding below when collections can grow.
-- `devIndicators: false` turns off the whole dev overlay indicator, not just the
-  badge — the route-type and static/dynamic readouts go with it. The error
-  overlay itself is unaffected. Config changes need a dev server restart.
-
-**Deliberately out of scope** — both were scanner findings, neither is a quick
-win:
-
-- *`findCollections` pulls every item row just to count them and rank types*
-  (`src/lib/db/collections.ts`). The fix is a real query rewrite (`_count` plus
-  a `groupBy` on `itemTypeId`) touching logic shared by the sidebar and the
-  dashboard grid. Rated medium risk — deserves its own branch.
-- *Splitting the 231-line `Sidebar` into brand / types / collections / user
-  subcomponents.* Mechanical, but it is a refactor and those get asked about
-  first.
+<!-- Additional context, constraints, or details from spec -->
 
 ## History
 
@@ -73,3 +29,4 @@ win:
 - **2026-08-15 — Stat card icon colors.** The four dashboard stat icons are color-coded instead of all-grey: Items blue (`--type-snippet`), Collections purple (`--type-prompt`), both favorites yellow (`--type-favorite`). `StatCards` renders a `data-stat` slug per card (also now the React key), and `globals.css` resolves a `--stat-color` custom property from it that `.stat-card-icon` reads — defaulting to `--muted-foreground`. Deliberately a separate property from `--type-color` rather than an entry in the `data-type` map: these cards aren't scoped to an item type. Icon backgrounds stay `--muted`.
 - **2026-08-16 — PRO badge on the Pro-only sidebar types.** The File and Image entries in the sidebar's Types list are marked `PRO`. Added the ShadCN `badge` primitive (`src/components/ui/badge.tsx`, untouched CLI output — the fourth file in `components/ui/`), and `PRO_TYPE_SLUGS` in `src/constants/item-types.ts` as the source of truth for which slugs are gated: `ItemType` has no `isPro` column and adding one would mean a migration for what is currently a display concern. Nothing is actually gated — per project overview §8 all users get full access during development, so the links stay clickable. The badge renders between the label and the item count (`variant="outline"`), sized down by `.sidebar-pro-badge` in `globals.css` — 0.5625rem text with tracking, `--sidebar-border`, `--muted-foreground` — so the row height doesn't move; the overrides beat the badge's own `h-5 px-2 text-xs` without `!important` because our rules are unlayered while Tailwind v4 utilities sit in the `utilities` layer. Putting the badge next to the label meant `.sidebar-link-label` could no longer fill the row (`flex: 1` → `flex: 0 1 auto`), so the right-alignment it used to provide now comes from `margin-left: auto` on `.sidebar-link-count` and `.sidebar-link-star` — that covers all three row shapes (types, favorite collections, recent collections). `.sidebar-pro-badge` joined the collapsed-rail `display: none` list so the 3.5rem icon rail shows only the type icon. Spec: @context/features/add-pro-badge-sidebar-spec.md
 - **2026-08-16 — Documentation cleanup.** A `/cleanup` pass found no code to fix — no `console.log` in `src/`, no unused imports (`tsc --noUnusedLocals` and `eslint` both clean), no TODOs, no stale `@ts-ignore`, no orphaned modules or unused CSS classes — so this was documentation only. `README.md` went from `create-next-app` boilerplate to a real project README: status, stack, setup through seed, the `DATABASE_URL` (pooled) vs `DIRECT_URL` (direct) split, all eleven scripts, folder layout and conventions. `CLAUDE.md` gained the six `db:*` commands, and its "no test script" line was corrected — `db:test` exists but runs the seeded-data integrity checker, not a test suite. Project overview §7 was relabelled **Target** and reconciled with reality: dropped `tailwind.config.ts` (which contradicted the v4 rule in coding-standards), added `context/`, `scripts/`, `prisma/seed.ts`, `prisma.config.ts`, `components/dashboard/`, `lib/db/` and `src/generated/`, plus a "Current state" subsection recording that the `(marketing)`/`(auth)`/`(app)` route groups do not exist yet — everything lives under `src/app/dashboard/` until auth lands — and listing the `lib/` modules still unwritten. `add-pro-badge-sidebar.md` was renamed to `-spec.md` to match the other eight specs. `DIRECT_URL` was added to `.env.production`, which had only `DATABASE_URL`; note that file is gitignored and `prisma.config.ts` reads only `.env.local`/`.env`, so production needs the variable set in the host environment. `/.claude` is now gitignored, keeping local settings and skills untracked.
+- **2026-08-16 — Code-scanner follow-up fixes.** Acted on a `code-scanner` pass: the two duplicate-query findings plus the quick wins it rated low risk. Nothing user-visible changed — the dashboard renders identically on fewer queries. **Current user, five lookups → one:** `getCurrentUser` in `src/lib/db/user.ts` is wrapped in React's `cache()` and `getCurrentUserId` now derives from it instead of running its own `findUnique`, so the layout and all four dashboard sections share one query. **Collections, five queries → one:** the private `findCollections` became a cached `getCollections(userId)` fetching the user's collections once; `getRecentCollections` slices it, `getSidebarCollections` partitions it on `isFavorite`, and `getCollectionStats` derives `total`/`favorites` from the rows — dropping both `collection.count` calls. The query is deliberately unbounded (no `take`) because the sidebar needs *every* favorite, which is fine while the free tier caps collections at 3 and `/collections` doesn't exist; it compounds with the deferred finding below, so those two want fixing together. `cache()` is per-request memoization, not a persistent cache, so `force-dynamic` on both routes stays and nothing goes stale between requests. **`initials()`** in `src/components/layout/sidebar.tsx` gave a one-letter avatar to accounts with no `name`, since the email fallback has no space to split on; it now splits the local part on `. _ -` and falls back to its first two characters (`Demo User` still renders `DU`). **`prisma/seed.ts`** throws when `NODE_ENV=production` so the known-password demo account can't be created against a production branch. **`devIndicators: false`** in `next.config.ts` hides the dev overlay's `data-next-badge`, which sat on top of the sidebar's user area — note it disables the whole indicator including the route-type readout, leaves the error overlay alone, and needs a dev server restart. Verified by temporarily enabling Prisma query logging on a separate production server: one `/dashboard` render issues 1 user query and 1 collection query, against output matching the seed exactly (stats 18/5/1/1, no collection listed twice in the sidebar); the logging was reverted. Two scanner findings were deliberately left out as not-quick-wins: `findCollections` still pulls every item row just to count them and rank types (the fix is a `_count` + `groupBy` query rewrite touching shared sidebar/grid logic, rated medium risk), and splitting the 231-line `Sidebar` into brand / types / collections / user subcomponents (mechanical, but a refactor).
