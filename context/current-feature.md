@@ -2,15 +2,59 @@
 
 ## Status
 
-Not Started
+In Progress — branch `fixes-after-code-scanner`
 
 ## Goals
 
-<!-- Bullet points of what success looks like -->
+Fix the two duplicate-query findings from the code-scanner pass, plus the quick
+wins it rated low risk. No user-visible change — the dashboard must render
+exactly as it does today, on fewer queries.
+
+- **Five identical user lookups per dashboard render → one.** The layout calls
+  `getCurrentUser()` and each of the four dashboard sections calls
+  `getCurrentUserId()`, so the same `demo@devstash.io` row is fetched five times
+  per render. Dedupe with React's `cache()` and derive `getCurrentUserId` from
+  `getCurrentUser` instead of running a second query for the same row.
+- **Collections fetched repeatedly → one query.** Per render the collections
+  table is hit five times: the sidebar's favorites, the sidebar's recents, the
+  dashboard grid's six most recent, and two `count` queries for the stat cards.
+  Collapse all five onto one cached `findMany` and derive each list in memory.
+- **`initials()` fallback for accounts with no name.** An email-only user gets a
+  one-letter avatar (`demo@devstash.io` → `D`) because the email has no space to
+  split on. Fall back to the local part so it still renders two letters.
+- **Production guard on the seed script.** `npm run db:seed` runs against
+  whatever `DATABASE_URL` is loaded, with no check that it isn't production —
+  it would create a known-password demo account there. Refuse to run when
+  `NODE_ENV=production`.
+- **Hide the Next dev-tools badge.** The `data-next-badge` element overlaps the
+  sidebar's user area in development. It isn't our markup — the dev overlay
+  injects it — so it comes off via `devIndicators: false` in `next.config.ts`.
 
 ## Notes
 
-<!-- Additional context, constraints, or details from spec -->
+- `cache()` is React's per-request memoization, not a persistent cache: the
+  layout and the page render in the same request, so they share one result and
+  nothing goes stale between requests. `force-dynamic` on both routes stays.
+- `getCollectionStats` stops using SQL `COUNT` and derives its numbers from the
+  fetched rows. Same values, two fewer round trips.
+- The shared collections query is unbounded (no `take`) — it has to be, since
+  the sidebar needs *every* favorite. Fine at this stage: the free tier caps
+  collections at 3 and there is no `/collections` page yet. Revisit together
+  with the finding below when collections can grow.
+- `devIndicators: false` turns off the whole dev overlay indicator, not just the
+  badge — the route-type and static/dynamic readouts go with it. The error
+  overlay itself is unaffected. Config changes need a dev server restart.
+
+**Deliberately out of scope** — both were scanner findings, neither is a quick
+win:
+
+- *`findCollections` pulls every item row just to count them and rank types*
+  (`src/lib/db/collections.ts`). The fix is a real query rewrite (`_count` plus
+  a `groupBy` on `itemTypeId`) touching logic shared by the sidebar and the
+  dashboard grid. Rated medium risk — deserves its own branch.
+- *Splitting the 231-line `Sidebar` into brand / types / collections / user
+  subcomponents.* Mechanical, but it is a refactor and those get asked about
+  first.
 
 ## History
 
