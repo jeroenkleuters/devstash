@@ -1,16 +1,25 @@
-# Current Feature
+# Current Feature: Loading States with Skeleton UI
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
-<!-- Bullet points of what success looks like -->
+- Add the ShadCN `skeleton` primitive (`src/components/ui/skeleton.tsx`, untouched CLI output).
+- The dashboard streams instead of blocking: each of the four sections (`StatCards`, `CollectionsSection`, `PinnedItemsSection`, `RecentItemsSection`) is wrapped in `<Suspense>` with a skeleton fallback, so the page heading paints immediately and each section fills in as its query resolves.
+- One skeleton per section shape — stat cards row, collection card grid, item list — matching the real component's layout (same counts, same spacing) so nothing shifts when the data arrives.
+- The sidebar shell also gets a loading state, since `app/dashboard/layout.tsx` awaits its types and collections before anything renders.
+- Skeleton sizing/layout lives in `globals.css` as semantic classes; the markup carries no Tailwind utility strings.
+- `npm run build` passes and the skeletons are visible in the browser (throttled or with an artificial delay) before the real content swaps in.
 
 ## Notes
 
-<!-- Additional context, constraints, or details from spec -->
+- The dashboard is `force-dynamic` on both the page and the layout, and every section is an async server component doing its own `getCurrentUserId()` + query — so today the whole page waits on the slowest query. Suspense boundaries are what actually turn that into progressive rendering.
+- `getCurrentUser` and `getCollections` are wrapped in React `cache()`, so per-request memoization still holds across separate Suspense boundaries — no extra queries from splitting the sections.
+- `PinnedItemsSection` returns `null` when nothing is pinned. Decide what its skeleton does in that case (a skeleton for a section that then disappears is a visible jump) — likely still show it, since we can't know the count before the query runs.
+- Consider whether `app/dashboard/loading.tsx` is worth adding on top of the per-section boundaries; it covers route navigation into `/dashboard`, whereas Suspense covers the in-page streaming.
+- Colors: use `--muted` for skeleton fills, consistent with the existing stat-card icon backgrounds.
 
 ## History
 
