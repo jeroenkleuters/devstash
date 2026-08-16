@@ -43,3 +43,6 @@ next-env.d.ts
 
 # prisma
 /src/generated/prisma
+
+# claude code (local settings + skills)
+/.claude
