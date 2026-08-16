@@ -710,6 +710,68 @@ body {
   color: var(--muted-foreground);
 }
 
+/* ---------- Loading skeletons ----------
+   Placeholders reuse the real component's classes for their box model, so these
+   rules only size the block standing in for content. Text lines sit inside the
+   element they replace, which makes `1lh` exactly the height of the line they
+   cover — the section keeps its size when the data arrives. */
+
+.skeleton-line {
+  height: 1lh;
+  border-radius: var(--radius-sm);
+}
+
+.skeleton-stat-value {
+  width: 2.5rem;
+}
+
+.skeleton-stat-label {
+  width: 5.5rem;
+}
+
+.skeleton-collection-name {
+  width: 8rem;
+}
+
+.skeleton-collection-count {
+  width: 3.5rem;
+}
+
+.skeleton-type-icon {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.skeleton-item-title {
+  width: 10rem;
+}
+
+.skeleton-item-description {
+  width: min(100%, 22rem);
+}
+
+.skeleton-item-date {
+  width: 3rem;
+}
+
+.skeleton-sidebar-icon {
+  flex-shrink: 0;
+  width: 1rem;
+  height: 1rem;
+}
+
+.skeleton-sidebar-label {
+  width: 6rem;
+}
+
+.skeleton-sidebar-user-name {
+  width: 6rem;
+}
+
+.skeleton-sidebar-user-email {
+  width: 8.5rem;
+}
+
 .dashboard-body {
   display: flex;
   flex-direction: column;
@@ -839,5 +901,11 @@ body {
   .sidebar-section-header svg,
   .sidebar-link {
     transition: none;
+  }
+
+  /* The skeleton primitive pulses through `animate-pulse`, which Tailwind does
+     not gate on this query. */
+  [data-slot="skeleton"] {
+    animation: none;
   }
 }
