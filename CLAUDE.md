@@ -17,6 +17,13 @@ npm run dev     # dev server on http://localhost:3000
 npm run build   # production build
 npm run start   # serve the production build
 npm run lint    # bare `eslint` (Next 16 removed `next lint`)
+
+npm run db:migrate  # prisma migrate dev — the only way to change the schema
+npm run db:deploy   # prisma migrate deploy (production)
+npm run db:status   # prisma migrate status — run before committing
+npm run db:seed     # prisma db seed
+npm run db:test     # integrity checks against the seeded data (not a test suite)
+npm run db:studio   # prisma studio
 ```
 
 No test runner is configured — there is no test script, framework, or test file in the repo. If tests are needed, pick a runner and add the script rather than assuming one exists.

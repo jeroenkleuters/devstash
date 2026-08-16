@@ -388,13 +388,17 @@ flowchart TD
 
 ## 7. Project Folder Structure
 
-Suggested layout for the single-repo Next.js App Router setup — grouped route folders keep marketing/auth/app pages separate without affecting URLs.
+**Target** layout for the single-repo Next.js App Router setup — grouped route folders keep marketing/auth/app pages separate without affecting URLs. See "Current state" below for what exists today.
 
 ```
 devstash/
+├── context/                                # spec, standards, feature specs, history
 ├── prisma/
 │   ├── schema.prisma
+│   ├── seed.ts                             # system types + demo account/content
 │   └── migrations/
+├── scripts/
+│   └── test-db.ts                          # integrity checks on the seeded data
 ├── public/
 │   └── ...
 ├── src/
@@ -431,9 +435,10 @@ devstash/
 │   │   │       ├── checkout/route.ts
 │   │   │       └── webhook/route.ts
 │   │   ├── layout.tsx                      # root layout, theme provider
-│   │   └── globals.css
+│   │   └── globals.css                     # Tailwind v4 `@theme` config + layout classes
 │   ├── components/
 │   │   ├── ui/                             # shadcn-generated primitives
+│   │   ├── dashboard/                      # stat cards + one component per section
 │   │   ├── items/
 │   │   │   ├── item-card.tsx
 │   │   │   ├── item-drawer.tsx             # quick create/view drawer
@@ -447,11 +452,16 @@ devstash/
 │   │       ├── sidebar.tsx
 │   │       └── mobile-nav-drawer.tsx
 │   ├── lib/
-│   │   ├── prisma.ts                       # Prisma client singleton
+│   │   ├── prisma.ts                       # Prisma client singleton + Neon adapter
 │   │   ├── auth.ts                         # NextAuth v5 config
 │   │   ├── r2.ts                           # Cloudflare R2 client
 │   │   ├── openai.ts                       # OpenAI client (gpt-5-nano)
 │   │   ├── stripe.ts
+│   │   ├── db/                             # server-side query modules
+│   │   │   ├── collections.ts
+│   │   │   ├── items.ts
+│   │   │   ├── item-types.ts
+│   │   │   └── user.ts
 │   │   ├── validations/                    # Zod schemas
 │   │   │   ├── item.ts
 │   │   │   └── collection.ts
@@ -461,12 +471,17 @@ devstash/
 │   │   └── use-collections.ts
 │   ├── types/
 │   │   └── index.ts
-│   └── constants/
-│       └── item-types.ts                   # system type colors/icons (Section 9)
+│   ├── constants/
+│   │   └── item-types.ts                   # icons + Pro-gated slugs (Section 9)
+│   └── generated/prisma/                   # Prisma client output — gitignored
 ├── .env.local
+├── .env.production
 ├── .env.example
+├── components.json                         # shadcn config
+├── eslint.config.mjs
 ├── next.config.ts
-├── tailwind.config.ts
+├── postcss.config.mjs                      # Tailwind v4 plugin — no tailwind.config.ts
+├── prisma.config.ts                        # Prisma 7 CLI config (schema, seed, datasource)
 ├── package.json
 └── tsconfig.json
 ```
@@ -475,7 +490,25 @@ devstash/
 
 - Route groups `(marketing)`, `(auth)`, `(app)` share the `app/` URL namespace but get separate layouts — e.g. `(app)/layout.tsx` renders the sidebar shell only for logged-in pages.
 - `lib/` holds all third-party client singletons (Prisma, R2, OpenAI, Stripe) so API routes import one shared instance instead of re-initializing per request.
-- `constants/item-types.ts` is the single source of truth for system type colors/icons — reused by the sidebar, item cards, and the `ItemType` seed data.
+- `lib/db/` holds the read queries server components call directly; each module owns its own `select` and returns a narrow summary type rather than a raw Prisma model.
+- `constants/item-types.ts` is the single source of truth for system type icons and Pro gating — reused by the sidebar and item cards. Type *colors* live in `globals.css` as `--type-*` custom properties, not here, since only CSS consumes them.
+- Tailwind v4 is configured in CSS via `@theme` in `globals.css`. There is **no** `tailwind.config.ts` — see @context/coding-standards.md.
+
+**Current state (2026-08-16):**
+
+The route groups above are not in place yet. Everything built so far lives under a plain `src/app/dashboard/` route:
+
+```
+src/app/
+├── dashboard/
+│   ├── layout.tsx                          # sidebar shell — async server component
+│   └── page.tsx                            # stats, collection grid, pinned + recent items
+├── layout.tsx                              # root layout, dark by default
+├── globals.css
+└── page.tsx                                # `<h1>Devstash</h1>` placeholder
+```
+
+Deferred until auth lands, at which point the dashboard moves to `(app)/page.tsx` and the placeholder root page becomes `(marketing)/page.tsx`. There is no `api/` directory yet — data is read directly in server components through `lib/db/`. `lib/auth.ts`, `lib/r2.ts`, `lib/openai.ts`, `lib/stripe.ts`, `lib/validations/`, `hooks/`, `types/`, `components/search/` and `components/items/item-drawer.tsx` are all still unwritten.
 
 ---
 
