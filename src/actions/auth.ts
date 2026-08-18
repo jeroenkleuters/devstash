@@ -5,7 +5,11 @@ import { AuthError } from "next-auth";
 import { signIn, signOut } from "@/auth";
 import { DEFAULT_SIGN_IN_REDIRECT, SIGN_IN_PATH } from "@/auth.config";
 import { firstIssueMessage, signInSchema } from "@/lib/validations/auth";
-import { SIGN_IN_INITIAL_STATE, type SignInState } from "@/types/auth";
+import {
+  SIGN_IN_INITIAL_STATE,
+  UNVERIFIED_EMAIL_CODE,
+  type SignInState,
+} from "@/types/auth";
 
 /**
  * One message for every credentials failure — unknown email, wrong password,
@@ -13,8 +17,23 @@ import { SIGN_IN_INITIAL_STATE, type SignInState } from "@/types/auth";
  */
 const INVALID_CREDENTIALS = "Incorrect email or password.";
 
+/** The single rejection `authorize` does name, once the password has matched. */
+const UNVERIFIED_EMAIL =
+  "Verify your email before signing in. Check your inbox for the link.";
+
 /** Anything else `AuthError` covers is a misconfiguration, not a bad password. */
 const SIGN_IN_FAILED = "Could not sign you in. Try again.";
+
+/**
+ * `code` is `CredentialsSignin`'s, not `AuthError`'s, and only the subclass in
+ * `src/auth.ts` sets a meaningful one — a plain wrong password arrives with the
+ * default. Read defensively so an unrecognised code still reads as a rejection.
+ */
+function credentialsMessage(error: AuthError): string {
+  const code = "code" in error ? error.code : undefined;
+
+  return code === UNVERIFIED_EMAIL_CODE ? UNVERIFIED_EMAIL : INVALID_CREDENTIALS;
+}
 
 /**
  * `redirectTo` is handed to Auth.js rather than used directly: its `redirect`
@@ -55,7 +74,7 @@ export async function signInWithCredentials(
       return {
         error:
           cause.type === "CredentialsSignin"
-            ? INVALID_CREDENTIALS
+            ? credentialsMessage(cause)
             : SIGN_IN_FAILED,
         email,
       };

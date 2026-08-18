@@ -1,16 +1,38 @@
-# Current Feature
+# Current Feature: Email Verification on Register
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
-<!-- Bullet points of what success looks like -->
+- Registering through `/register` sends a verification email via Resend instead of leaving the account immediately usable.
+- The email contains a single-use link back to the app; clicking it marks the account verified (`User.emailVerified`) and lands the user somewhere that says so.
+- Unverified credentials accounts cannot sign in — `authorize` rejects them with a message that tells the user to check their email, not "incorrect password".
+- Verification links expire, and an expired or already-used link fails with a clear message rather than a crash.
+- A user can request a new verification email (resend), rate-limited or at least guarded against trivial abuse.
+- GitHub OAuth accounts stay unaffected — the provider already vouches for the address, so they must not be blocked by the new check.
+- `npm run build` passes and the whole flow is verified in the browser against the Neon `development` branch.
 
 ## Notes
 
-<!-- Additional context, constraints, or details from spec -->
+**Delivery.** Resend, with `RESEND_API_KEY` already present in `.env` (line 15). The `resend` npm package is not installed yet. Two things are *not* in the environment and need deciding before implementation:
+
+- **From address** — Resend requires a verified sending domain. Until one exists, `onboarding@resend.dev` only delivers to the account owner's own address, which is enough for local testing but limits who can be registered. Add as `RESEND_FROM` (or similar) plus a `.env.example` placeholder.
+- **Base URL for the link** — no `AUTH_URL` / `NEXTAUTH_URL` / app-URL variable exists today. The email is sent from a route handler, so the link cannot be derived from a request the way NextAuth derives its callback URL. Needs an explicit env var.
+
+**Schema.** No migration should be needed: `User.emailVerified DateTime?` and `model VerificationToken { identifier, token, expires }` are both already in `prisma/schema.prisma` from the initial migration (they ship with the Auth.js Prisma adapter). Reuse `VerificationToken` — `identifier` = email, `token` = a hashed random value, `expires` = now + TTL. Decide whether to store the raw token or a hash of it; a raw token in the database is readable by anyone with DB access. If a column does have to change, it goes through `npm run db:migrate`, never raw SQL.
+
+**Touch points.**
+
+- `src/app/api/auth/register/route.ts` — after `prisma.user.create`, issue a token and send the email. A Resend failure must not leave an account the user cannot verify; decide between a transaction, a 500 with the row rolled back, or creating the account and surfacing "we couldn't send the email — resend".
+- `src/auth.ts` — the credentials `authorize` closure gains the `emailVerified` check. Careful with the timing work already done there: the constant-time `ABSENT_PASSWORD_HASH` comparison exists so every rejection costs the same, and an unverified-account branch must not reintroduce a fast path. Also note that returning `null` is what makes sign-in generic; a distinct "unverified" message needs a thrown error (`CredentialsSignin` subclass) and matching handling in `signInWithCredentials` in `src/actions/auth.ts` plus `SignInState` in `src/types/auth.ts`.
+- New verification route (e.g. `/api/auth/verify` or a `(auth)/verify` page) and a resend endpoint.
+- `src/app/(auth)/register/page.tsx` — success currently does `router.replace("/sign-in?registered=1")`; that notice must change to "check your email" rather than "account created, sign in".
+
+**Existing accounts.** Every user already in the dev branch — seeded `demo@devstash.io`, plus the five test accounts phase 2/3 left behind — has `emailVerified: null`. Turning on the check locks all of them out, including the demo account the seeded 18 items / 5 collections hang off. Decide: backfill `emailVerified` in `prisma/seed.ts` for the demo user, or a one-off update. This is a real blocker for browser verification, not a footnote.
+
+**Still open from phase 3 and relevant here.** There is no rate limiting on `/api/auth/register` or sign-in; a resend endpoint makes that gap worse (free outbound email on demand). Account linking is still untouched.
 
 ## History
 

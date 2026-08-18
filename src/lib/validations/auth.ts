@@ -48,6 +48,9 @@ export const registerSchema = z
     path: ["confirmPassword"],
   });
 
+/** The `POST /api/auth/resend-verification` body. */
+export const resendVerificationSchema = z.object({ email: emailSchema });
+
 /** The first issue's message, for responses that carry a single error string. */
 export function firstIssueMessage(error: z.ZodError): string {
   return error.issues[0]?.message ?? "Invalid request.";

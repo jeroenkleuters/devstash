@@ -27,7 +27,6 @@ export default async function SignInPage({
       callbackUrl={firstParam(params.callbackUrl)}
       // NextAuth sends provider failures here rather than to its own error page.
       providerError={firstParam(params.error)}
-      registered={params.registered !== undefined}
     />
   );
 }
