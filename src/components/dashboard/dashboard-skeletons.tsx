@@ -49,17 +49,19 @@ export function CollectionsSectionSkeleton() {
               <h3 className="collection-card-name">
                 <Skeleton className="skeleton-line skeleton-collection-name" />
               </h3>
-              <p className="collection-card-count">
+              {/* `div`, not the `p` the real card uses: the skeleton primitive
+                  renders a `div`, and a `p` may not contain one. */}
+              <div className="collection-card-count">
                 <Skeleton className="skeleton-line skeleton-collection-count" />
-              </p>
-              <p className="collection-card-description">
+              </div>
+              <div className="collection-card-description">
                 <Skeleton className="skeleton-line" />
-              </p>
-              <p className="collection-card-types">
+              </div>
+              <div className="collection-card-types">
                 {placeholders(3).map((iconIndex) => (
                   <Skeleton key={iconIndex} className="skeleton-type-icon" />
                 ))}
-              </p>
+              </div>
             </div>
           </li>
         ))}
@@ -103,9 +105,10 @@ function ItemListSkeleton({ count }: { count: number }) {
             <h3 className="item-card-title">
               <Skeleton className="skeleton-line skeleton-item-title" />
             </h3>
-            <p className="item-card-description">
+            {/* `div` for the same reason as the collection card's lines above. */}
+            <div className="item-card-description">
               <Skeleton className="skeleton-line skeleton-item-description" />
-            </p>
+            </div>
           </div>
 
           {/* A `span`, not the real `time` — an empty one carries no date. */}

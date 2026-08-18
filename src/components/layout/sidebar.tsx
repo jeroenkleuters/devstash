@@ -3,9 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown, Folder, Layers, Settings, Star } from "lucide-react";
+import { ChevronDown, Folder, Layers, Star } from "lucide-react";
 
 import { useSidebar } from "@/components/layout/sidebar-provider";
+import { SidebarUser } from "@/components/layout/sidebar-user";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { PRO_TYPE_SLUGS, TYPE_ICONS } from "@/constants/item-types";
@@ -20,25 +21,6 @@ interface SidebarProps {
   user: CurrentUser | null;
 }
 
-/**
- * Two letters for the avatar. Accounts without a name fall back to their email,
- * which has no space to split on — use its local part and the separators that
- * actually show up there instead.
- */
-function initials(source: string) {
-  const name = source.split("@")[0];
-  const parts = name.split(/[\s._-]+/).filter(Boolean);
-
-  if (parts.length > 1) {
-    return parts
-      .slice(0, 2)
-      .map((part) => part[0].toUpperCase())
-      .join("");
-  }
-
-  return name.slice(0, 2).toUpperCase();
-}
-
 export function Sidebar({
   types,
   favoriteCollections,
@@ -49,8 +31,6 @@ export function Sidebar({
   const { closeOnMobile } = useSidebar();
   const [typesOpen, setTypesOpen] = useState(true);
   const [collectionsOpen, setCollectionsOpen] = useState(true);
-
-  const userName = user?.name ?? user?.email ?? "";
 
   return (
     <aside className="dashboard-sidebar" aria-label="Sidebar">
@@ -221,22 +201,7 @@ export function Sidebar({
         </nav>
       </div>
 
-      <div className="sidebar-user">
-        <span className="sidebar-user-avatar" aria-hidden>
-          {initials(userName)}
-        </span>
-        <span className="sidebar-user-meta">
-          <span className="sidebar-user-name">{userName}</span>
-          <span className="sidebar-user-email">{user?.email}</span>
-        </span>
-        <button
-          type="button"
-          className="sidebar-user-settings"
-          aria-label="Settings"
-        >
-          <Settings size={16} aria-hidden />
-        </button>
-      </div>
+      <SidebarUser user={user} />
     </aside>
   );
 }

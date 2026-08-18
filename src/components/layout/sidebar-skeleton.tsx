@@ -41,7 +41,7 @@ export function SidebarSkeleton() {
       </div>
 
       <div className="sidebar-user">
-        <Skeleton className="sidebar-user-avatar" />
+        <Skeleton className="user-avatar" />
         <span className="sidebar-user-meta">
           <span className="sidebar-user-name">
             <Skeleton className="skeleton-line skeleton-sidebar-user-name" />
