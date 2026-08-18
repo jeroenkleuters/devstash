@@ -33,6 +33,20 @@ No test runner is configured — there is no test framework or test file in the 
 Next.js 16.3 (App Router) · React 19.2 · TypeScript strict · Tailwind CSS v4.
 
 
+## Neon MCP
+
+Every Neon MCP call targets this project and branch unless I name a different one in that same message:
+
+- Project: `devstash` — `silent-forest-61944589` (org `org-solitary-bar-08944384`)
+- Branch: `development` — `br-quiet-shape-axtrz8yd`
+- Database: `neondb`
+
+Always pass both `projectId` and `branchId` explicitly, on every call, including read-only ones. Omitting `branchId` silently falls back to the project's default branch — which here is **production** (`br-tiny-firefly-ax2s47u4`).
+
+**Never touch production.** Do not read from it, write to it, describe it, migrate it, reset it, or point a tuning/migration tool at it unless I explicitly name production in my request. "Check the database" always means `development`. If a task seems to need production, stop and ask instead of running anything against it. This holds even when a previous message in the conversation authorized a production action — that authorization covers that one action only.
+
+Read-only queries against `development` are fine to run unprompted. Anything that changes data or schema — `INSERT` / `UPDATE` / `DELETE` / `DROP` / `TRUNCATE`, `prepare_database_migration`, branch create / delete / reset — needs my confirmation first, on `development` too. Schema changes go through `npm run db:migrate`, never raw SQL.
+
 ## Conventions
 
 Write markup with plain elements and no Tailwind utility classes. Tailwind is installed and available, but the user deliberately keeps the JSX unstyled and decides styling themselves — don't add `className` utility strings unprompted.
