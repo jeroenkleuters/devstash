@@ -1,16 +1,42 @@
-# Current Feature
+# Current Feature: Auth Phase 1 — NextAuth + GitHub Provider
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
 <!-- Bullet points of what success looks like -->
 
+- `next-auth@beta` (v5) and `@auth/prisma-adapter` installed
+- Split auth config in place for edge compatibility: `src/auth.config.ts` (providers only, no adapter) and `src/auth.ts` (Prisma adapter + `session: { strategy: 'jwt' }`)
+- GitHub OAuth provider wired up, using NextAuth's default sign-in page (no custom `pages.signIn`)
+- `src/app/api/auth/[...nextauth]/route.ts` re-exports the handlers from `src/auth.ts`
+- `src/proxy.ts` protects `/dashboard/*` and redirects unauthenticated users to sign-in
+- `src/types/next-auth.d.ts` extends the `Session` type with `user.id`
+- Verified in the browser: `/dashboard` redirects to sign-in, GitHub sign-in succeeds, and the redirect lands back on `/dashboard`
+
 ## Notes
 
 <!-- Additional context, constraints, or details from spec -->
+
+Spec: @context/features/auth-phase-1-spec.md (phases 2 and 3 exist and are not in scope here).
+
+Gotchas from the spec — verify current conventions with Context7 before writing config:
+
+- `next-auth@beta`, not `@latest` (that installs v4)
+- The proxy file lives at `src/proxy.ts`, same level as `app/` (Next.js 16 replacement for middleware)
+- Named export: `export const proxy = auth(...)`, not a default export
+- JWT session strategy is required by the split-config pattern
+
+Environment variables needed in `.env.local`: `AUTH_SECRET`, `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET`.
+
+Existing context this touches: `src/lib/db/user.ts` currently resolves the seeded `demo@devstash.io` account as a session stand-in, and the dashboard still lives at `src/app/dashboard/` rather than the planned `(app)` route group — neither is in this phase's scope unless the spec's file list requires it.
+
+References:
+
+- Edge compatibility: https://authjs.dev/getting-started/installation#edge-compatibility
+- Prisma adapter: https://authjs.dev/getting-started/adapters/prisma
 
 ## History
 

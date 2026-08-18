@@ -46,3 +46,6 @@ next-env.d.ts
 
 # claude code (local settings + skills)
 /.claude
+
+# playwright mcp (browser snapshots + console logs)
+/.playwright-mcp
