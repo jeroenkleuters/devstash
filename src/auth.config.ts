@@ -3,6 +3,12 @@ import GitHub from "next-auth/providers/github";
 
 import type { NextAuthConfig } from "next-auth";
 
+/** The custom sign-in page. Shared with `src/proxy.ts`, which redirects here. */
+export const SIGN_IN_PATH = "/sign-in";
+
+/** Where a completed sign-in lands when nothing else was requested. */
+export const DEFAULT_SIGN_IN_REDIRECT = "/dashboard";
+
 /**
  * The edge-safe half of the split config: providers only, no adapter.
  *
@@ -13,6 +19,10 @@ import type { NextAuthConfig } from "next-auth";
  * GitHub reads `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET` from the environment.
  */
 export default {
+  // Points every built-in entry point at the custom page — the `/api/auth/signin`
+  // default now only redirects here, and provider errors come back as
+  // `/sign-in?error=...` rather than rendering NextAuth's own error page.
+  pages: { signIn: SIGN_IN_PATH, error: SIGN_IN_PATH },
   providers: [
     GitHub,
     // Declared here so both runtimes agree on the provider list, but with a
