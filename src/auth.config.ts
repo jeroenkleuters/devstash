@@ -1,3 +1,4 @@
+import Credentials from "next-auth/providers/credentials";
 import GitHub from "next-auth/providers/github";
 
 import type { NextAuthConfig } from "next-auth";
@@ -12,5 +13,12 @@ import type { NextAuthConfig } from "next-auth";
  * GitHub reads `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET` from the environment.
  */
 export default {
-  providers: [GitHub],
+  providers: [
+    GitHub,
+    // Declared here so both runtimes agree on the provider list, but with a
+    // placeholder `authorize`: the real one needs Prisma and bcrypt, neither of
+    // which runs on the edge. `src/auth.ts` swaps this entry for the real
+    // provider, so signing in through this copy always fails.
+    Credentials({ authorize: () => null }),
+  ],
 } satisfies NextAuthConfig;
