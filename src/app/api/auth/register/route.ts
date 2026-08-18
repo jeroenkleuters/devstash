@@ -2,6 +2,8 @@ import { hash } from "bcryptjs";
 import { NextResponse } from "next/server";
 
 import { Prisma } from "@/generated/prisma/client";
+import { appOrigin } from "@/lib/app-url";
+import { issueEmailVerification } from "@/lib/email-verification";
 import { prisma } from "@/lib/prisma";
 import { firstIssueMessage, registerSchema } from "@/lib/validations/auth";
 
@@ -55,7 +57,20 @@ export async function POST(request: Request) {
       select: { id: true, name: true, email: true },
     });
 
-    return NextResponse.json({ success: true, data: user }, { status: 201 });
+    // The account exists either way. Undoing it because the mail bounced would
+    // free the address for someone else to claim between the two writes, and
+    // leaves the visitor with nothing; an unverified account they can resend
+    // from is the recoverable failure.
+    const emailSent = await issueEmailVerification({
+      email: user.email,
+      name: user.name,
+      origin: appOrigin(request),
+    });
+
+    return NextResponse.json(
+      { success: true, data: { ...user, emailSent } },
+      { status: 201 },
+    );
   } catch (cause) {
     // The check above leaves a gap two simultaneous requests can slip through;
     // the unique index is what actually settles it.

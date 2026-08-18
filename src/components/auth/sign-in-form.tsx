@@ -16,8 +16,6 @@ interface SignInFormProps {
   callbackUrl?: string;
   /** An `error` code NextAuth put on the URL, from a provider round trip. */
   providerError?: string;
-  /** Whether the visitor arrived straight from a completed registration. */
-  registered: boolean;
 }
 
 /** The few provider failures worth naming; anything else gets the fallback. */
@@ -29,11 +27,7 @@ const PROVIDER_ERRORS: Record<string, string> = {
 
 const PROVIDER_ERROR_FALLBACK = "Could not sign you in. Try again.";
 
-export function SignInForm({
-  callbackUrl,
-  providerError,
-  registered,
-}: SignInFormProps) {
+export function SignInForm({ callbackUrl, providerError }: SignInFormProps) {
   const [state, formAction, isPending] = useActionState(
     signInWithCredentials,
     SIGN_IN_INITIAL_STATE,
@@ -51,12 +45,6 @@ export function SignInForm({
         <h1>Sign in</h1>
         <p>Welcome back. Pick up where you left off.</p>
       </header>
-
-      {registered && (
-        <p className="auth-notice" role="status">
-          Account created. Sign in to continue.
-        </p>
-      )}
 
       {error && (
         <p className="auth-error" role="alert">

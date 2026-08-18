@@ -1,11 +1,12 @@
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { compare } from "bcryptjs";
-import NextAuth from "next-auth";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 
 import authConfig from "@/auth.config";
 import { prisma } from "@/lib/prisma";
 import { signInSchema } from "@/lib/validations/auth";
+import { UNVERIFIED_EMAIL_CODE } from "@/types/auth";
 
 import type { Provider } from "next-auth/providers";
 
@@ -17,6 +18,15 @@ import type { Provider } from "next-auth/providers";
  */
 const ABSENT_PASSWORD_HASH =
   "$2b$12$4DEV0NCxVqIE3s94FcGAIOaMLwpXzYaCVhxl9u2Zm4uNT2YKQ.kn.";
+
+/**
+ * The one rejection that is worth naming. It is thrown only after the password
+ * has already matched, so it tells the visitor nothing they did not just prove
+ * they knew — unlike the generic `null`, which has to stay generic.
+ */
+class UnverifiedEmailError extends CredentialsSignin {
+  code = UNVERIFIED_EMAIL_CODE;
+}
 
 /**
  * The real email/password provider, replacing the placeholder in the edge-safe
@@ -44,6 +54,7 @@ const credentialsProvider = Credentials({
         email: true,
         image: true,
         passwordHash: true,
+        emailVerified: true,
       },
     });
 
@@ -57,6 +68,13 @@ const credentialsProvider = Credentials({
 
     if (!user?.passwordHash || !passwordMatches) {
       return null;
+    }
+
+    // Deliberately after the comparison above rather than before it: an early
+    // return here would skip bcrypt for every unverified account and hand back
+    // the timing difference the constant hash exists to remove.
+    if (!user.emailVerified) {
+      throw new UnverifiedEmailError();
     }
 
     return {
