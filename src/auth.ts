@@ -4,6 +4,7 @@ import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 
 import authConfig from "@/auth.config";
+import { isEmailVerificationEnabled } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
 import { signInSchema } from "@/lib/validations/auth";
 import { UNVERIFIED_EMAIL_CODE } from "@/types/auth";
@@ -72,8 +73,9 @@ const credentialsProvider = Credentials({
 
     // Deliberately after the comparison above rather than before it: an early
     // return here would skip bcrypt for every unverified account and hand back
-    // the timing difference the constant hash exists to remove.
-    if (!user.emailVerified) {
+    // the timing difference the constant hash exists to remove. The flag gates
+    // the throw, not the position — both orderings still cost one bcrypt.
+    if (isEmailVerificationEnabled() && !user.emailVerified) {
       throw new UnverifiedEmailError();
     }
 

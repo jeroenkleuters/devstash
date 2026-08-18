@@ -13,7 +13,7 @@ import { firstIssueMessage, registerSchema } from "@/lib/validations/auth";
 interface RegisterResponse {
   success?: boolean;
   error?: string;
-  data?: { emailSent?: boolean };
+  data?: { verificationRequired?: boolean; emailSent?: boolean };
 }
 
 const NETWORK_ERROR = "Could not reach the server. Try again.";
@@ -60,15 +60,26 @@ export function RegisterForm() {
         return;
       }
 
+      // Both branches stay pending on the way out: the navigation is already
+      // under way, and re-enabling the button would invite a second submit for
+      // an email that now exists. `replace` keeps the back button off the
+      // filled-in form.
+
+      // The server decides whether verification applies, so the flag never
+      // reaches the browser. An absent field means the old behaviour, which is
+      // the safe reading either way.
+      if (result.data?.verificationRequired === false) {
+        router.replace("/sign-in");
+
+        return;
+      }
+
       // The account exists but cannot sign in until the link is clicked, so the
       // visitor goes to `/verify` rather than to a sign-in form that would only
       // reject them. Its `sent` state also carries the resend form, which is the
       // way out when the mail never arrived.
       const status = result.data?.emailSent === false ? "send-failed" : "sent";
 
-      // Stays pending on the way out: the navigation is already under way, and
-      // re-enabling the button would invite a second submit for an email that
-      // now exists. `replace` keeps the back button off the filled-in form.
       router.replace(
         `/verify?status=${status}&email=${encodeURIComponent(parsed.data.email)}`,
       );
