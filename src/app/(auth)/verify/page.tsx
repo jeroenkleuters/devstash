@@ -1,6 +1,10 @@
+import { redirect } from "next/navigation";
+
 import type { Metadata } from "next";
 
+import { SIGN_IN_PATH } from "@/auth.config";
 import { VerifyStatusPanel } from "@/components/auth/verify-status";
+import { isEmailVerificationEnabled } from "@/lib/feature-flags";
 import { firstParam } from "@/lib/search-params";
 import { VERIFY_STATUSES, type VerifyStatus } from "@/types/auth";
 
@@ -30,6 +34,13 @@ function toStatus(value: string | undefined): VerifyStatus {
 export default async function VerifyPage({
   searchParams,
 }: PageProps<"/verify">) {
+  // With the requirement switched off the page has no job left: every state it
+  // reports resolves to "just sign in", and the resend form it offers on four
+  // of them would promise a link that is never sent.
+  if (!isEmailVerificationEnabled()) {
+    redirect(SIGN_IN_PATH);
+  }
+
   const params = await searchParams;
 
   return (

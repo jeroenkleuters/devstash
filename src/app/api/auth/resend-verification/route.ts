@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { appOrigin } from "@/lib/app-url";
 import { issueEmailVerification } from "@/lib/email-verification";
+import { isEmailVerificationEnabled } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
 import { rateLimit } from "@/lib/rate-limit";
 import {
@@ -51,6 +52,13 @@ export async function POST(request: Request) {
       { success: false, error: firstIssueMessage(parsed.error) },
       { status: 400 },
     );
+  }
+
+  // Nothing to confirm while the requirement is off, and issuing a token now
+  // would only leave a live link for an account that never needed one. The
+  // answer stays the generic one, so the endpoint reveals no more than usual.
+  if (!isEmailVerificationEnabled()) {
+    return NextResponse.json(GENERIC_RESULT);
   }
 
   const { email } = parsed.data;

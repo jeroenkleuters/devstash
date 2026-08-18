@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@/generated/prisma/client";
 import { appOrigin } from "@/lib/app-url";
 import { issueEmailVerification } from "@/lib/email-verification";
+import { isEmailVerificationEnabled } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
 import { firstIssueMessage, registerSchema } from "@/lib/validations/auth";
 
@@ -48,11 +49,17 @@ export async function POST(request: Request) {
       return error("An account with that email already exists.", 409);
     }
 
+    const verificationRequired = isEmailVerificationEnabled();
+
     const user = await prisma.user.create({
       data: {
         name,
         email,
         passwordHash: await hash(password, PASSWORD_SALT_ROUNDS),
+        // With the requirement switched off the address is taken on trust, and
+        // recording that now is what keeps switching it back on from locking
+        // out everyone who registered in between.
+        emailVerified: verificationRequired ? null : new Date(),
       },
       select: { id: true, name: true, email: true },
     });
@@ -61,14 +68,18 @@ export async function POST(request: Request) {
     // free the address for someone else to claim between the two writes, and
     // leaves the visitor with nothing; an unverified account they can resend
     // from is the recoverable failure.
-    const emailSent = await issueEmailVerification({
-      email: user.email,
-      name: user.name,
-      origin: appOrigin(request),
-    });
+    const emailSent = verificationRequired
+      ? await issueEmailVerification({
+          email: user.email,
+          name: user.name,
+          origin: appOrigin(request),
+        })
+      : false;
 
+    // `verificationRequired` is how the form learns where to send the visitor
+    // next, so the flag itself never has to reach the browser.
     return NextResponse.json(
-      { success: true, data: { ...user, emailSent } },
+      { success: true, data: { ...user, verificationRequired, emailSent } },
       { status: 201 },
     );
   } catch (cause) {

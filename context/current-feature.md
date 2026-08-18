@@ -1,16 +1,42 @@
-# Current Feature
+# Current Feature: Email verification toggle
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
-<!-- Bullet points of what success looks like -->
+- One switch turns the whole email-verification requirement off, so registering any address works while Resend has no verified sending domain.
+- A single source of truth for the flag — one module, read server-side only, no `NEXT_PUBLIC_` and no duplicated `process.env` checks scattered across routes.
+- With verification **off**: `/register` creates the account, sends no mail, and the visitor can sign in immediately.
+- With verification **off**: new accounts are stored as already-verified, so flipping the flag back on later does not lock out everyone who registered while it was off.
+- With verification **on**: today's behaviour is unchanged — mail sent, `/verify?status=sent`, unverified sign-in rejected with "Verify your email…".
+- `POST /api/auth/resend-verification` and `/verify` degrade sensibly when the flag is off rather than 500-ing or issuing dead tokens.
+- The sign-in timing profile stays level — the `emailVerified` gate must not gain an early return that skips bcrypt.
+- `.env` / `.env.example` document the flag and its default.
 
 ## Notes
 
-<!-- Additional context, constraints, or details from spec -->
+### Mechanism
+
+`EMAIL_VERIFICATION_ENABLED`, read through `isEmailVerificationEnabled()` in `src/lib/feature-flags.ts`. Everything that needs the flag is server-side — the register route, `authorize`, the resend route, the `/verify` page — so no client bundle exposure is needed.
+
+Defaults to **enabled**; switched off explicitly (`EMAIL_VERIFICATION_ENABLED=false` in `.env`, which is where it currently sits). Safe default, and production never depends on remembering to set it. Alternative considered: default off during development — rejected, since the flag would then be a silent no-op wherever the env is incomplete.
+
+### Touch points
+
+- `src/app/api/auth/register/route.ts` — skip `issueEmailVerification`; create the user with `emailVerified: new Date()` when the flag is off. The route already returns `emailSent`; it needs to tell the form where to go, e.g. an added `verificationRequired` field on the response, which keeps the flag off the client.
+- `src/components/auth/register-form.tsx` — route to `/sign-in` instead of `/verify?status=sent` when verification is not required. Reads the response field, not the env.
+- `src/auth.ts` — the `!user.emailVerified` throw in `authorize` becomes conditional on the flag. Keep it **after** the bcrypt compare either way (the constant-hash timing fix from phase 2 depends on that ordering).
+- `src/app/api/auth/resend-verification/route.ts` — with the flag off, answer with the same generic 200 without touching Resend or creating a token.
+- `.env`, `.env.example` — add the variable with a comment explaining the Resend domain constraint that motivates it.
+
+### Constraints
+
+- **No migration.** `User.emailVerified` and `VerificationToken` already exist; the flag only changes what is written to them.
+- Existing unverified accounts are not backfilled by this feature. With the flag off they can sign in regardless (the gate is skipped), so nothing is stranded; a backfill would only matter if the flag were later turned on, and that is a one-off `UPDATE` like the last one, not app code.
+- GitHub OAuth is untouched — the gate only ever lived in the credentials provider.
+- `RESEND_API_KEY` must remain optional in practice: with verification off, a missing key must not break registration (`getResend()` throws, so the send path has to be skipped entirely, not merely caught).
 
 ## History
 
