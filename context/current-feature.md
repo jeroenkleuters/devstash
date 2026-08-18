@@ -1,16 +1,34 @@
-# Current Feature
+# Current Feature: Auth Phase 2 — Credentials (Email/Password)
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
-<!-- Bullet points of what success looks like -->
+- Credentials provider added alongside GitHub OAuth, following the existing split pattern: `src/auth.config.ts` declares it with an `authorize: () => null` placeholder, `src/auth.ts` overrides it with the real bcrypt validation (Prisma cannot run in the edge runtime that `src/proxy.ts` uses).
+- `POST /api/auth/register` accepts `name`, `email`, `password`, `confirmPassword`; rejects mismatched passwords and duplicate emails; hashes with bcryptjs; creates the `User` row; returns a success/error response.
+- Signing in at `/api/auth/signin` with a registered email/password lands on `/dashboard`.
+- GitHub OAuth still works unchanged.
+- `npm run build` passes.
 
 ## Notes
 
-<!-- Additional context, constraints, or details from spec -->
+- **No migration needed.** `User.passwordHash` already exists in `prisma/schema.prisma:68` (`String?`, null for OAuth-only accounts). The spec's "add password field if not already there" is already satisfied — do not create a migration.
+- `bcryptjs` is already a runtime dependency (added for `prisma/seed.ts`, 12 rounds).
+- The seeded demo account `demo@devstash.io` / `12345678` already has a bcrypt hash, so it doubles as a sign-in test case without registering anything.
+- No `pages.signIn` is configured, so NextAuth's built-in sign-in page renders both providers. A custom login/register UI is out of scope here (phase 3 territory).
+- Credentials sign-in requires the JWT session strategy — already set in `src/auth.ts`.
+- The dashboard still reads the demo user via `src/lib/db/user.ts`; wiring the real session into it is *not* part of this spec unless the spec is extended.
+- Validate the register payload with Zod per coding standards; return the `{ success, data, error }` shape.
+
+### Verification (from spec)
+
+1. `curl -X POST http://localhost:3000/api/auth/register -H "Content-Type: application/json" -d '{"name":"Test","email":"test@test.com","password":"password123","confirmPassword":"password123"}'`
+2. Sign in at `/api/auth/signin` with those credentials → redirects to `/dashboard`.
+3. Confirm GitHub OAuth still signs in.
+
+Spec: @context/features/auth-phase-2-spec.md
 
 ## History
 
