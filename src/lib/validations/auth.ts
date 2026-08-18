@@ -51,6 +51,25 @@ export const registerSchema = z
 /** The `POST /api/auth/resend-verification` body. */
 export const resendVerificationSchema = z.object({ email: emailSchema });
 
+/** The `POST /api/auth/forgot-password` body. */
+export const forgotPasswordSchema = z.object({ email: emailSchema });
+
+/**
+ * The `POST /api/auth/reset-password` body. The token comes from the hidden
+ * field the page filled in from the query string, so an empty one means a
+ * mangled link rather than anything the visitor typed.
+ */
+export const resetPasswordSchema = z
+  .object({
+    token: z.string().min(1, "That reset link is missing its token."),
+    password: passwordSchema,
+    confirmPassword: z.string(),
+  })
+  .refine((values) => values.password === values.confirmPassword, {
+    error: "Passwords do not match.",
+    path: ["confirmPassword"],
+  });
+
 /** The first issue's message, for responses that carry a single error string. */
 export function firstIssueMessage(error: z.ZodError): string {
   return error.issues[0]?.message ?? "Invalid request.";
