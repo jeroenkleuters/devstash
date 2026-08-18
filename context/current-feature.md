@@ -1,30 +1,16 @@
-# Current Feature: Auth Phase 3 — Auth UI (Sign In, Register & Sign Out)
+# Current Feature
 
 ## Status
 
-In Progress
+Not Started
 
 ## Goals
 
-- `/sign-in` renders a custom page (replacing NextAuth's built-in one) with email + password fields, a "Sign in with GitHub" button, a link to `/register`, and inline validation/error display.
-- `/register` renders name, email, password and confirm-password fields, validates client-side (passwords match, email format), posts to `/api/auth/register`, and redirects to `/sign-in` on success.
-- The sidebar's user area at the bottom shows the signed-in user's avatar (GitHub `image` when present, initials otherwise) and name.
-- Clicking the avatar opens a dropdown containing "Sign out"; signing out logs the user out and redirects.
-- The avatar itself links to `/profile`.
-- A reusable avatar component handles both the image and initials cases.
+<!-- Bullet points of what success looks like -->
 
 ## Notes
 
-Spec: @context/features/auth-phase-3-spec.md
-
-- **Decided:** `src/lib/db/user.ts` switches fully to the session. `getCurrentUser` reads `auth()` instead of resolving the seeded `demo@devstash.io` account, so the dashboard's collections, items and stats belong to whoever signed in — a fresh GitHub account therefore lands on an empty dashboard, and the seeded content is reachable by signing in as `demo@devstash.io`. Empty-state messaging is deliberately out of scope.
-- **`pages.signIn` must be set** in `src/auth.config.ts` to `/sign-in`, otherwise the proxy keeps redirecting to `/api/auth/signin` and the custom page is never reached. `src/proxy.ts` also redirects there explicitly and needs updating.
-- `initials()` already exists in `src/components/layout/sidebar.tsx` — the reusable avatar component should absorb it rather than duplicate the logic.
-- Validation should reuse `src/lib/validations/auth.ts` (Zod 4) so the client rules match what the register route enforces server-side, including the 72-byte password cap.
-- The register endpoint returns 409 for an email already registered — including GitHub-linked accounts, which cannot add a password. The form needs to surface that message.
-- No route group work is implied here: the spec puts the pages at `/sign-in` and `/register`, not under `(auth)/`. `/profile` does not exist yet, so the avatar link will 404 until it does.
-- Spec inconsistency: the requirements place the avatar at the **bottom of the sidebar**, while testing step 4 says "top bar". Following the requirements section.
-- No rate limiting exists on sign-in or register — still out of scope, but the custom UI makes both easier to hammer.
+<!-- Additional context, constraints, or details from spec -->
 
 ## History
 
