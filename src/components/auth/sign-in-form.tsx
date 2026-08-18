@@ -16,6 +16,8 @@ interface SignInFormProps {
   callbackUrl?: string;
   /** An `error` code NextAuth put on the URL, from a provider round trip. */
   providerError?: string;
+  /** Set by the reset form on its way here, so the change is acknowledged. */
+  passwordReset?: boolean;
 }
 
 /** The few provider failures worth naming; anything else gets the fallback. */
@@ -27,7 +29,11 @@ const PROVIDER_ERRORS: Record<string, string> = {
 
 const PROVIDER_ERROR_FALLBACK = "Could not sign you in. Try again.";
 
-export function SignInForm({ callbackUrl, providerError }: SignInFormProps) {
+export function SignInForm({
+  callbackUrl,
+  providerError,
+  passwordReset,
+}: SignInFormProps) {
   const [state, formAction, isPending] = useActionState(
     signInWithCredentials,
     SIGN_IN_INITIAL_STATE,
@@ -45,6 +51,14 @@ export function SignInForm({ callbackUrl, providerError }: SignInFormProps) {
         <h1>Sign in</h1>
         <p>Welcome back. Pick up where you left off.</p>
       </header>
+
+      {/* Dropped once a sign-in has been rejected: "password updated" sitting
+          above "incorrect email or password" reads as a contradiction. */}
+      {passwordReset && !error && (
+        <p className="auth-notice" role="status">
+          Password updated. Sign in with your new one.
+        </p>
+      )}
 
       {error && (
         <p className="auth-error" role="alert">
@@ -69,7 +83,12 @@ export function SignInForm({ callbackUrl, providerError }: SignInFormProps) {
         </div>
 
         <div className="auth-field">
-          <Label htmlFor="password">Password</Label>
+          <div className="auth-field-header">
+            <Label htmlFor="password">Password</Label>
+            <Link href="/forgot-password" className="auth-field-link">
+              Forgot password?
+            </Link>
+          </div>
           <Input
             id="password"
             name="password"

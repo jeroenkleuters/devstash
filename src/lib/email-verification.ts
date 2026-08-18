@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 
+import { isPasswordResetIdentifier } from "@/lib/password-reset";
 import { prisma } from "@/lib/prisma";
 import { MAIL_FROM, getResend } from "@/lib/resend";
 
@@ -99,6 +100,13 @@ export async function consumeVerificationToken(
   });
 
   if (!existing) {
+    return "invalid";
+  }
+
+  // A password-reset token, reaching the wrong endpoint — both flows share this
+  // table and are told apart by the identifier. Left in place rather than
+  // deleted: it is not this flow's row to spend.
+  if (isPasswordResetIdentifier(existing.identifier)) {
     return "invalid";
   }
 

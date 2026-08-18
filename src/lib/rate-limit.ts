@@ -29,6 +29,18 @@ export interface RateLimitResult {
   retryAfter: number;
 }
 
+/**
+ * The caller a per-IP window is counted against. `x-forwarded-for` is the only
+ * thing a request carries here, and a proxy appends to it, so the first entry
+ * is the closest thing to an origin — spoofable, which is another reason this
+ * is a brake rather than a quota.
+ */
+export function callerKey(request: Request): string {
+  const forwarded = request.headers.get("x-forwarded-for");
+
+  return forwarded?.split(",")[0]?.trim() || "unknown";
+}
+
 export function rateLimit(
   key: string,
   limit: number,

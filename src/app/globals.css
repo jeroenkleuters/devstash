@@ -1014,6 +1014,25 @@ a.sidebar-user-name:hover {
   gap: 0.375rem;
 }
 
+/* A label sharing its row with an action — sign-in's password reset link. */
+.auth-field-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.auth-field-link {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.auth-field-link:hover {
+  color: var(--foreground);
+}
+
 /* The form's box model for the states that answer with a link, not fields. */
 .auth-actions {
   display: flex;

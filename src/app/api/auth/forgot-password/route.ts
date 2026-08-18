@@ -1,14 +1,10 @@
 import { NextResponse } from "next/server";
 
 import { appOrigin } from "@/lib/app-url";
-import { issueEmailVerification } from "@/lib/email-verification";
-import { isEmailVerificationEnabled } from "@/lib/feature-flags";
+import { issuePasswordReset } from "@/lib/password-reset";
 import { prisma } from "@/lib/prisma";
 import { callerKey, rateLimit } from "@/lib/rate-limit";
-import {
-  firstIssueMessage,
-  resendVerificationSchema,
-} from "@/lib/validations/auth";
+import { firstIssueMessage, forgotPasswordSchema } from "@/lib/validations/auth";
 
 const WINDOW_MS = 15 * 60 * 1000;
 
@@ -20,13 +16,19 @@ const PER_IP_LIMIT = 10;
 
 /**
  * Said whatever happened. Confirming that an address is registered, or that it
- * is still unverified, is exactly what an attacker wants from this endpoint.
+ * has a password to reset, is exactly what an attacker wants from this endpoint.
  */
 const GENERIC_RESULT = {
   success: true,
-  message: "If that account needs verifying, a new link is on its way.",
+  message: "If that account exists, a reset link is on its way.",
 };
 
+/**
+ * Starts a password reset. Deliberately not gated on
+ * `EMAIL_VERIFICATION_ENABLED`: verification is an optional requirement, but
+ * there is no reset without mail, so switching that flag off must not quietly
+ * disable the only way back into an account.
+ */
 export async function POST(request: Request) {
   let body: unknown;
 
@@ -39,7 +41,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const parsed = resendVerificationSchema.safeParse(body);
+  const parsed = forgotPasswordSchema.safeParse(body);
 
   if (!parsed.success) {
     return NextResponse.json(
@@ -48,16 +50,9 @@ export async function POST(request: Request) {
     );
   }
 
-  // Nothing to confirm while the requirement is off, and issuing a token now
-  // would only leave a live link for an account that never needed one. The
-  // answer stays the generic one, so the endpoint reveals no more than usual.
-  if (!isEmailVerificationEnabled()) {
-    return NextResponse.json(GENERIC_RESULT);
-  }
-
   const { email } = parsed.data;
-  const byIp = rateLimit(`resend:ip:${callerKey(request)}`, PER_IP_LIMIT, WINDOW_MS);
-  const byEmail = rateLimit(`resend:email:${email}`, PER_EMAIL_LIMIT, WINDOW_MS);
+  const byIp = rateLimit(`forgot:ip:${callerKey(request)}`, PER_IP_LIMIT, WINDOW_MS);
+  const byEmail = rateLimit(`forgot:email:${email}`, PER_EMAIL_LIMIT, WINDOW_MS);
 
   if (!byIp.allowed || !byEmail.allowed) {
     return NextResponse.json(
@@ -73,14 +68,15 @@ export async function POST(request: Request) {
 
   const user = await prisma.user.findUnique({
     where: { email },
-    select: { name: true, email: true, emailVerified: true, passwordHash: true },
+    select: { name: true, email: true, passwordHash: true },
   });
 
-  // Nothing to do for an unknown address, one already verified, or a
-  // GitHub-only account that never had a password to verify against — but the
-  // answer is the same in every case.
-  if (user?.passwordHash && !user.emailVerified) {
-    await issueEmailVerification({
+  // Nothing to reset for an unknown address, or for a GitHub-only account that
+  // never had a password — mailing one a link would hand it a way to set one,
+  // which is account linking and not this feature's job. The answer is the same
+  // in every case.
+  if (user?.passwordHash) {
+    await issuePasswordReset({
       email: user.email,
       name: user.name,
       origin: appOrigin(request),

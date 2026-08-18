@@ -1,16 +1,48 @@
-# Current Feature
+# Current Feature: Forgot Password
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
-<!-- Bullet points of what success looks like -->
+- A "Forgot password?" link on `/sign-in` leads to a new `/forgot-password` page that takes an email address.
+- Submitting it mails a reset link, storing the token in the **existing `VerificationToken` model** — no migration.
+- The link lands on `/reset-password?token=…`, which shows a new-password form (password + confirm) and rejects a missing, unknown, expired or already-spent token with a clear message and a way to request a new one.
+- A successful reset writes the new bcrypt hash to `User.passwordHash` and the account can immediately sign in with it; the old password no longer works.
+- Reset tokens are **single-use, hashed at rest (SHA-256), and short-lived** — issuing a new one invalidates the previous one, exactly as `issueEmailVerification` already does.
+- The request endpoint answers with **one generic response** for unknown, OAuth-only and registered addresses alike, so it is not an account-enumeration oracle, and sits behind the existing `src/lib/rate-limit.ts` (per-email and per-IP).
+- Both new pages live in the existing `(auth)` route group, match the `auth-card` / `auth-form` markup of sign-in and register, and bounce a signed-in visitor to `/dashboard`.
+- Password rules are the ones already enforced elsewhere — reuse `passwordSchema` from `src/lib/validations/auth.ts` (8 char minimum, 72-byte bcrypt cap) and hash at 12 rounds.
 
 ## Notes
 
-<!-- Additional context, constraints, or details from spec -->
+### Reusing `VerificationToken` for two purposes
+
+`VerificationToken` has no `type` column and no relation to `User` — it is keyed on the `identifier` *string* with a unique `token`. Both flows would therefore share one table, and `issueEmailVerification` deletes every row for an identifier before writing (`deleteMany({ where: { identifier: email } })`), so a reset request would silently kill a pending verification link and vice versa.
+
+The fix without a migration is to **namespace the identifier** (e.g. `password-reset:user@example.com`) so the two flows never see each other's rows. Decide this before writing code — the alternative is a schema change, which the "use the existing model" instruction rules out.
+
+### Shape to follow
+
+`src/lib/email-verification.ts` is the template: raw 32 random bytes (base64url) in the link, only the SHA-256 digest stored, TTL constant, deleted on use whatever the outcome. Mirror it in a sibling module rather than bending the verification one to do both jobs. **TTL should be shorter than verification's 24h** — 1 hour is the usual choice for a reset link.
+
+The mutation/render split from verification applies here too, but differently: the emailed link must land on a *form*, so the page can only **check** the token (read-only, without consuming it) and the actual consume-and-update happens on submit — a server action or route handler, not a server component's render.
+
+### Decisions to make during `/feature start`
+
+- **Does a successful reset also set `emailVerified`?** Clicking a link sent to the address proves ownership, so arguably yes — but it is a side effect worth choosing deliberately.
+- **Does `EMAIL_VERIFICATION_ENABLED` gate this?** It should not: verification is optional, a password reset is not — there is no reset without mail. But that means the flag being `false` no longer implies "the app sends no email".
+- **Existing sessions after a reset.** The session strategy is JWT with no database sessions, so already-issued tokens cannot be revoked and stay valid until they expire. Note the limitation rather than half-solving it.
+- **OAuth-only accounts** (`passwordHash` is null) get the same generic response and no mail — or a "you signed in with GitHub" mail. Either way the HTTP answer must not differ.
+
+### Constraint carried over from email verification
+
+`RESEND_FROM` is still `onboarding@resend.dev`, which **only delivers to the Resend account owner** (`jeroenkleuters@gmail.com`); `delivered@resend.dev` is accepted for testing. Until a sending domain is verified, a real user cannot actually receive a reset link — the feature is testable but not usable in the wild. This is the same blocker that made `EMAIL_VERIFICATION_ENABLED=false`.
+
+### Still open from previous features, and relevant here
+
+There is no rate limiting on `/api/auth/register` or sign-in, and no sweep for expired tokens — reset tokens will linger the same way. `/profile` still 404s.
 
 ## History
 
