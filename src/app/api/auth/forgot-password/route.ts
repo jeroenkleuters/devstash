@@ -3,16 +3,20 @@ import { NextResponse, after } from "next/server";
 import { appOrigin } from "@/lib/app-url";
 import { issuePasswordReset } from "@/lib/password-reset";
 import { prisma } from "@/lib/prisma";
-import { callerKey, rateLimit } from "@/lib/rate-limit";
+import {
+  callerKey,
+  rateLimit,
+  tooManyAttemptsResponse,
+} from "@/lib/rate-limit";
 import { firstIssueMessage, forgotPasswordSchema } from "@/lib/validations/auth";
 
-const WINDOW_MS = 15 * 60 * 1000;
+const WINDOW_MS = 60 * 60 * 1000;
 
 /** Per address — enough to recover from a lost email, not to mail-bomb one. */
 const PER_EMAIL_LIMIT = 3;
 
 /** Per caller, so one client cannot walk a list of addresses. */
-const PER_IP_LIMIT = 10;
+const PER_IP_LIMIT = 3;
 
 /**
  * Said whatever happened. Confirming that an address is registered, or that it
@@ -51,19 +55,13 @@ export async function POST(request: Request) {
   }
 
   const { email } = parsed.data;
-  const byIp = rateLimit(`forgot:ip:${callerKey(request)}`, PER_IP_LIMIT, WINDOW_MS);
-  const byEmail = rateLimit(`forgot:email:${email}`, PER_EMAIL_LIMIT, WINDOW_MS);
+  const [byIp, byEmail] = await Promise.all([
+    rateLimit(`forgot:ip:${callerKey(request)}`, PER_IP_LIMIT, WINDOW_MS),
+    rateLimit(`forgot:email:${email}`, PER_EMAIL_LIMIT, WINDOW_MS),
+  ]);
 
-  if (!byIp.allowed || !byEmail.allowed) {
-    return NextResponse.json(
-      { success: false, error: "Too many requests. Try again later." },
-      {
-        status: 429,
-        headers: {
-          "Retry-After": String(Math.max(byIp.retryAfter, byEmail.retryAfter)),
-        },
-      },
-    );
+  if (!byIp.success || !byEmail.success) {
+    return tooManyAttemptsResponse(byIp, byEmail);
   }
 
   // Read before the response, so the origin cannot be derived from a request

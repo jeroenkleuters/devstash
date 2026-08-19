@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import Link from "next/link";
 
 import { signInWithCredentials, signInWithGitHub } from "@/actions/auth";
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { toastRateLimited } from "@/lib/rate-limit-toast";
 import { SIGN_IN_INITIAL_STATE } from "@/types/auth";
 
 interface SignInFormProps {
@@ -39,8 +40,16 @@ export function SignInForm({
     SIGN_IN_INITIAL_STATE,
   );
 
+  // The action returns a fresh object every time it settles, so this runs once
+  // per rejected submit rather than on every render.
+  useEffect(() => {
+    if (state.rateLimited && state.error) {
+      toastRateLimited(state.error);
+    }
+  }, [state]);
+
   const error =
-    state.error ??
+    (state.rateLimited ? null : state.error) ??
     (providerError
       ? (PROVIDER_ERRORS[providerError] ?? PROVIDER_ERROR_FALLBACK)
       : null);

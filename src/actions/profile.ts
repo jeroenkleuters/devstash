@@ -8,7 +8,7 @@ import {
   type ChangePasswordOutcome,
 } from "@/lib/account";
 import { getCurrentUserId } from "@/lib/db/user";
-import { rateLimit } from "@/lib/rate-limit";
+import { rateLimit, tooManyAttemptsMessage } from "@/lib/rate-limit";
 import { changePasswordSchema, firstIssueMessage } from "@/lib/validations/auth";
 import {
   CHANGE_PASSWORD_INITIAL_STATE,
@@ -59,14 +59,14 @@ export async function changePassword(
     return { error: firstIssueMessage(parsed.error) };
   }
 
-  const attempt = rateLimit(
+  const attempt = await rateLimit(
     `change-password:${userId}`,
     ATTEMPT_LIMIT,
     WINDOW_MS,
   );
 
-  if (!attempt.allowed) {
-    return { error: "Too many attempts. Try again later." };
+  if (!attempt.success) {
+    return { error: tooManyAttemptsMessage(attempt) };
   }
 
   const outcome = await changeAccountPassword(

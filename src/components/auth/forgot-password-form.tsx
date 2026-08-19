@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { toastIfRateLimited } from "@/lib/rate-limit-toast";
 import { firstIssueMessage, forgotPasswordSchema } from "@/lib/validations/auth";
 
 /** The shape `POST /api/auth/forgot-password` answers with, either way. */
@@ -49,7 +50,8 @@ export function ForgotPasswordForm() {
 
       if (response.ok) {
         setResult(body.message ?? "If that account exists, a reset link is on its way.");
-      } else {
+      } else if (!toastIfRateLimited(response.status, body.error)) {
+        // The rate limit takes the toast instead of the slot above the form.
         setError(body.error ?? UNKNOWN_ERROR);
       }
     } catch {

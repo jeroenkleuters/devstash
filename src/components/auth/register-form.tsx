@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { toastIfRateLimited } from "@/lib/rate-limit-toast";
 import { firstIssueMessage, registerSchema } from "@/lib/validations/auth";
 
 /** The shape `POST /api/auth/register` answers with, either way. */
@@ -54,7 +55,11 @@ export function RegisterForm() {
       const result = (await response.json()) as RegisterResponse;
 
       if (!response.ok) {
-        setError(result.error ?? UNKNOWN_ERROR);
+        // The rate limit takes the toast instead of the slot above the form.
+        if (!toastIfRateLimited(response.status, result.error)) {
+          setError(result.error ?? UNKNOWN_ERROR);
+        }
+
         setIsPending(false);
 
         return;

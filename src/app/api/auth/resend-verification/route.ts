@@ -4,7 +4,11 @@ import { appOrigin } from "@/lib/app-url";
 import { issueEmailVerification } from "@/lib/email-verification";
 import { isEmailVerificationEnabled } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
-import { callerKey, rateLimit } from "@/lib/rate-limit";
+import {
+  callerKey,
+  rateLimit,
+  tooManyAttemptsResponse,
+} from "@/lib/rate-limit";
 import {
   firstIssueMessage,
   resendVerificationSchema,
@@ -56,19 +60,13 @@ export async function POST(request: Request) {
   }
 
   const { email } = parsed.data;
-  const byIp = rateLimit(`resend:ip:${callerKey(request)}`, PER_IP_LIMIT, WINDOW_MS);
-  const byEmail = rateLimit(`resend:email:${email}`, PER_EMAIL_LIMIT, WINDOW_MS);
+  const [byIp, byEmail] = await Promise.all([
+    rateLimit(`resend:ip:${callerKey(request)}`, PER_IP_LIMIT, WINDOW_MS),
+    rateLimit(`resend:email:${email}`, PER_EMAIL_LIMIT, WINDOW_MS),
+  ]);
 
-  if (!byIp.allowed || !byEmail.allowed) {
-    return NextResponse.json(
-      { success: false, error: "Too many requests. Try again later." },
-      {
-        status: 429,
-        headers: {
-          "Retry-After": String(Math.max(byIp.retryAfter, byEmail.retryAfter)),
-        },
-      },
-    );
+  if (!byIp.success || !byEmail.success) {
+    return tooManyAttemptsResponse(byIp, byEmail);
   }
 
   // Read before the response, so the origin cannot be derived from a request

@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { toastIfRateLimited } from "@/lib/rate-limit-toast";
 import { firstIssueMessage, resetPasswordSchema } from "@/lib/validations/auth";
 
 interface ResetPasswordFormProps {
@@ -57,7 +58,11 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
       if (!response.ok) {
         const body = (await response.json()) as ResetPasswordResponse;
 
-        setError(body.error ?? UNKNOWN_ERROR);
+        // The rate limit takes the toast instead of the slot above the form.
+        if (!toastIfRateLimited(response.status, body.error)) {
+          setError(body.error ?? UNKNOWN_ERROR);
+        }
+
         setIsPending(false);
 
         return;
