@@ -31,7 +31,13 @@ export type PasswordResetState = "valid" | "expired" | "invalid";
 
 export type PasswordResetOutcome = "reset" | "expired" | "invalid";
 
-function identifierFor(email: string): string {
+/**
+ * The row key a reset token is stored under. Exported because deleting an
+ * account has to clear these rows by hand — they have no relation to `User` to
+ * cascade through — and rebuilding the prefix there would leave two copies of
+ * it to keep in step.
+ */
+export function passwordResetIdentifier(email: string): string {
   return `${IDENTIFIER_PREFIX}${email}`;
 }
 
@@ -80,11 +86,11 @@ export async function issuePasswordReset({
   const token = randomBytes(TOKEN_BYTES).toString("base64url");
 
   await prisma.verificationToken.deleteMany({
-    where: { identifier: identifierFor(email) },
+    where: { identifier: passwordResetIdentifier(email) },
   });
   await prisma.verificationToken.create({
     data: {
-      identifier: identifierFor(email),
+      identifier: passwordResetIdentifier(email),
       token: digest(token),
       expires: new Date(Date.now() + TOKEN_TTL_MS),
     },

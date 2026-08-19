@@ -3,12 +3,19 @@ import { cache } from "react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 
-/** The account details the sidebar shows. */
+/** The account details the sidebar and the profile page show. */
 export interface CurrentUser {
   id: string;
   name: string | null;
   email: string;
   image: string | null;
+  createdAt: Date;
+  /**
+   * Whether the account can sign in with a password. Derived rather than
+   * carried: the hash itself has no business leaving this module, and the only
+   * question anything asks is whether changing it is an option at all.
+   */
+  hasPassword: boolean;
 }
 
 /**
@@ -28,10 +35,25 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     return null;
   }
 
-  return prisma.user.findUnique({
+  const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { id: true, name: true, email: true, image: true },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      image: true,
+      createdAt: true,
+      passwordHash: true,
+    },
   });
+
+  if (!user) {
+    return null;
+  }
+
+  const { passwordHash, ...rest } = user;
+
+  return { ...rest, hasPassword: passwordHash !== null };
 });
 
 /** The id alone, for call sites that don't render the account details. */

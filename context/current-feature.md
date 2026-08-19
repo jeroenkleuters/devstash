@@ -1,16 +1,33 @@
-# Current Feature
+# Current Feature: Profile Page
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
-<!-- Bullet points of what success looks like -->
+- Add a `/profile` route, protected by auth — it is the target the sidebar's user-name link has been 404ing to since auth phase 3.
+- Show the signed-in user's info: email, name, avatar (GitHub picture or generated initials), and account creation date.
+- Show usage stats: total items, total collections, and a per-type breakdown across all seven system types (snippets, prompts, notes, commands, links, files, images).
+- Offer a **change password** action, visible only to accounts that have a `passwordHash` — GitHub-only accounts must not see it.
+- Offer **delete account**, behind a confirmation dialog so it cannot fire by accident.
+- Follow the existing patterns: server components fetching through `src/lib/db/`, plain markup with semantic classes in `globals.css`, no Tailwind utility strings in the JSX.
 
 ## Notes
 
-<!-- Additional context, constraints, or details from spec -->
+**Where it fits.** `/profile` is linked from `src/components/layout/sidebar-user.tsx` (the user's name; the avatar opens the dropdown) and has never existed. `src/proxy.ts`'s matcher is currently `["/dashboard", "/dashboard/:path*"]`, so the new route is **not** covered by it — protection has to come from extending that matcher, from a redirect in the page itself, or both. Decide during implementation; the page is `force-dynamic` either way.
+
+**Data.** `getCurrentUser` in `src/lib/db/user.ts` already resolves the session's row and returns `image`, but not `createdAt`, and `CurrentUser` would need widening. Stats have most of what is needed already: `getItemStats` / `getCollectionStats` in `src/lib/db/items.ts` and `collections.ts` give the totals, and `getItemTypesWithCounts` returns exactly the per-type breakdown the sidebar renders — reuse it rather than writing a second grouped query. Both `getCurrentUser` and `getCollections` are wrapped in `cache()`, so sharing them with the sidebar costs no extra queries.
+
+**Change password.** Distinct from the existing reset-by-email flow: the user is already signed in, so it should require the *current* password rather than a mailed token. `src/lib/validations/auth.ts` holds the shared `emailSchema` and the password rules — including the **72-byte cap** (bcrypt truncates silently; count UTF-8 bytes, not characters) — and `src/app/api/auth/reset-password/route.ts` is the closest existing shape to copy for hashing at 12 rounds. Visibility keys off `passwordHash != null`, which `CurrentUser` does not currently expose.
+
+**Delete account.** Cascades are already in the schema — `Item`, `Collection`, `Tag`, `Account`, `Session` all `onDelete: Cascade` from `User`. Two things do **not** cascade and want handling explicitly, exactly as `scripts/prune-users.ts` documents: `VerificationToken` has no relation to `User` at all (it is keyed on the email string, and now carries both verification and `password-reset:` rows), and system `ItemType` rows survive only because their `userId` is null. Deleting also has to end the session — signing out afterwards, not leaving a JWT pointing at a row that no longer exists (`getCurrentUser` already returns `null` for that case).
+
+**Confirmation UI.** No dialog primitive exists yet — `src/components/ui/` holds only `button`, `input`, `separator`, `badge`, `skeleton`, plus the dropdown added in auth phase 3. Adding ShadCN's `alert-dialog` (or `dialog`) is the likely move; keep the CLI output untouched as the other five are.
+
+**Out of scope unless it turns out to be forced.** Account linking (a GitHub account still cannot add a password), rate limiting on the new endpoints beyond the existing in-memory limiter in `src/lib/rate-limit.ts`, editing the display name or avatar, and any migration — nothing here needs a schema change.
+
+**Parked.** The Context7 API key fix loaded before this was never implemented; it is preserved at @context/fixes/context7-api-key-spec.md and the key is still live in `.mcp.json`.
 
 ## History
 
