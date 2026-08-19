@@ -6,10 +6,24 @@ import { appOrigin } from "@/lib/app-url";
 import { issueEmailVerification } from "@/lib/email-verification";
 import { isEmailVerificationEnabled } from "@/lib/feature-flags";
 import { prisma } from "@/lib/prisma";
+import { callerKey, rateLimit } from "@/lib/rate-limit";
 import { firstIssueMessage, registerSchema } from "@/lib/validations/auth";
 
 // Matches `prisma/seed.ts`, so seeded and registered accounts hash alike.
 const PASSWORD_SALT_ROUNDS = 12;
+
+const WINDOW_MS = 15 * 60 * 1000;
+
+/**
+ * Per caller. The 409 below is a deliberate UX trade-off, but unthrottled it
+ * also makes this the fastest way to walk a list of addresses and learn which
+ * are registered — and every accepted call costs a 12-round bcrypt and, with
+ * verification on, a metered send.
+ */
+const PER_IP_LIMIT = 5;
+
+/** Per address, so a retry after a typo still works but a loop does not. */
+const PER_EMAIL_LIMIT = 3;
 
 // Prisma's code for a unique constraint violation — here, the email index.
 const UNIQUE_CONSTRAINT = "P2002";
@@ -38,6 +52,20 @@ export async function POST(request: Request) {
   }
 
   const { name, email, password } = parsed.data;
+  const byIp = rateLimit(`register:ip:${callerKey(request)}`, PER_IP_LIMIT, WINDOW_MS);
+  const byEmail = rateLimit(`register:email:${email}`, PER_EMAIL_LIMIT, WINDOW_MS);
+
+  if (!byIp.allowed || !byEmail.allowed) {
+    return NextResponse.json(
+      { success: false, error: "Too many requests. Try again later." },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(Math.max(byIp.retryAfter, byEmail.retryAfter)),
+        },
+      },
+    );
+  }
 
   try {
     const existing = await prisma.user.findUnique({

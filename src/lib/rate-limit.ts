@@ -1,6 +1,7 @@
 /**
  * A fixed-window counter held in the process, guarding endpoints that cost
- * something to call — right now only the one that sends mail on demand.
+ * something to call: the ones that send mail on demand, registration, changing
+ * a password, and sign-in itself.
  *
  * Deliberately small: the state lives in memory, so it resets on restart and
  * every serverless instance keeps its own tally. That makes it a brake on

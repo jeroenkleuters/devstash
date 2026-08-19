@@ -24,6 +24,13 @@ export const SIGN_IN_INITIAL_STATE: SignInState = { error: null, email: "" };
 export const UNVERIFIED_EMAIL_CODE = "email_unverified";
 
 /**
+ * The `code` carried by the error `authorize` throws once an address or a caller
+ * has spent its attempts. Naming it reveals nothing: the window is keyed on what
+ * was submitted, so it is throttled whether or not an account exists.
+ */
+export const TOO_MANY_ATTEMPTS_CODE = "too_many_attempts";
+
+/**
  * Every state `/verify` renders. The first two come from registration, the
  * rest from `GET /api/auth/verify` after it has spent the token.
  */

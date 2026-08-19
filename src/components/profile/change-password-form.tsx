@@ -17,6 +17,10 @@ import { CHANGE_PASSWORD_INITIAL_STATE } from "@/types/profile";
  * No client-side copy of the rules: unlike registration, every rejection here
  * needs the server anyway — the current password is only checkable there — so
  * one round trip reports the byte cap and the mismatch along with it.
+ *
+ * Only refusals are rendered. A change that goes through ends every session the
+ * old password opened, this one included, so the action redirects to `/sign-in`
+ * and there is nothing left here to confirm it with.
  */
 export function ChangePasswordForm() {
   const [state, formAction, isPending] = useActionState(
@@ -29,12 +33,6 @@ export function ChangePasswordForm() {
       {state.error && (
         <p className="auth-error" role="alert">
           {state.error}
-        </p>
-      )}
-
-      {state.success && (
-        <p className="auth-notice" role="status">
-          Password updated.
         </p>
       )}
 

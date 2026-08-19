@@ -46,7 +46,7 @@ export async function changePassword(
   const userId = await getCurrentUserId();
 
   if (!userId) {
-    return { error: SIGNED_OUT, success: false };
+    return { error: SIGNED_OUT };
   }
 
   const parsed = changePasswordSchema.safeParse({
@@ -56,7 +56,7 @@ export async function changePassword(
   });
 
   if (!parsed.success) {
-    return { error: firstIssueMessage(parsed.error), success: false };
+    return { error: firstIssueMessage(parsed.error) };
   }
 
   const attempt = rateLimit(
@@ -66,7 +66,7 @@ export async function changePassword(
   );
 
   if (!attempt.allowed) {
-    return { error: "Too many attempts. Try again later.", success: false };
+    return { error: "Too many attempts. Try again later." };
   }
 
   const outcome = await changeAccountPassword(
@@ -76,10 +76,19 @@ export async function changePassword(
   );
 
   if (outcome !== "changed") {
-    return { error: REFUSALS[outcome], success: false };
+    return { error: REFUSALS[outcome] };
   }
 
-  return { ...CHANGE_PASSWORD_INITIAL_STATE, success: true };
+  // Every session opened with the old password is now invalid — `getCurrentUser`
+  // compares the token's fingerprint against the row, and the row has moved. The
+  // session that made the change is one of them, so it ends here rather than
+  // surviving to be turned away on the next navigation. `?reset=1` renders the
+  // acknowledgement the reset flow already put on the sign-in page.
+  //
+  // Throws the redirect that leaves this action, so nothing below it runs.
+  await signOut({ redirectTo: `${SIGN_IN_PATH}?reset=1` });
+
+  return CHANGE_PASSWORD_INITIAL_STATE;
 }
 
 /**

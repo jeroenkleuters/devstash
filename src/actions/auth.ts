@@ -7,6 +7,7 @@ import { DEFAULT_SIGN_IN_REDIRECT, SIGN_IN_PATH } from "@/auth.config";
 import { firstIssueMessage, signInSchema } from "@/lib/validations/auth";
 import {
   SIGN_IN_INITIAL_STATE,
+  TOO_MANY_ATTEMPTS_CODE,
   UNVERIFIED_EMAIL_CODE,
   type SignInState,
 } from "@/types/auth";
@@ -21,18 +22,28 @@ const INVALID_CREDENTIALS = "Incorrect email or password.";
 const UNVERIFIED_EMAIL =
   "Verify your email before signing in. Check your inbox for the link.";
 
+/** The other named one: the window filled up, whatever was submitted. */
+const TOO_MANY_ATTEMPTS =
+  "Too many sign-in attempts. Wait a few minutes and try again.";
+
 /** Anything else `AuthError` covers is a misconfiguration, not a bad password. */
 const SIGN_IN_FAILED = "Could not sign you in. Try again.";
 
 /**
- * `code` is `CredentialsSignin`'s, not `AuthError`'s, and only the subclass in
- * `src/auth.ts` sets a meaningful one — a plain wrong password arrives with the
+ * `code` is `CredentialsSignin`'s, not `AuthError`'s, and only the subclasses in
+ * `src/auth.ts` set a meaningful one — a plain wrong password arrives with the
  * default. Read defensively so an unrecognised code still reads as a rejection.
  */
 function credentialsMessage(error: AuthError): string {
   const code = "code" in error ? error.code : undefined;
 
-  return code === UNVERIFIED_EMAIL_CODE ? UNVERIFIED_EMAIL : INVALID_CREDENTIALS;
+  if (code === UNVERIFIED_EMAIL_CODE) {
+    return UNVERIFIED_EMAIL;
+  }
+
+  return code === TOO_MANY_ATTEMPTS_CODE
+    ? TOO_MANY_ATTEMPTS
+    : INVALID_CREDENTIALS;
 }
 
 /**

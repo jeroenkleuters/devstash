@@ -1,20 +1,17 @@
 import { Suspense, type ReactNode } from "react";
+import { redirect } from "next/navigation";
 
+import { SIGN_IN_PATH } from "@/auth.config";
 import { Sidebar } from "@/components/layout/sidebar";
 import { SidebarProvider } from "@/components/layout/sidebar-provider";
 import { SidebarSkeleton } from "@/components/layout/sidebar-skeleton";
 import { TopBar } from "@/components/layout/top-bar";
-import {
-  getSidebarCollections,
-  type SidebarCollections,
-} from "@/lib/db/collections";
+import { getSidebarCollections } from "@/lib/db/collections";
 import { getItemTypesWithCounts } from "@/lib/db/items";
 import { getCurrentUser } from "@/lib/db/user";
 
 /** How many non-favorite collections the sidebar's "Recent" list shows. */
 const RECENT_LIMIT = 5;
-
-const NO_COLLECTIONS: SidebarCollections = { favorites: [], recent: [] };
 
 /**
  * The signed-in shell: sidebar, top bar and a scrollable main column. Shared by
@@ -40,12 +37,18 @@ export function AppShell({ children }: { children: ReactNode }) {
 
 async function SidebarWithData() {
   const user = await getCurrentUser();
-  const [types, collections] = user
-    ? await Promise.all([
-        getItemTypesWithCounts(user.id),
-        getSidebarCollections(user.id, RECENT_LIMIT),
-      ])
-    : [[], NO_COLLECTIONS];
+
+  // The proxy only checks that the JWT verifies, which is not the same as the
+  // session still being good: the account may be gone, or the password it was
+  // opened with may have been changed. Either way there is nothing to render.
+  if (!user) {
+    redirect(SIGN_IN_PATH);
+  }
+
+  const [types, collections] = await Promise.all([
+    getItemTypesWithCounts(user.id),
+    getSidebarCollections(user.id, RECENT_LIMIT),
+  ]);
 
   return (
     <Sidebar

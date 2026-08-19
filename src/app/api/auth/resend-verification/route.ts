@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 
 import { appOrigin } from "@/lib/app-url";
 import { issueEmailVerification } from "@/lib/email-verification";
@@ -71,6 +71,9 @@ export async function POST(request: Request) {
     );
   }
 
+  // Read before the response, so the origin cannot be derived from a request
+  // that is already on its way out.
+  const origin = appOrigin(request);
   const user = await prisma.user.findUnique({
     where: { email },
     select: { name: true, email: true, emailVerified: true, passwordHash: true },
@@ -79,12 +82,15 @@ export async function POST(request: Request) {
   // Nothing to do for an unknown address, one already verified, or a
   // GitHub-only account that never had a password to verify against — but the
   // answer is the same in every case.
+  //
+  // Deferred rather than awaited, for the reason the forgot-password route
+  // gives: awaiting Resend only on the branch that sends would let response time
+  // separate registered from unknown addresses, and verified from unverified
+  // ones, however identical the bodies are.
   if (user?.passwordHash && !user.emailVerified) {
-    await issueEmailVerification({
-      email: user.email,
-      name: user.name,
-      origin: appOrigin(request),
-    });
+    const { email: to, name } = user;
+
+    after(() => issueEmailVerification({ email: to, name, origin }));
   }
 
   return NextResponse.json(GENERIC_RESULT);

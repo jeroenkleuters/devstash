@@ -5,11 +5,21 @@ import Credentials from "next-auth/providers/credentials";
 
 import authConfig from "@/auth.config";
 import { isEmailVerificationEnabled } from "@/lib/feature-flags";
+import { passwordFingerprint } from "@/lib/password-fingerprint";
 import { prisma } from "@/lib/prisma";
+import { callerKey, rateLimit } from "@/lib/rate-limit";
 import { signInSchema } from "@/lib/validations/auth";
-import { UNVERIFIED_EMAIL_CODE } from "@/types/auth";
+import { TOO_MANY_ATTEMPTS_CODE, UNVERIFIED_EMAIL_CODE } from "@/types/auth";
 
 import type { Provider } from "next-auth/providers";
+
+const ATTEMPT_WINDOW_MS = 15 * 60 * 1000;
+
+/** Per address, so one account cannot be ground through a password list. */
+const PER_EMAIL_ATTEMPT_LIMIT = 10;
+
+/** Per caller, so one client cannot stuff credentials across many accounts. */
+const PER_IP_ATTEMPT_LIMIT = 30;
 
 /**
  * A 12-round hash of a throwaway random string, compared against when no
@@ -30,6 +40,15 @@ class UnverifiedEmailError extends CredentialsSignin {
 }
 
 /**
+ * Thrown once an address or a caller has spent its window. bcrypt at 12 rounds
+ * is the only friction a password guess meets otherwise, and ~220ms is no
+ * obstacle to a botnet running attempts in parallel.
+ */
+class TooManyAttemptsError extends CredentialsSignin {
+  code = TOO_MANY_ATTEMPTS_CODE;
+}
+
+/**
  * The real email/password provider, replacing the placeholder in the edge-safe
  * config. Returning `null` for every failure — unknown email, OAuth-only
  * account, wrong password — keeps the sign-in page from revealing which
@@ -40,11 +59,30 @@ const credentialsProvider = Credentials({
     email: { label: "Email", type: "email" },
     password: { label: "Password", type: "password" },
   },
-  authorize: async (credentials) => {
+  authorize: async (credentials, request) => {
     const parsed = signInSchema.safeParse(credentials);
 
     if (!parsed.success) {
       return null;
+    }
+
+    // Ahead of the comparison rather than levelled with it, unlike the checks
+    // below: this one costs no bcrypt on purpose, and answering fast leaks
+    // nothing, since the window is keyed on the submitted address and fills up
+    // the same whether or not an account is behind it.
+    const byEmail = rateLimit(
+      `sign-in:email:${parsed.data.email}`,
+      PER_EMAIL_ATTEMPT_LIMIT,
+      ATTEMPT_WINDOW_MS,
+    );
+    const byIp = rateLimit(
+      `sign-in:ip:${callerKey(request)}`,
+      PER_IP_ATTEMPT_LIMIT,
+      ATTEMPT_WINDOW_MS,
+    );
+
+    if (!byEmail.allowed || !byIp.allowed) {
+      throw new TooManyAttemptsError();
     }
 
     const user = await prisma.user.findUnique({
@@ -84,6 +122,10 @@ const credentialsProvider = Credentials({
       name: user.name,
       email: user.email,
       image: user.image,
+      // Travels onto the token, where `getCurrentUser` compares it against the
+      // row on every request — a changed password leaves every session that was
+      // opened with the old one carrying a marker that no longer matches.
+      pwf: passwordFingerprint(user.passwordHash),
     };
   },
 });
@@ -120,6 +162,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     jwt({ token, user }) {
       if (user?.id) {
         token.id = user.id;
+        // Absent for a GitHub sign-in, which is correct: that account has no
+        // password, so the row's fingerprint is null and the two still agree.
+        token.pwf = user.pwf ?? null;
       }
 
       return token;
@@ -128,6 +173,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (token.id) {
         session.user.id = token.id;
       }
+
+      session.user.pwf = token.pwf ?? null;
 
       return session;
     },

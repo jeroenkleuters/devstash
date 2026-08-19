@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
-import { auth } from "@/auth";
 import { DEFAULT_SIGN_IN_REDIRECT } from "@/auth.config";
 import { SignInForm } from "@/components/auth/sign-in-form";
+import { getCurrentUser } from "@/lib/db/user";
 import { firstParam } from "@/lib/search-params";
 
 export const metadata: Metadata = {
@@ -16,7 +16,10 @@ export const dynamic = "force-dynamic";
 export default async function SignInPage({
   searchParams,
 }: PageProps<"/sign-in">) {
-  if (await auth()) {
+  // `getCurrentUser` rather than the session alone: a token the app has already
+  // rejected — deleted account, superseded password — must land on this form
+  // rather than be bounced back to the page that just turned it away.
+  if (await getCurrentUser()) {
     redirect(DEFAULT_SIGN_IN_REDIRECT);
   }
 
