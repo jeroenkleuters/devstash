@@ -15,8 +15,13 @@ import type { Provider } from "next-auth/providers";
 
 const ATTEMPT_WINDOW_MS = 15 * 60 * 1000;
 
-/** Per address, so one account cannot be ground through a password list. */
-const PER_EMAIL_ATTEMPT_LIMIT = 10;
+/**
+ * Per address, so one account cannot be ground through a password list however
+ * many clients the attempts are spread across. The spec keys this window on the
+ * caller *and* the address together; counting the address alone is strictly
+ * tighter, since every pair sharing it now draws from one budget.
+ */
+const PER_EMAIL_ATTEMPT_LIMIT = 5;
 
 /** Per caller, so one client cannot stuff credentials across many accounts. */
 const PER_IP_ATTEMPT_LIMIT = 30;
@@ -70,18 +75,20 @@ const credentialsProvider = Credentials({
     // below: this one costs no bcrypt on purpose, and answering fast leaks
     // nothing, since the window is keyed on the submitted address and fills up
     // the same whether or not an account is behind it.
-    const byEmail = rateLimit(
-      `sign-in:email:${parsed.data.email}`,
-      PER_EMAIL_ATTEMPT_LIMIT,
-      ATTEMPT_WINDOW_MS,
-    );
-    const byIp = rateLimit(
-      `sign-in:ip:${callerKey(request)}`,
-      PER_IP_ATTEMPT_LIMIT,
-      ATTEMPT_WINDOW_MS,
-    );
+    const [byEmail, byIp] = await Promise.all([
+      rateLimit(
+        `sign-in:email:${parsed.data.email}`,
+        PER_EMAIL_ATTEMPT_LIMIT,
+        ATTEMPT_WINDOW_MS,
+      ),
+      rateLimit(
+        `sign-in:ip:${callerKey(request)}`,
+        PER_IP_ATTEMPT_LIMIT,
+        ATTEMPT_WINDOW_MS,
+      ),
+    ]);
 
-    if (!byEmail.allowed || !byIp.allowed) {
+    if (!byEmail.success || !byIp.success) {
       throw new TooManyAttemptsError();
     }
 

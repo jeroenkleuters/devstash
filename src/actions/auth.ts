@@ -34,16 +34,21 @@ const SIGN_IN_FAILED = "Could not sign you in. Try again.";
  * `src/auth.ts` set a meaningful one — a plain wrong password arrives with the
  * default. Read defensively so an unrecognised code still reads as a rejection.
  */
-function credentialsMessage(error: AuthError): string {
+function credentialsFailure(error: AuthError): {
+  error: string;
+  rateLimited: boolean;
+} {
   const code = "code" in error ? error.code : undefined;
 
   if (code === UNVERIFIED_EMAIL_CODE) {
-    return UNVERIFIED_EMAIL;
+    return { error: UNVERIFIED_EMAIL, rateLimited: false };
   }
 
-  return code === TOO_MANY_ATTEMPTS_CODE
-    ? TOO_MANY_ATTEMPTS
-    : INVALID_CREDENTIALS;
+  if (code === TOO_MANY_ATTEMPTS_CODE) {
+    return { error: TOO_MANY_ATTEMPTS, rateLimited: true };
+  }
+
+  return { error: INVALID_CREDENTIALS, rateLimited: false };
 }
 
 /**
@@ -70,7 +75,7 @@ export async function signInWithCredentials(
   });
 
   if (!parsed.success) {
-    return { error: firstIssueMessage(parsed.error), email };
+    return { error: firstIssueMessage(parsed.error), email, rateLimited: false };
   }
 
   try {
@@ -82,13 +87,12 @@ export async function signInWithCredentials(
     // A successful sign-in leaves through the redirect Next throws, so only an
     // `AuthError` is actually ours to report — everything else has to travel on.
     if (cause instanceof AuthError) {
-      return {
-        error:
-          cause.type === "CredentialsSignin"
-            ? credentialsMessage(cause)
-            : SIGN_IN_FAILED,
-        email,
-      };
+      const failure =
+        cause.type === "CredentialsSignin"
+          ? credentialsFailure(cause)
+          : { error: SIGN_IN_FAILED, rateLimited: false };
+
+      return { ...failure, email };
     }
 
     throw cause;

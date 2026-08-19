@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { toastIfRateLimited } from "@/lib/rate-limit-toast";
 import { firstIssueMessage, resendVerificationSchema } from "@/lib/validations/auth";
 import type { VerifyStatus } from "@/types/auth";
 
@@ -111,7 +112,8 @@ export function VerifyStatusPanel({ status, email }: VerifyStatusPanelProps) {
 
       if (response.ok) {
         setResult(body.message ?? "A new link is on its way.");
-      } else {
+      } else if (!toastIfRateLimited(response.status, body.error)) {
+        // The rate limit takes the toast instead of the slot above the form.
         setError(body.error ?? UNKNOWN_ERROR);
       }
     } catch {

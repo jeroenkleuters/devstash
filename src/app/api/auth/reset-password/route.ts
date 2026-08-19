@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 
 import { resetPasswordWithToken } from "@/lib/password-reset";
-import { callerKey, rateLimit } from "@/lib/rate-limit";
+import {
+  callerKey,
+  rateLimit,
+  tooManyAttemptsResponse,
+} from "@/lib/rate-limit";
 import { firstIssueMessage, resetPasswordSchema } from "@/lib/validations/auth";
 
 const WINDOW_MS = 15 * 60 * 1000;
@@ -10,7 +14,7 @@ const WINDOW_MS = 15 * 60 * 1000;
  * Guessing a 32-byte token is not a threat worth counting, so this is only
  * about the bcrypt hash each accepted call costs.
  */
-const PER_IP_LIMIT = 20;
+const PER_IP_LIMIT = 5;
 
 /** What a spent, unknown or expired link is told, per outcome. */
 const FAILURES: Record<"expired" | "invalid", string> = {
@@ -39,13 +43,14 @@ export async function POST(request: Request) {
     return error(firstIssueMessage(parsed.error), 400);
   }
 
-  const byIp = rateLimit(`reset:ip:${callerKey(request)}`, PER_IP_LIMIT, WINDOW_MS);
+  const byIp = await rateLimit(
+    `reset:ip:${callerKey(request)}`,
+    PER_IP_LIMIT,
+    WINDOW_MS,
+  );
 
-  if (!byIp.allowed) {
-    return NextResponse.json(
-      { success: false, error: "Too many requests. Try again later." },
-      { status: 429, headers: { "Retry-After": String(byIp.retryAfter) } },
-    );
+  if (!byIp.success) {
+    return tooManyAttemptsResponse(byIp);
   }
 
   const outcome = await resetPasswordWithToken(

@@ -7,6 +7,13 @@ export interface SignInState {
    * field the visitor almost certainly typed correctly.
    */
   email: string;
+  /**
+   * Whether `error` is the rate limit rather than a rejected credential. The
+   * form shows that one as a toast, matching the guarded routes — which say it
+   * with a 429 the sign-in path has no way to return, since Auth.js reports
+   * every credentials failure as one error type.
+   */
+  rateLimited: boolean;
 }
 
 /**
@@ -14,7 +21,11 @@ export interface SignInState {
  * a `"use server"` module may only export async functions, and exporting this
  * object from one fails at module evaluation rather than at build time.
  */
-export const SIGN_IN_INITIAL_STATE: SignInState = { error: null, email: "" };
+export const SIGN_IN_INITIAL_STATE: SignInState = {
+  error: null,
+  email: "",
+  rateLimited: false,
+};
 
 /**
  * The `code` carried by the error `authorize` throws for an account whose email

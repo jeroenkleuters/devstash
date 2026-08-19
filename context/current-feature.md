@@ -1,16 +1,42 @@
-# Current Feature
+# Current Feature: Rate Limiting for Auth (Upstash Redis)
 
 ## Status
 
-Not Started
+In Progress
+
+## Decisions
+
+- **Keep both limit dimensions.** The spec's numbers and windows are adopted, but the per-email window stays alongside the per-IP one on register and forgot-password. IP-only would let one address be mail-bombed or probed from many IPs, which the live code already prevents.
+- **Toast fires on 429 only.** Every other auth error keeps its inline `.auth-error` rendering; the ShadCN `sonner` primitive is added for the rate-limit case alone.
 
 ## Goals
 
-<!-- What does success look like? -->
+- Replace the in-process fixed-window counter in `src/lib/rate-limit.ts` with a shared store: Upstash Redis via `@upstash/ratelimit`, sliding window.
+- Keep one reusable utility as the single entry point, so the five call sites change as little as possible.
+- Enforce the spec's limits on the five auth endpoints:
+  - `POST /api/auth/callback/credentials` — 5 / 15 min, keyed IP + email
+  - `POST /api/auth/register` — 3 / hour, keyed IP
+  - `POST /api/auth/forgot-password` — 3 / hour, keyed IP
+  - `POST /api/auth/reset-password` — 5 / 15 min, keyed IP
+  - `POST /api/auth/resend-verification` — 3 / 15 min, keyed IP + email
+- Rate limit checks return `{ success, remaining, reset }`.
+- 429 responses carry `{ error: "Too many attempts. Please try again in X minutes." }` and a `Retry-After` header.
+- Frontend surfaces the 429 as a toast notification.
+- Fail open: if Upstash is unreachable, the request is allowed.
+- `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` in `.env` and `.env.example`.
 
 ## Notes
 
-<!-- Constraints, context, details -->
+- **This replaces working code, it does not add missing code.** All five endpoints are already limited today by the in-memory counter in `src/lib/rate-limit.ts` (`rateLimit(key, limit, windowMs)` + `callerKey(request)`), added across the email-verification, forgot-password and auth-audit features. Call sites: `src/auth.ts:73-80` (sign-in), `src/app/api/auth/register/route.ts:55`, `forgot-password/route.ts:54`, `reset-password/route.ts:42`, `resend-verification/route.ts:59`. The value of this feature is that the current state is per-process — it resets on restart and every serverless instance keeps its own tally, so it is a brake rather than a quota.
+- **The existing limits are stricter in places and looser in others than the spec's table.** Today: sign-in 10/email + 30/IP per 15 min; register 5/IP + 3/email per 15 min; forgot 3/email + 10/IP per 15 min; reset 20/IP per 15 min; resend 3/email + 10/IP per 15 min. The spec drops the second dimension on register/forgot/reset (IP only) and tightens sign-in to 5. Decide per endpoint whether to keep both dimensions — dropping the per-email window on register/forgot means one address can be hammered from many IPs.
+- **Sixth call site not in the spec's table:** `changePassword` in `src/actions/profile.ts:62` limits 10 / 15 min keyed on the *user id*, not IP. It uses the same utility, so it has to be migrated too or the module ends up with two backends.
+- The spec's "may need a custom sign-in handler" note is already resolved: `authorize(credentials, request)` receives the original `Request`, which is where `callerKey` reads its header — sign-in is limited inside the provider, not at the route.
+- **`rateLimit` is currently synchronous.** Upstash is a network call, so every call site becomes `await`. `authorize` is already async; the route handlers are too.
+- **Fail-open needs care in `authorize`**, where a throw is how the provider signals rejection — an Upstash outage must not read as a failed sign-in.
+- **No toast system exists.** Nothing in `src/` imports `sonner` or any toast primitive; every auth error today renders inline (`.auth-error`) through `useActionState` or the form's own state. The toast requirement means adding a primitive (ShadCN `sonner` is the fit — it would be the eighth file in `components/ui/`) and deciding whether the 429 replaces or supplements the inline message.
+- Sign-in's 429 does not travel as an HTTP 429: it goes through `TooManyAttemptsError extends CredentialsSignin` with `code = "too_many_attempts"`, mapped to a message by `credentialsMessage()` in `src/actions/auth.ts`. `Retry-After` has nowhere to live on that path.
+- `callerKey` trusts the first `x-forwarded-for` entry — a Low finding still open from the auth audit (@docs/audit-results/AUTH_SECURITY_REVIEW.md). It matters more once limits are this tight; worth fixing here rather than leaving it.
+- Free tier is 10k requests/day. Each guarded call costs one or two Redis round trips depending on how many dimensions are kept.
 
 ## History
 
