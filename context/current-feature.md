@@ -2,15 +2,55 @@
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
 <!-- What does success look like? -->
 
+Fix the High and Medium findings from the 2026-08-19 auth security audit
+(@docs/audit-results/AUTH_SECURITY_REVIEW.md). The two Low findings are out of scope.
+
+1. **[HIGH] Rate limit credentials sign-in.** Nothing throttles
+   `POST /api/auth/callback/credentials`, so brute force and credential stuffing
+   run unbounded. Add per-email and per-IP windows inside `authorize`, and give
+   the rejection its own `CredentialsSignin` code so the form can name it.
+2. **[HIGH] Rate limit registration.** `POST /api/auth/register` has no limiter,
+   so the 409 can be walked at speed and every call costs a 12-round bcrypt plus
+   (when verification is on) a metered Resend send. Mirror the pattern the
+   forgot-password route already uses.
+3. **[MEDIUM] Require `APP_URL` in production.** `appOrigin()` falls back to the
+   request's own origin, which Next derives from the `Host` header — so an
+   unconfigured deployment lets an attacker point a real victim's verification or
+   reset link at their own domain. Throw instead of falling back in production.
+4. **[MEDIUM] Invalidate other sessions on password change.** Sessions are JWTs
+   with a 30-day default lifetime and nothing ties them to the password, so a
+   stolen cookie outlives the change meant to lock it out. Carry a fingerprint of
+   the stored hash on the token and reject a session whose fingerprint no longer
+   matches the row.
+5. **[MEDIUM] Close the timing oracle on `forgot-password` / `resend-verification`.**
+   Both answer with one generic body, but only the "account exists" branch awaits
+   an outbound Resend call, so response time distinguishes registered addresses.
+   Move the send into `after()` so both branches answer at the same speed.
+
 ## Notes
 
 <!-- Constraints, context, details -->
+
+- **No migration.** Finding 4 is deliberately solved without a schema change: a
+  `passwordChangedAt` column would need one, while a digest of the existing
+  `passwordHash` says the same thing and is already in the row.
+- **Changing a password now signs out every session, including the current one.**
+  That is the simplest correct reading of "revoke other sessions" and avoids
+  Auth.js's `unstable_update`; the consequence is that `/profile`'s dialog no
+  longer renders a success notice — the action redirects to `/sign-in?reset=1`,
+  reusing the notice the reset flow already has.
+- **Sessions minted before this change are invalidated** for password accounts,
+  since they carry no fingerprint. A one-time sign-out, and the fail-closed
+  direction.
+- The three `(auth)` pages switch their "already signed in" check from `auth()`
+  to `getCurrentUser()`, so a session the app has rejected cannot bounce off
+  `/sign-in` back into a redirect loop.
 
 ## History
 

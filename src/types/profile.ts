@@ -1,8 +1,10 @@
-/** What the change-password form renders through `useActionState`. */
+/**
+ * What the change-password form renders through `useActionState`. Refusals only:
+ * a change that goes through ends the session and redirects to `/sign-in`, so
+ * there is no success for the form to render.
+ */
 export interface ChangePasswordState {
   error: string | null;
-  /** Set once, so the form can confirm the change without navigating away. */
-  success: boolean;
 }
 
 /**
@@ -12,7 +14,6 @@ export interface ChangePasswordState {
  */
 export const CHANGE_PASSWORD_INITIAL_STATE: ChangePasswordState = {
   error: null,
-  success: false,
 };
 
 /** What the delete-account form renders when the deletion does not go through. */

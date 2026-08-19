@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 
 import { appOrigin } from "@/lib/app-url";
 import { issuePasswordReset } from "@/lib/password-reset";
@@ -66,6 +66,9 @@ export async function POST(request: Request) {
     );
   }
 
+  // Read before the response, so the origin cannot be derived from a request
+  // that is already on its way out.
+  const origin = appOrigin(request);
   const user = await prisma.user.findUnique({
     where: { email },
     select: { name: true, email: true, passwordHash: true },
@@ -75,12 +78,17 @@ export async function POST(request: Request) {
   // never had a password — mailing one a link would hand it a way to set one,
   // which is account linking and not this feature's job. The answer is the same
   // in every case.
+  //
+  // Deferred rather than awaited: the body says the same thing either way, but
+  // waiting on Resend only when there is something to send makes the response
+  // time say which addresses are registered. `after` runs it once the answer has
+  // already gone out, so both branches leave at the same speed. Nothing here
+  // reads the result — a failure is logged inside `issuePasswordReset`, and the
+  // caller was never told whether mail went out in the first place.
   if (user?.passwordHash) {
-    await issuePasswordReset({
-      email: user.email,
-      name: user.name,
-      origin: appOrigin(request),
-    });
+    const { email: to, name } = user;
+
+    after(() => issuePasswordReset({ email: to, name, origin }));
   }
 
   return NextResponse.json(GENERIC_RESULT);

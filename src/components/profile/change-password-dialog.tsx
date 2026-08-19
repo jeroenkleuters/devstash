@@ -35,7 +35,8 @@ export function ChangePasswordDialog() {
         <DialogHeader>
           <DialogTitle>Change password</DialogTitle>
           <DialogDescription>
-            You&apos;ll sign in with the new one from now on.
+            This signs you out everywhere. You&apos;ll sign back in with the new
+            password.
           </DialogDescription>
         </DialogHeader>
 
