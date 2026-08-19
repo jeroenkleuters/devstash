@@ -70,6 +70,22 @@ export const resetPasswordSchema = z
     path: ["confirmPassword"],
   });
 
+/**
+ * The profile page's change-password form. The current password is checked for
+ * presence only, for the same reason sign-in is: an account whose password
+ * predates a rule still has to be able to prove it knows it.
+ */
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Enter your current password."),
+    password: passwordSchema,
+    confirmPassword: z.string(),
+  })
+  .refine((values) => values.password === values.confirmPassword, {
+    error: "Passwords do not match.",
+    path: ["confirmPassword"],
+  });
+
 /** The first issue's message, for responses that carry a single error string. */
 export function firstIssueMessage(error: z.ZodError): string {
   return error.issues[0]?.message ?? "Invalid request.";

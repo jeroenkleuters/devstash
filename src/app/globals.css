@@ -727,6 +727,145 @@ a.sidebar-user-name:hover {
   color: var(--muted-foreground);
 }
 
+/* ---------- Profile ---------- */
+
+.profile-identity {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  margin-top: 2rem;
+  padding: 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+}
+
+/* Larger than the sidebar's copy — `UserAvatar` takes a matching `size` so the
+   picture is fetched at this box rather than scaled up from 2rem. */
+.profile-avatar {
+  width: 4rem;
+  height: 4rem;
+  font-size: 1.25rem;
+}
+
+.profile-identity-meta {
+  min-width: 0;
+}
+
+.profile-identity-name {
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.profile-identity-email {
+  margin-top: 0.25rem;
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+}
+
+.profile-identity-joined {
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--muted-foreground);
+}
+
+/* Two cards rather than the dashboard's four, so they keep a sane width instead
+   of stretching across half the column each. */
+.profile-usage-totals {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  max-width: 32rem;
+  margin-top: 0;
+}
+
+.profile-subheading {
+  margin: 1.75rem 0 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+.profile-type-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.profile-type {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--type-color);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+}
+
+.profile-type-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: var(--radius-md);
+  background: color-mix(in oklch, var(--type-color) 18%, transparent);
+  color: var(--type-color);
+}
+
+.profile-type-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.875rem;
+}
+
+.profile-type-count {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* `min()` in the track floor so a viewport narrower than the minimum gets a
+   column that fits it, rather than one that overflows. */
+.profile-panels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(20rem, 100%), 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+
+.profile-panel {
+  padding: 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+}
+
+.profile-panel-danger {
+  border-color: color-mix(in oklab, var(--destructive) 35%, var(--border));
+}
+
+.profile-panel-header h3 {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.profile-panel-header p {
+  margin-top: 0.375rem;
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+}
+
+/* The delete button follows the header directly, with no form between them. */
+.profile-panel-danger [data-slot="alert-dialog-trigger"] {
+  margin-top: 1.5rem;
+}
+
 /* ---------- Loading skeletons ----------
    Placeholders reuse the real component's classes for their box model, so these
    rules only size the block standing in for content. Text lines sit inside the
@@ -769,6 +908,10 @@ a.sidebar-user-name:hover {
 
 .skeleton-item-date {
   width: 3rem;
+}
+
+.skeleton-profile-type-name {
+  width: 5rem;
 }
 
 .skeleton-sidebar-icon {

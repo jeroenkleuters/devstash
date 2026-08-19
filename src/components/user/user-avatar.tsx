@@ -10,6 +10,12 @@ interface UserAvatarProps {
   email: string | null;
   /** The OAuth provider's picture, when the account came from one. */
   image?: string | null;
+  /**
+   * The rendered box in pixels, when `className` sizes it past the default —
+   * `next/image` fetches at these dimensions, so a scaled-up avatar would
+   * otherwise be a 32px picture stretched over a larger circle.
+   */
+  size?: number;
   className?: string;
 }
 
@@ -37,7 +43,13 @@ export function initials(source: string) {
  * either way: every call site sits next to the name in readable text, so the
  * image carries an empty `alt` rather than repeating it to a screen reader.
  */
-export function UserAvatar({ name, email, image, className }: UserAvatarProps) {
+export function UserAvatar({
+  name,
+  email,
+  image,
+  size = AVATAR_PIXELS,
+  className,
+}: UserAvatarProps) {
   const label = name ?? email ?? "";
 
   return (
@@ -47,8 +59,8 @@ export function UserAvatar({ name, email, image, className }: UserAvatarProps) {
           className="user-avatar-image"
           src={image}
           alt=""
-          width={AVATAR_PIXELS}
-          height={AVATAR_PIXELS}
+          width={size}
+          height={size}
         />
       ) : (
         initials(label)
