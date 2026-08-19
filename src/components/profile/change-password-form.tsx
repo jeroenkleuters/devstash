@@ -10,8 +10,9 @@ import { CHANGE_PASSWORD_INITIAL_STATE } from "@/types/profile";
 
 /**
  * Changes the password of an account that is already signed in, which is why it
- * asks for the current one instead of mailing a link. Rendered only for accounts
- * that have a password at all.
+ * asks for the current one instead of mailing a link. Lives inside
+ * `ChangePasswordDialog`, and is rendered only for accounts that have a
+ * password at all.
  *
  * No client-side copy of the rules: unlike registration, every rejection here
  * needs the server anyway — the current password is only checkable there — so
@@ -24,12 +25,7 @@ export function ChangePasswordForm() {
   );
 
   return (
-    <div className="profile-panel">
-      <header className="profile-panel-header">
-        <h3>Change password</h3>
-        <p>You&apos;ll sign in with the new one from now on.</p>
-      </header>
-
+    <>
       {state.error && (
         <p className="auth-error" role="alert">
           {state.error}
@@ -83,6 +79,6 @@ export function ChangePasswordForm() {
           {isPending ? "Saving…" : "Change password"}
         </Button>
       </form>
-    </div>
+    </>
   );
 }

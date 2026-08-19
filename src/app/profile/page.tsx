@@ -3,9 +3,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { SIGN_IN_PATH } from "@/auth.config";
-import { ChangePasswordForm } from "@/components/profile/change-password-form";
-import { DeleteAccount } from "@/components/profile/delete-account";
-import { ProfileIdentity } from "@/components/profile/profile-identity";
+import { ProfileAccount } from "@/components/profile/profile-account";
 import { ProfileUsage } from "@/components/profile/profile-usage";
 import { ProfileUsageSkeleton } from "@/components/profile/profile-usage-skeleton";
 import { getCurrentUser } from "@/lib/db/user";
@@ -32,38 +30,16 @@ export default async function ProfilePage() {
     <>
       <div className="dashboard-heading">
         <h1>Profile</h1>
-        <p>Your account and what it holds</p>
+        <p>Manage your account settings</p>
       </div>
 
-      <ProfileIdentity user={user} />
+      <ProfileAccount user={user} />
 
-      {/* Its own boundary: the identity above needs only the user query this
-          page already awaited, so it paints while the counts resolve. */}
+      {/* Its own boundary: the account panel above needs only the user query
+          this page already awaited, so it paints while the counts resolve. */}
       <Suspense fallback={<ProfileUsageSkeleton />}>
         <ProfileUsage userId={user.id} />
       </Suspense>
-
-      <section className="dashboard-section">
-        <h2 className="dashboard-section-title">Account</h2>
-
-        <div className="profile-panels">
-          {user.hasPassword ? (
-            <ChangePasswordForm />
-          ) : (
-            <div className="profile-panel">
-              <header className="profile-panel-header">
-                <h3>Password</h3>
-                <p>
-                  This account signs in with GitHub, so there is no password to
-                  change.
-                </p>
-              </header>
-            </div>
-          )}
-
-          <DeleteAccount email={user.email} />
-        </div>
-      </section>
     </>
   );
 }

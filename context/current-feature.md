@@ -1,16 +1,25 @@
-# Current Feature
+# Current Feature: Profile Page Improvements
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
-<!-- What does success look like? -->
+- The account panel on `/profile` carries an "Account Information" header.
+- Change password and delete account both live in Radix/ShadCN dialogs instead of inline panels.
+- Two buttons below the user information open those dialogs: "Change Password" (Key icon) and "Delete Account" (Trash icon, destructive styling).
+- The standalone change-password and delete-account panels are gone from the page.
+- Visual result matches @context/screenshots/profile-page-ui.png (identity block, then a separator, then the two buttons; Usage Statistics unchanged below).
 
 ## Notes
 
-<!-- Constraints, context, details -->
+- Spec: @context/features/improvements-profile-page.md
+- Reference screenshot: @context/screenshots/profile-page-ui.png — the identity row also shows an account-kind subtitle ("Email account") under the name, and Email / Member since as labelled rows with icons.
+- Delete account already uses `alert-dialog`; change password currently renders as an inline form panel, so it needs a `dialog` primitive (not yet in `src/components/ui/`) added via the ShadCN CLI.
+- The change-password form must keep rendering only for accounts with `hasPassword`; a GitHub-only account still gets the explanatory state.
+- Both mutations stay server actions in `src/lib/account.ts` / the existing action module — this is a presentation change, no change to validation, rate limiting or the delete cascade.
+- Testing: create a throwaway account to exercise the password change, then remove it through the Delete Account dialog. Do not disturb `demo@devstash.io` (password `12345678`).
 
 ## History
 
