@@ -14,8 +14,8 @@ function placeholders(count: number) {
  */
 export function ProfileUsageSkeleton() {
   return (
-    <section className="dashboard-section">
-      <h2 className="dashboard-section-title">Usage</h2>
+    <section className="profile-card">
+      <h2 className="profile-card-title">Usage Statistics</h2>
 
       <ul className="stat-cards profile-usage-totals" aria-busy="true">
         {placeholders(2).map((index) => (
@@ -31,7 +31,7 @@ export function ProfileUsageSkeleton() {
         ))}
       </ul>
 
-      <h3 className="profile-subheading">By type</h3>
+      <h3 className="profile-subheading">Items by Type</h3>
 
       <ul className="profile-type-list" aria-busy="true">
         {placeholders(TYPE_ROW_COUNT).map((index) => (

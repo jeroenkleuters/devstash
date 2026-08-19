@@ -21,8 +21,8 @@ export async function ProfileUsage({ userId }: ProfileUsageProps) {
   ]);
 
   return (
-    <section className="dashboard-section">
-      <h2 className="dashboard-section-title">Usage</h2>
+    <section className="profile-card">
+      <h2 className="profile-card-title">Usage Statistics</h2>
 
       <ul className="stat-cards profile-usage-totals">
         <li data-stat="items" className="stat-card">
@@ -30,7 +30,7 @@ export async function ProfileUsage({ userId }: ProfileUsageProps) {
             <Boxes size={16} aria-hidden />
           </span>
           <span className="stat-card-value">{items.total}</span>
-          <span className="stat-card-label">Items</span>
+          <span className="stat-card-label">Total Items</span>
         </li>
         <li data-stat="collections" className="stat-card">
           <span className="stat-card-icon">
@@ -41,7 +41,7 @@ export async function ProfileUsage({ userId }: ProfileUsageProps) {
         </li>
       </ul>
 
-      <h3 className="profile-subheading">By type</h3>
+      <h3 className="profile-subheading">Items by Type</h3>
 
       <ul className="profile-type-list">
         {types.map((type) => {
