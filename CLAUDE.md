@@ -18,6 +18,9 @@ npm run build   # production build
 npm run start   # serve the production build
 npm run lint    # bare `eslint` (Next 16 removed `next lint`)
 
+npm test            # vitest run — the unit suite
+npm run test:watch  # vitest in watch mode
+
 npm run db:migrate  # prisma migrate dev — the only way to change the schema
 npm run db:deploy   # prisma migrate deploy (production)
 npm run db:status   # prisma migrate status — run before committing
@@ -26,7 +29,9 @@ npm run db:test     # integrity checks against the seeded data (not a test suite
 npm run db:studio   # prisma studio
 ```
 
-No test runner is configured — there is no test framework or test file in the repo. `db:test` is not one: it runs `scripts/test-db.ts`, which asserts the seeded data is intact and prints it. If tests are needed, pick a runner and add the script rather than assuming one exists.
+Testing is Vitest, run with `npm test`. **Scope is server actions and utilities only** — the `include` pattern in `vitest.config.mts` covers `src/lib/**/*.test.ts` and `src/actions/**/*.test.ts` and nothing else, so a component test is not merely discouraged but never collected. Tests sit next to what they test, must not reach the network or the database (mock `@/lib/prisma` and `@/auth`), and get no `.env` loaded — use `vi.stubEnv`.
+
+`npm run db:test` is a different thing and is **not** part of the suite: it runs `scripts/test-db.ts`, which asserts the seeded data in a live database is intact and prints it.
 
 ## Stack
 
