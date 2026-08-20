@@ -12,7 +12,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { TYPE_ICONS } from "@/constants/item-types";
+import { NUMBERED_TYPE_SLUGS, TYPE_ICONS } from "@/constants/item-types";
 import type { ItemSummary } from "@/lib/db/items";
 import { formatFileSize, formatLongDate } from "@/lib/utils";
 import type { ItemDetail } from "@/types/item";
@@ -179,11 +179,38 @@ function ItemContent({ detail }: { detail: ItemDetail }) {
     );
   }
 
-  return detail.content ? (
+  if (!detail.content) {
+    return <p className="item-drawer-empty">This item has no content.</p>;
+  }
+
+  return NUMBERED_TYPE_SLUGS.has(detail.type.slug) ? (
+    <NumberedCode content={detail.content} />
+  ) : (
     <pre className="item-drawer-code">
       <code>{detail.content}</code>
     </pre>
-  ) : (
-    <p className="item-drawer-empty">This item has no content.</p>
+  );
+}
+
+/**
+ * Code with a line-number gutter. The numbers are drawn by a CSS counter rather
+ * than written out as text, so they can't land in the clipboard when the block
+ * is drag-selected. Each line is its own `.line` element — the shape and the
+ * class name Shiki emits — so this markup can be swapped for highlighted HTML
+ * later without touching the gutter's styling.
+ */
+function NumberedCode({ content }: { content: string }) {
+  const lines = content.split("\n");
+
+  return (
+    <pre className="item-drawer-code item-drawer-code-numbered">
+      <code>
+        {lines.map((line, index) => (
+          <span className="line" key={index}>
+            {line}
+          </span>
+        ))}
+      </code>
+    </pre>
   );
 }

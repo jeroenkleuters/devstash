@@ -1,16 +1,26 @@
-# Current Feature
+# Current Feature: Snippet code view with line numbers
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
-<!-- What does success look like? -->
+- Snippet content in the item drawer renders as a code view with a line-number gutter.
+- Line numbers are drawn with CSS counters — no new dependency, no highlighter.
+- Numbers are not selectable and never land in the clipboard when the block is drag-selected.
+- The gutter stays put while a long line scrolls horizontally.
+- Blank lines keep their row, so the numbering stays aligned with the code.
+- Numbering is gated on the item **type slug**, not `contentType`: Snippet gets the gutter, Prompt / Note / Command keep the current plain block.
+- `npm test` and `npm run build` stay clean.
 
 ## Notes
 
-<!-- Constraints, context, details -->
+- Touches `ItemContent` in `src/components/items/item-drawer.tsx` and `.item-drawer-code` in `src/app/globals.css`. `detail.type.slug` is already on `ItemDetail`, so no query or API change.
+- The per-line element is classed `line` — the class Shiki emits — so the gutter CSS survives unchanged when syntax highlighting lands later (project overview §9). Highlighting itself is out of scope: the drawer fetches from a client component, so Shiki would have to run server-side and return HTML on `ItemDetail`, which is its own feature.
+- Avoid `display: grid` on the `<code>`: with `white-space: pre` the newline text nodes a highlighter emits between line spans become anonymous grid items and throw the rows off. Block-level spans dodge it.
+- `min-height: 1lh` is what keeps empty lines occupying a row — the same unit the dashboard skeletons already rely on, and confirmed to survive Lightning CSS.
+- Numbers as `::before` generated content rather than real text nodes is what keeps them out of a copied selection; `user-select: none` alone is less reliable across browsers. The drawer's Copy button already uses `detail.content` and is unaffected either way.
 
 ## History
 
