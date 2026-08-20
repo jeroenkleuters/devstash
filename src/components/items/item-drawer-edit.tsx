@@ -14,6 +14,9 @@ import { updateItemSchema } from "@/lib/validations/item";
 import { firstIssueMessage } from "@/lib/validations/auth";
 import type { ItemDetail } from "@/types/item";
 
+/** Said when the request never reached the action, so it named no reason. */
+const UNREACHABLE = "Could not reach the server. Try again.";
+
 interface ItemDrawerEditProps {
   detail: ItemDetail;
   /** Hands the saved item back so the drawer can show what was stored. */
@@ -75,12 +78,17 @@ export function ItemDrawerEdit({
     setSaving(true);
     setError(null);
 
-    const result = await updateItem(detail.id, payload);
+    // The action answers a failed *write* with `{ success: false }`, but a
+    // failed *request* rejects instead. Without this the rejection is unhandled
+    // and `saving` never clears, leaving Save permanently dead.
+    const result = await updateItem(detail.id, payload).catch(() => null);
 
-    if (!result.success) {
+    if (!result?.success) {
+      const message = result?.error ?? UNREACHABLE;
+
       setSaving(false);
-      setError(result.error);
-      toast.error(result.error);
+      setError(message);
+      toast.error(message);
       return;
     }
 
