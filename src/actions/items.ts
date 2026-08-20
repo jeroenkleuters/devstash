@@ -1,10 +1,13 @@
 "use server";
 
 import { getCurrentUserId } from "@/lib/db/user";
-import { updateItem as updateItemRow } from "@/lib/db/items";
+import {
+  deleteItem as deleteItemRow,
+  updateItem as updateItemRow,
+} from "@/lib/db/items";
 import { firstIssueMessage } from "@/lib/validations/auth";
 import { updateItemSchema } from "@/lib/validations/item";
-import type { UpdateItemResult } from "@/types/item";
+import type { DeleteItemResult, UpdateItemResult } from "@/types/item";
 
 /**
  * A session is not the same as a live account: the row can be gone while the
@@ -16,6 +19,8 @@ const SIGNED_OUT = "Your session has ended. Sign in again.";
 const MISSING = "That item no longer exists.";
 
 const FAILED = "Could not save this item. Try again.";
+
+const DELETE_FAILED = "Could not delete this item. Try again.";
 
 /**
  * Saves the item drawer's edit mode.
@@ -54,5 +59,33 @@ export async function updateItem(
     // not lost, and give the drawer something it can put in a toast.
     console.error("updateItem failed", error);
     return { success: false, error: FAILED };
+  }
+}
+
+/**
+ * Deletes an item from the drawer's confirmation dialog.
+ *
+ * There is nothing to validate beyond the session and the ownership the query
+ * enforces — the id is the whole payload, and an id that is not the caller's
+ * is answered as missing rather than refused.
+ */
+export async function deleteItem(itemId: string): Promise<DeleteItemResult> {
+  const userId = await getCurrentUserId();
+
+  if (!userId) {
+    return { success: false, error: SIGNED_OUT };
+  }
+
+  try {
+    const deleted = await deleteItemRow(userId, itemId);
+
+    if (!deleted) {
+      return { success: false, error: MISSING };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error("deleteItem failed", error);
+    return { success: false, error: DELETE_FAILED };
   }
 }

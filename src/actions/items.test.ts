@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { updateItem } from "@/actions/items";
-import { updateItem as updateItemRow } from "@/lib/db/items";
+import { deleteItem, updateItem } from "@/actions/items";
+import {
+  deleteItem as deleteItemRow,
+  updateItem as updateItemRow,
+} from "@/lib/db/items";
 import { getCurrentUserId } from "@/lib/db/user";
 import type { ItemDetail } from "@/types/item";
 
@@ -11,10 +14,14 @@ import type { ItemDetail } from "@/types/item";
  * own job — session, validation, and turning a result into a response — as the
  * only thing under test.
  */
-vi.mock("@/lib/db/items", () => ({ updateItem: vi.fn() }));
+vi.mock("@/lib/db/items", () => ({
+  updateItem: vi.fn(),
+  deleteItem: vi.fn(),
+}));
 vi.mock("@/lib/db/user", () => ({ getCurrentUserId: vi.fn() }));
 
 const updateItemRowMock = vi.mocked(updateItemRow);
+const deleteItemRowMock = vi.mocked(deleteItemRow);
 const getCurrentUserIdMock = vi.mocked(getCurrentUserId);
 
 const DETAIL = {
@@ -43,6 +50,7 @@ beforeEach(() => {
 
   getCurrentUserIdMock.mockResolvedValue("user-1");
   updateItemRowMock.mockResolvedValue(DETAIL);
+  deleteItemRowMock.mockResolvedValue(true);
 });
 
 describe("updateItem", () => {
@@ -112,6 +120,56 @@ describe("updateItem", () => {
     expect(result).toEqual({
       success: false,
       error: "Could not save this item. Try again.",
+    });
+    expect(logged).toHaveBeenCalled();
+  });
+});
+
+describe("deleteItem", () => {
+  it("deletes the item for the signed-in account", async () => {
+    const result = await deleteItem("item-1");
+
+    expect(result).toEqual({ success: true });
+
+    // The action never takes a user id from its caller: the one it scopes the
+    // delete to comes from the session.
+    expect(deleteItemRowMock).toHaveBeenCalledWith("user-1", "item-1");
+  });
+
+  it("refuses when the session has no live account", async () => {
+    getCurrentUserIdMock.mockResolvedValue(null);
+
+    const result = await deleteItem("item-1");
+
+    expect(result).toEqual({
+      success: false,
+      error: "Your session has ended. Sign in again.",
+    });
+    expect(deleteItemRowMock).not.toHaveBeenCalled();
+  });
+
+  it("reports an item that is missing or owned by someone else", async () => {
+    // The query deletes nothing in both cases and says so with `false`, so the
+    // action cannot confirm that an id it may not touch exists.
+    deleteItemRowMock.mockResolvedValue(false);
+
+    const result = await deleteItem("item-1");
+
+    expect(result).toEqual({
+      success: false,
+      error: "That item no longer exists.",
+    });
+  });
+
+  it("turns a failed delete into a message rather than throwing", async () => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    deleteItemRowMock.mockRejectedValue(new Error("connection lost"));
+
+    const result = await deleteItem("item-1");
+
+    expect(result).toEqual({
+      success: false,
+      error: "Could not delete this item. Try again.",
     });
     expect(logged).toHaveBeenCalled();
   });

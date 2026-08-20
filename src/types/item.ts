@@ -50,3 +50,11 @@ export interface ItemDetail {
 export type UpdateItemResult =
   | { success: true; data: ItemDetail }
   | { success: false; error: string };
+
+/**
+ * What `deleteItem` in `src/actions/items.ts` answers with. There is no `data`
+ * half: the item is gone, so the only thing left to say is whether it worked.
+ */
+export type DeleteItemResult =
+  | { success: true }
+  | { success: false; error: string };

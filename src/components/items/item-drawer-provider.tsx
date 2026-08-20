@@ -128,6 +128,23 @@ export function ItemDrawerProvider({ children }: { children: ReactNode }) {
     router.refresh();
   }, [router]);
 
+  /**
+   * Closes the drawer on an item that no longer exists.
+   *
+   * `requestRef` is bumped for the same reason a save does it: a GET issued
+   * before the delete would otherwise land and repopulate a drawer for a row
+   * that is gone. `summary` is deliberately left alone — the sheet animates
+   * out, and clearing it now would blank the drawer on the way.
+   */
+  const handleDeleted = useCallback(() => {
+    requestRef.current += 1;
+    setOpen(false);
+
+    // The cards, the sidebar's per-type counts and the stat cards are all
+    // server-rendered, so they only drop the item on a refetch.
+    router.refresh();
+  }, [router]);
+
   const handleOpenChange = useCallback((next: boolean) => {
     setOpen(next);
 
@@ -150,6 +167,7 @@ export function ItemDrawerProvider({ children }: { children: ReactNode }) {
           open={open}
           onOpenChange={handleOpenChange}
           onSaved={handleSaved}
+          onDeleted={handleDeleted}
         />
       )}
     </ItemDrawerContext.Provider>

@@ -1,16 +1,35 @@
-# Current Feature
+# Current Feature: Delete Items
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
-<!-- What does success look like? -->
+- The item drawer's Delete button stops being inert: clicking it opens a ShadCN `AlertDialog` confirmation naming the item, and confirming deletes it.
+- Cancelling closes the dialog and changes nothing; the drawer stays open on the item.
+- On success the drawer closes, a toast confirms the deletion, and the lists behind it no longer show the card.
+- On failure the drawer stays open and the reason is reported — inside the dialog, not only as a toast, so it does not vanish with the confirmation.
+- `deleteItem(itemId)` in `src/actions/items.ts` — a server action returning `{ success, error }`, reading the session via `getCurrentUserId()` and enforcing ownership before it deletes.
+- `deleteItem` in `src/lib/db/items.ts` does the delete, scoped to the owner, and reports whether a row actually went.
+- `router.refresh()` after a delete so the dashboard's Pinned/Recent and `/items/[type]` drop the card, and the sidebar's per-type counts and the stat cards come back down.
+- `npm test` and `npm run build` stay clean, with the new action logic actually covered.
 
 ## Notes
 
-<!-- Constraints, context, details -->
+Loaded inline, no spec file. Scope is **delete only** — "create delete functionality" read as building the delete flow, which is what the confirmation dialog and the one inert Trash button both point at. Creating items is a separate feature and a much larger one: the top bar's New Item button is display-only and no create form exists anywhere.
+
+- **No new ShadCN primitive is needed.** `alert-dialog` landed with the profile page and `sonner` with the rate-limiting feature, and both are already imported elsewhere.
+- **`AlertDialogAction` closes the dialog on click**, which is why `delete-account-dialog.tsx` uses a plain submit `Button` instead — a failure would otherwise have nowhere to report itself. The same applies here and the same solution should be reused; `AlertDialogCancel` is fine as-is.
+- **Two nested Radix portals.** The confirmation opens inside the drawer's `Sheet`, and both portal to `body` and set `pointer-events: none` on it while open. Closing them together on a successful delete is the case to watch — a stuck `pointer-events: none` leaves the whole page unclickable. Closing the dialog first and the drawer after, or letting the drawer's close be the only state change, is likely what avoids it.
+- **`deleteMany` guarded on its `count`, not `delete`.** Prisma's `delete` throws `P2025` when the row is already gone, so a double-click or two tabs racing would answer with a 500-shaped failure instead of "that item no longer exists". This is the fix the password-reset flow already carries and the one `consumeVerificationToken` still lacks.
+- **Ownership goes in the `where`**, as `updateItem` does: `deleteMany({ where: { id: itemId, userId } })` means another account's item reads as *missing* rather than forbidden, so an id nobody may see is never confirmed to exist. `MISSING` in `src/actions/items.ts` already carries that wording.
+- **What the delete takes with it:** `ItemCollection` rows cascade (`onDelete: Cascade` on `itemId`), and the implicit `Item` ↔ `Tag` join rows cascade too. **`Tag` rows themselves survive** — they are per-user and shared, so deleting the last item carrying a tag leaves an orphaned tag row. No sweep exists and none is in scope; worth recording rather than fixing.
+- **The provider owns the close.** `ItemDrawerProvider` already holds `open`, `summary` and the `requestRef` guard, and `handleSaved` is the precedent for a mutation handing state back up. A delete should bump `requestRef` the same way, so an in-flight GET cannot repopulate a drawer for an item that is gone.
+- **`summary` is deliberately kept on close** so the sheet does not blank mid-animation. That stays true after a delete — the card behind it is gone once `router.refresh()` lands, and nothing can reopen the drawer without a card to click.
+- Delete belongs to the drawer only. Adding it to `ItemCard` (a hover affordance, a context menu) is not in scope.
+- Coding standards put this on a **server action, not an API route** — same reasoning as edit mode: the drawer is authenticated and has a session to read.
+- Toast copy should match the house voice already in the drawer: `toast.success("Copied to clipboard")` / `toast.success("Item saved")`.
 
 ## History
 
