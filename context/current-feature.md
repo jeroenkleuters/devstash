@@ -1,16 +1,35 @@
-# Current Feature
+# Current Feature: Items List View
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
 <!-- What does success look like? -->
 
+- Dynamic route `/items/[type]` renders the type-filtered items for the signed-in user (e.g. `/items/snippets`, `/items/notes`).
+- Items are fetched by type slug and displayed as a responsive grid of `ItemCard` components.
+- Grid is one column on small screens, two columns from the medium breakpoint up.
+- Each card keeps its left border color-coded by item type.
+- Follows the existing codebase patterns (server components, `lib/db/` query modules, semantic classes in `globals.css`).
+
 ## Notes
 
 <!-- Constraints, context, details -->
+
+Spec: @context/features/item-list-view-spec.md
+
+Context from the existing code:
+
+- The sidebar already links here — `/items/${type.slug}` in `src/components/layout/sidebar.tsx:65` — so these links stop 404ing. Slugs are plural and seeded in `prisma/seed.ts`: `snippets`, `prompts`, `commands`, `notes`, `files`, `images`, `links`.
+- `ItemCard` (`src/components/items/item-card.tsx`) already renders the type-colored left border via `data-type={item.type.slug}` and takes an `ItemSummary`. It renders an `<li>`, so the grid container must be a `<ul>` — `ItemList` is the existing one, currently a single-column list.
+- **Decision — widen `ItemList` itself**, no variant prop. Its other two consumers are the dashboard's Pinned and Recent sections, so those go two-column as well; that is intended, and it means the dashboard no longer matches @context/screenshots/dashboard-ui-main.png in that respect.
+- **Decision — an unknown slug 404s** via `notFound()`, rather than rendering an empty list.
+- `src/lib/db/items.ts` holds the item queries and the shared `itemSelect`; a `getItemsByType(userId, slug)` belongs there, alongside the existing `getPinnedItems` / `getRecentItems`.
+- The page needs the shell that `/dashboard` and `/profile` use — three lines around `<AppShell>` in a `layout.tsx`, plus `force-dynamic`, matching `src/app/profile/layout.tsx`.
+- Route protection: the proxy matcher in `src/proxy.ts` only covers `/dashboard*` and `/profile*` today, so `/items/*` has to be added there, and the page should redirect on a null `getCurrentUser()` the way `/profile` does.
+- No Tailwind utility classes in the markup — the two-column grid goes in `globals.css` on the existing `.item-list` class.
 
 ## History
 

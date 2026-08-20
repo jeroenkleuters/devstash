@@ -1,3 +1,7 @@
+import { cache } from "react";
+
+import { prisma } from "@/lib/prisma";
+
 /** The item type metadata a card needs to render its icon and color coding. */
 export interface ItemTypeSummary {
   id: string;
@@ -29,6 +33,22 @@ const TYPE_SLUG_ORDER = [
   "images",
   "links",
 ];
+
+/**
+ * Resolves a `/items/[type]` URL segment to its type, or null when the segment
+ * names no type — which is what makes an unknown slug a 404 rather than an
+ * empty list. Only system types are addressable; custom types are post-launch.
+ *
+ * `cache` memoizes per request so the page and its `generateMetadata` share one
+ * query rather than each resolving the same segment.
+ */
+export const getItemTypeBySlug = cache(
+  async (slug: string): Promise<ItemTypeSummary | null> =>
+    prisma.itemType.findFirst({
+      where: { isSystem: true, slug },
+      select: itemTypeSelect,
+    }),
+);
 
 /** Sorts by `TYPE_SLUG_ORDER`, unknown slugs last and then alphabetically. */
 export function compareItemTypes(a: ItemTypeSummary, b: ItemTypeSummary) {

@@ -1,5 +1,6 @@
 import { Clock, Pin } from "lucide-react";
 
+import { ItemListSkeleton } from "@/components/items/item-list-skeleton";
 import { Skeleton } from "@/components/ui/skeleton";
 
 /**
@@ -91,32 +92,5 @@ export function RecentItemsSectionSkeleton() {
       </h2>
       <ItemListSkeleton count={RECENT_ITEM_COUNT} />
     </section>
-  );
-}
-
-function ItemListSkeleton({ count }: { count: number }) {
-  return (
-    <ul className="item-list" aria-busy="true">
-      {placeholders(count).map((index) => (
-        <li key={index} className="item-card">
-          <Skeleton className="item-card-icon" />
-
-          <div className="item-card-body">
-            <h3 className="item-card-title">
-              <Skeleton className="skeleton-line skeleton-item-title" />
-            </h3>
-            {/* `div` for the same reason as the collection card's lines above. */}
-            <div className="item-card-description">
-              <Skeleton className="skeleton-line skeleton-item-description" />
-            </div>
-          </div>
-
-          {/* A `span`, not the real `time` — an empty one carries no date. */}
-          <span className="item-card-date">
-            <Skeleton className="skeleton-line skeleton-item-date" />
-          </span>
-        </li>
-      ))}
-    </ul>
   );
 }

@@ -64,6 +64,23 @@ export async function getRecentItems(
 }
 
 /**
+ * Every item of one type, for `/items/[type]`. Pinned first, then most recently
+ * updated — the same ordering the dashboard splits across its two sections.
+ */
+export async function getItemsByType(
+  userId: string,
+  itemTypeId: string,
+): Promise<ItemSummary[]> {
+  const items = await prisma.item.findMany({
+    where: { userId, itemTypeId },
+    orderBy: [{ isPinned: "desc" }, { updatedAt: "desc" }],
+    select: itemSelect,
+  });
+
+  return items.map(toSummary);
+}
+
+/**
  * The system item types the sidebar lists, each with the user's item count.
  * System types are shared (`userId: null`), so only the count is per user.
  */
