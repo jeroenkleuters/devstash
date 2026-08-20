@@ -1,16 +1,28 @@
-# Current Feature
+# Current Feature: Item Create
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
-<!-- What does success look like? -->
+- The top bar's "New Item" button opens a ShadCN `Dialog` for creating an item — it is display-only today, and nothing in the app creates an item.
+- The dialog has a type selector covering snippet, prompt, command, note and link.
+- Fields render per selected type: title (required), description and tags for every type; content + language for snippet/command; content for prompt/note; URL (required) for link.
+- A `createItem` server action validates with Zod and returns the `{ success, data, error }` shape.
+- A `createItem` query function in `src/lib/db/items.ts` writes the row.
+- On success: toast, close the dialog, refresh the lists.
 
 ## Notes
 
-<!-- Constraints, context, details -->
+- Spec: @context/features/item-create-spec.md
+- The spec's type list omits **File** and **Image**. Those are the Pro-gated file types with no upload flow anywhere in the app, so they stay out of the selector.
+- Precedent to follow — the edit form (`src/components/items/item-drawer-edit.tsx`, `updateItem` in `src/actions/items.ts` and `src/lib/db/items.ts`) already does nearly all of this in reverse: same field set, same slug-gated Language via `LANGUAGE_TYPE_SLUGS`, the same tag rules (trim, drop empties, dedupe case-sensitively, cap), and `connectOrCreate` on the `userId_name` compound unique. Reuse the schema shape rather than inventing a second one.
+- Only the payload field the chosen type's `contentType` owns may be written (`content` for TEXT, `url` for URL) — the three are mutually exclusive with no DB constraint enforcing it, and `scripts/test-db.ts` asserts it.
+- The type selector must resolve a slug to an `ItemType` id; `getItemTypeBySlug` in `src/lib/db/item-types.ts` exists and is `cache()`d. Ownership/`itemTypeId` must come from the server, never from a caller-supplied id.
+- `updateItem`'s caller in the drawer edit form is missing a `.catch` on the awaited action, which strands its `saving` state — the delete flow already hit that bug. Don't repeat it in the create form.
+- `sonner` is already mounted (rate limiting feature); `dialog` is already in `components/ui/` (profile improvements). No new ShadCN primitive expected.
+- Toast + `router.refresh()` after success, matching `handleSaved` / `handleDeleted` in the item drawer provider.
 
 ## History
 

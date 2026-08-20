@@ -1,13 +1,20 @@
 "use server";
 
+import { creatableType } from "@/constants/item-types";
+import { getItemTypeBySlug } from "@/lib/db/item-types";
 import { getCurrentUserId } from "@/lib/db/user";
 import {
+  createItem as createItemRow,
   deleteItem as deleteItemRow,
   updateItem as updateItemRow,
 } from "@/lib/db/items";
 import { firstIssueMessage } from "@/lib/validations/auth";
-import { updateItemSchema } from "@/lib/validations/item";
-import type { DeleteItemResult, UpdateItemResult } from "@/types/item";
+import { createItemSchema, updateItemSchema } from "@/lib/validations/item";
+import type {
+  CreateItemResult,
+  DeleteItemResult,
+  UpdateItemResult,
+} from "@/types/item";
 
 /**
  * A session is not the same as a live account: the row can be gone while the
@@ -21,6 +28,61 @@ const MISSING = "That item no longer exists.";
 const FAILED = "Could not save this item. Try again.";
 
 const DELETE_FAILED = "Could not delete this item. Try again.";
+
+const CREATE_FAILED = "Could not create this item. Try again.";
+
+/** The slug parsed, but no system type answering to it — an un-seeded database. */
+const UNKNOWN_TYPE = "That item type is not available.";
+
+/**
+ * Creates an item from the "New Item" dialog.
+ *
+ * The type arrives as a slug and is resolved here, so `itemTypeId` and the
+ * `contentType` that decides which payload field is stored both come from the
+ * server. A request naming a type the dialog does not offer — File and Image,
+ * which have no upload flow — fails the schema before any of this runs.
+ */
+export async function createItem(input: unknown): Promise<CreateItemResult> {
+  const userId = await getCurrentUserId();
+
+  if (!userId) {
+    return { success: false, error: SIGNED_OUT };
+  }
+
+  const parsed = createItemSchema.safeParse(input);
+
+  if (!parsed.success) {
+    return { success: false, error: firstIssueMessage(parsed.error) };
+  }
+
+  // The schema already refused anything else, so this is a lookup rather than a
+  // check — but the content kind has to come from somewhere the caller cannot
+  // set, and this is it.
+  const creatable = creatableType(parsed.data.typeSlug);
+
+  if (!creatable) {
+    return { success: false, error: UNKNOWN_TYPE };
+  }
+
+  try {
+    const type = await getItemTypeBySlug(creatable.slug);
+
+    if (!type) {
+      return { success: false, error: UNKNOWN_TYPE };
+    }
+
+    const detail = await createItemRow(
+      userId,
+      { id: type.id, slug: type.slug, contentType: creatable.contentType },
+      parsed.data,
+    );
+
+    return { success: true, data: detail };
+  } catch (error) {
+    console.error("createItem failed", error);
+    return { success: false, error: CREATE_FAILED };
+  }
+}
 
 /**
  * Saves the item drawer's edit mode.

@@ -125,10 +125,10 @@ export function ItemDrawerEdit({
       <div className="item-drawer-body">
         {/* The buttons live in the header above, so they reach the form by id
             rather than by containment. */}
-        <form id={FORM_ID} className="item-edit-form" onSubmit={handleSubmit}>
+        <form id={FORM_ID} className="item-form" onSubmit={handleSubmit}>
           {error && <p className="item-drawer-error">{error}</p>}
 
-          <div className="item-edit-field">
+          <div className="item-form-field">
             <Label htmlFor="item-title">Title</Label>
             <Input
               id="item-title"
@@ -140,7 +140,7 @@ export function ItemDrawerEdit({
             />
           </div>
 
-          <div className="item-edit-field">
+          <div className="item-form-field">
             <Label htmlFor="item-description">Description</Label>
             <Textarea
               id="item-description"
@@ -152,12 +152,12 @@ export function ItemDrawerEdit({
           </div>
 
           {showContent && (
-            <div className="item-edit-field">
+            <div className="item-form-field">
               <Label htmlFor="item-content">Content</Label>
               <Textarea
                 id="item-content"
                 name="content"
-                className="item-edit-content"
+                className="item-form-content"
                 value={values.content}
                 onChange={(event) => setField("content", event.target.value)}
                 rows={12}
@@ -167,7 +167,7 @@ export function ItemDrawerEdit({
           )}
 
           {showUrl && (
-            <div className="item-edit-field">
+            <div className="item-form-field">
               <Label htmlFor="item-url">URL</Label>
               <Input
                 id="item-url"
@@ -181,7 +181,7 @@ export function ItemDrawerEdit({
           )}
 
           {showLanguage && (
-            <div className="item-edit-field">
+            <div className="item-form-field">
               <Label htmlFor="item-language">Language</Label>
               <Input
                 id="item-language"
@@ -193,7 +193,7 @@ export function ItemDrawerEdit({
             </div>
           )}
 
-          <div className="item-edit-field">
+          <div className="item-form-field">
             <Label htmlFor="item-tags">Tags</Label>
             <Input
               id="item-tags"
@@ -202,7 +202,7 @@ export function ItemDrawerEdit({
               onChange={(event) => setField("tags", event.target.value)}
               placeholder="react, hooks"
             />
-            <p className="item-edit-hint">Separate tags with commas.</p>
+            <p className="item-form-hint">Separate tags with commas.</p>
           </div>
         </form>
       </div>

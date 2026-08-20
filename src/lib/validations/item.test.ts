@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { updateItemSchema } from "@/lib/validations/item";
+import { createItemSchema, updateItemSchema } from "@/lib/validations/item";
 
 /** The shape the drawer submits, with every field at its empty default. */
 function payload(overrides: Record<string, unknown> = {}) {
@@ -127,5 +127,58 @@ describe("updateItemSchema", () => {
     it("rejects a tag beyond the length cap", () => {
       expect(firstError({ tags: ["x".repeat(33)] })).toMatch(/limited to 32/);
     });
+  });
+});
+
+describe("createItemSchema", () => {
+  /** The create payload is the edit one plus the type it is created as. */
+  function createParse(overrides: Record<string, unknown> = {}) {
+    return createItemSchema.safeParse({
+      typeSlug: "snippets",
+      ...payload(overrides),
+    });
+  }
+
+  function createError(overrides: Record<string, unknown> = {}) {
+    const result = createParse(overrides);
+
+    return result.success ? null : result.error.issues[0]?.message;
+  }
+
+  it("shares the edit schema's field rules", () => {
+    // The two are built from one set of fields, so this is a spot check that
+    // they still are rather than a second pass over every rule.
+    expect(createError({ title: "   " })).toBe("Title is required.");
+  });
+
+  it("rejects a slug that names no type", () => {
+    expect(createError({ typeSlug: "banana" })).toBe("Choose an item type.");
+  });
+
+  it("rejects a type the dialog does not offer", () => {
+    // Files and images are real system types, so the check cannot be "does this
+    // slug exist" — they have no upload flow and must not be creatable here.
+    expect(createError({ typeSlug: "files" })).toBe("Choose an item type.");
+    expect(createError({ typeSlug: "images" })).toBe("Choose an item type.");
+  });
+
+  it("requires a URL for a link", () => {
+    expect(createError({ typeSlug: "links", url: "" })).toBe(
+      "A URL is required.",
+    );
+  });
+
+  it("accepts a link that has one", () => {
+    const result = createParse({
+      typeSlug: "links",
+      url: "https://example.com",
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("does not ask a text type for a URL", () => {
+    // Only the URL types are held to it — a snippet has nowhere to put one.
+    expect(createParse({ typeSlug: "notes", url: "" }).success).toBe(true);
   });
 });
