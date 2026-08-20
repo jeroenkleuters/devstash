@@ -2,6 +2,7 @@ import { Suspense, type ReactNode } from "react";
 import { redirect } from "next/navigation";
 
 import { SIGN_IN_PATH } from "@/auth.config";
+import { ItemDrawerProvider } from "@/components/items/item-drawer-provider";
 import { Sidebar } from "@/components/layout/sidebar";
 import { SidebarProvider } from "@/components/layout/sidebar-provider";
 import { SidebarSkeleton } from "@/components/layout/sidebar-skeleton";
@@ -29,7 +30,12 @@ export function AppShell({ children }: { children: ReactNode }) {
       </Suspense>
       <div className="dashboard-body">
         <TopBar />
-        <main className="dashboard-main">{children}</main>
+        {/* Wraps the page rather than living in one, because item cards appear
+            on the dashboard and on `/items/[type]` and both are server
+            components. `/profile` renders no cards and simply never opens it. */}
+        <ItemDrawerProvider>
+          <main className="dashboard-main">{children}</main>
+        </ItemDrawerProvider>
       </div>
     </SidebarProvider>
   );
