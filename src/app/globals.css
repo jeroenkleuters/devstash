@@ -894,6 +894,43 @@ a.sidebar-user-name:hover {
   color: var(--destructive);
 }
 
+.item-drawer-action-save {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.item-drawer-action-save:hover:not(:disabled) {
+  background: color-mix(in oklch, var(--primary) 88%, black);
+  color: var(--primary-foreground);
+}
+
+.item-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.125rem;
+}
+
+.item-edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.item-edit-hint {
+  font-size: 0.8125rem;
+  color: var(--muted-foreground);
+}
+
+/* The one field that is code rather than prose. `field-sizing-content` on the
+   primitive would otherwise grow the box to the whole snippet. */
+.item-edit-content {
+  field-sizing: fixed;
+  max-height: 60vh;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+
 .item-drawer-body {
   flex: 1;
   min-height: 0;

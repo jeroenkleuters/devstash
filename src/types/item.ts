@@ -41,3 +41,12 @@ export interface ItemDetail {
   createdAt: string;
   updatedAt: string;
 }
+
+/**
+ * What `updateItem` in `src/actions/items.ts` answers with — the project's
+ * `{ success, data, error }` action shape, narrowed so a successful result
+ * always carries the saved item and a failed one always carries a message.
+ */
+export type UpdateItemResult =
+  | { success: true; data: ItemDetail }
+  | { success: false; error: string };

@@ -1,16 +1,36 @@
-# Current Feature
+# Current Feature: Item Drawer — Edit Mode
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
-<!-- What does success look like? -->
+- The drawer's Edit button stops being inert: it switches the open drawer into edit mode inline, with no navigation and no second drawer.
+- In edit mode the action bar is replaced by Save and Cancel. Cancel discards and returns to view mode; Save persists, returns to view mode, and the drawer shows the saved values.
+- Title (required), Description and Tags (comma-separated) are editable for every type.
+- Content (snippet / prompt / command / note), Language (snippet / command) and URL (link) appear only for the types that own them.
+- Item type, collections and the created/updated dates stay display-only.
+- `updateItem(itemId, data)` in `src/actions/items.ts` — a server action returning `{ success, data, error }`, validating with Zod, reading the session via `auth()` and enforcing ownership before it writes.
+- `updateItem` in `src/lib/db/items.ts` does the write, replaces the item's tags, and returns the full updated `ItemDetail` so no second fetch is needed.
+- Toast on save success and on failure; Save disabled while the title is empty.
+- `router.refresh()` after a save so the card behind the drawer reflects the new title/tags.
+- `npm test` and `npm run build` stay clean, with the new validation and action logic actually covered.
 
 ## Notes
 
-<!-- Constraints, context, details -->
+Spec: @context/features/item-drawer-edit-spec.md
+
+- **No `textarea` primitive exists yet** — `src/components/ui/` has `input` and `label` but nothing for multi-line. Adding the ShadCN `textarea` would be the tenth generated file there and needs no new dependency.
+- **Tags are per-user rows**, not strings: `Tag` is `@@unique([userId, name])` with an implicit many-to-many to `Item`. So `connectOrCreate` has to key on the compound unique and carry `userId` — the spec's "disconnect all, connect-or-create" is right, but it cannot be written against `name` alone.
+- **`getItemDetail` converts its dates to ISO strings** before they cross the wire. `updateItem` returns the same `ItemDetail` shape, so it must do the same conversion or the drawer will receive `Date`s from the action and strings from the API for the same type.
+- **The drawer's detail lives in `ItemDrawerProvider`**, which currently only ever sets it from its own `fetch`. Save has to be able to replace it, so the context needs a way to hand a fresh `ItemDetail` back — and the provider's `requestRef` guard means a save landing while a fetch is in flight has to be reasoned about, not just assigned.
+- **The mode has to reset when the drawer closes or switches items**, or clicking a second card would open it mid-edit on someone else's fields.
+- **Validation is app-layer for the mutually exclusive fields** (`content` / `url` / `fileUrl`), per project overview §10 — the schema has no CHECK constraint, so the Zod schema is where "a link has a URL and no content" is enforced.
+- Zod 4 idioms, as established in `src/lib/validations/auth.ts`: `z.url()` / `z.email()` are top-level, and refine params take `error` rather than `message`.
+- Coding standards put this on a **server action, not an API route** — the drawer is authenticated and has a session to read, unlike the pre-auth flows that needed routes.
+- FILE and IMAGE types are only partly served here: the spec gives them no editable payload field, so they get title / description / tags only. Uploads are a separate, Pro-gated feature.
+- Out of scope per the spec: a code editor for the content textarea, collection management, and changing an item's type.
 
 ## History
 
