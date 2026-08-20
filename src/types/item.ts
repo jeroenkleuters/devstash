@@ -1,0 +1,43 @@
+import type { ItemTypeSummary } from "@/lib/db/item-types";
+
+/**
+ * Mirrors the `ContentType` enum in the schema. Spelled out rather than imported
+ * from the generated client so this module stays safe for a client component to
+ * import: adding a member to the enum widens Prisma's union and stops assigning
+ * to this one, which is the loud failure rather than silent drift.
+ */
+export type ItemContentType = "TEXT" | "URL" | "FILE";
+
+/** One collection an item sits in, as the drawer lists them. */
+export interface ItemCollectionSummary {
+  id: string;
+  name: string;
+}
+
+/**
+ * One item's full detail, shaped as it crosses the wire from
+ * `GET /api/items/[id]`. Dates are ISO strings and not `Date`s because JSON has
+ * no date type — `formatShortDate` / `formatLongDate` take either.
+ */
+export interface ItemDetail {
+  id: string;
+  title: string;
+  description: string | null;
+  contentType: ItemContentType;
+  /** Text content — snippet, prompt, note, command. */
+  content: string | null;
+  /** The target of a link item. */
+  url: string | null;
+  fileName: string | null;
+  fileSize: number | null;
+  fileUrl: string | null;
+  /** Syntax highlighting hint, shown next to the type. */
+  language: string | null;
+  isFavorite: boolean;
+  isPinned: boolean;
+  type: ItemTypeSummary;
+  tags: string[];
+  collections: ItemCollectionSummary[];
+  createdAt: string;
+  updatedAt: string;
+}
