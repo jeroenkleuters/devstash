@@ -22,6 +22,8 @@ interface ItemDrawerProps {
   onOpenChange: (open: boolean) => void;
   /** Passes the saved item up so the provider can refresh what it holds. */
   onSaved: (detail: ItemDetail) => void;
+  /** Closes the drawer on the item that was just deleted. */
+  onDeleted: () => void;
 }
 
 /** The item detail view. There is no item page — this is it. */
@@ -31,6 +33,7 @@ export function ItemDrawer({
   open,
   onOpenChange,
   onSaved,
+  onDeleted,
 }: ItemDrawerProps) {
   // Which item edit mode was entered on, rather than a bare boolean: clicking a
   // second card swaps `summary` without remounting the drawer, and comparing
@@ -43,6 +46,13 @@ export function ItemDrawer({
   function handleSaved(saved: ItemDetail) {
     setEditingId(null);
     onSaved(saved);
+  }
+
+  function handleDeleted() {
+    // Edit mode cannot survive the item it was editing, and the drawer would
+    // otherwise reopen into a form for a row that is gone.
+    setEditingId(null);
+    onDeleted();
   }
 
   function handleOpenChange(next: boolean) {
@@ -81,10 +91,13 @@ export function ItemDrawer({
               />
 
               <ItemDrawerActions
+                itemId={summary.id}
+                title={summary.title}
                 isFavorite={detail?.isFavorite ?? summary.isFavorite}
                 isPinned={detail?.isPinned ?? summary.isPinned}
                 detail={detail}
                 onEdit={() => setEditingId(summary.id)}
+                onDeleted={handleDeleted}
               />
             </SheetHeader>
 

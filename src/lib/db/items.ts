@@ -175,6 +175,32 @@ export async function updateItem(
   return toDetail(item);
 }
 
+/**
+ * Deletes one item. Answers whether a row actually went, so "already gone" and
+ * "someone else's" are the same `false` — the conflation `getItemDetail` and
+ * `updateItem` both make, for the same reason.
+ *
+ * `deleteMany` rather than `delete`: the latter throws `P2025` when the row is
+ * no longer there, so a double-click or two tabs racing would surface as a
+ * crash instead of as the item being gone. The `count` is what makes this safe
+ * to call twice.
+ *
+ * The item's collection links and its links to tags cascade; the `Tag` rows
+ * themselves stay, since they are per-user and other items may carry them.
+ */
+export async function deleteItem(
+  userId: string,
+  itemId: string,
+): Promise<boolean> {
+  // `userId` is in the `where` rather than checked against a prior read, so
+  // there is no window in which the row could be swapped for another account's.
+  const { count } = await prisma.item.deleteMany({
+    where: { id: itemId, userId },
+  });
+
+  return count > 0;
+}
+
 type ItemDetailRow = Prisma.ItemGetPayload<{ select: typeof itemDetailSelect }>;
 
 function toDetail({
