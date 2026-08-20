@@ -1,16 +1,28 @@
-# Current Feature
+# Current Feature: Vitest Unit Testing
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
 <!-- What does success look like? -->
 
+- Vitest is installed and configured, and `npm test` runs the suite.
+- Scope is **server actions and utilities only** — no component tests.
+- An initial suite covers the logic worth testing today, so the setup is proven rather than empty.
+- The workflow in @context/ai-interaction.md stops saying "implement unit testing later", and the other docs stop saying no test runner exists.
+
 ## Notes
 
 <!-- Constraints, context, details -->
+
+- `.claude/skills/feature/actions/test.md` was written ahead of this and already assumes Vitest and `npm test`, so both are settled; that file needs no change.
+- **`npm test` and `npm run db:test` are different things.** `db:test` runs `scripts/test-db.ts`, a seeded-data integrity check, and predates this. The docs already draw that distinction and need to keep drawing it now that a real test script exists.
+- Node environment, not jsdom — nothing here renders. The `include` pattern is restricted to `src/lib/**` and `src/actions/**` so the "no component tests" scope is enforced by the config rather than by convention.
+- `src/lib/prisma.ts` **throws at import time** when `DATABASE_URL` is unset, so any test touching a `lib/db/` module has to mock it. Note `src/lib/db/item-types.ts` only started importing Prisma in the previous feature; `compareItemTypes` next to it is pure.
+- Tests must not reach the network or the Neon dev branch. Anything needing Prisma, Upstash or Resend gets mocked.
+- Vitest does not load `.env`, which is what we want — `feature-flags.ts` and `app-url.ts` read `process.env` directly and should be exercised against stubbed values, not whatever is on disk.
 
 ## History
 

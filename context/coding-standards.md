@@ -54,6 +54,7 @@ Example v4 configuration:
 - Server Actions: `src/actions/[feature].ts`
 - Types: `src/types/[feature].ts`
 - Lib/Utils: `src/lib/[utility].ts`
+- Tests: next to the module — `src/lib/[utility].test.ts`, `src/actions/[feature].test.ts`
 
 ## Naming
 
@@ -82,6 +83,16 @@ Example v4 configuration:
 - Server components fetch directly with Prisma
 - Client components use Server Actions
 - Validate all inputs with Zod
+
+## Testing
+
+- Vitest, run with `npm test` — see the Testing section of [ai-interaction.md](ai-interaction.md) for the workflow
+- **Unit test server actions and utilities only.** Components are out of scope, and `vitest.config.mts` enforces it: only `src/lib/**/*.test.ts` and `src/actions/**/*.test.ts` are collected
+- Co-locate the test with its module (`utils.ts` → `utils.test.ts`)
+- Import test globals explicitly (`import { describe, expect, it } from "vitest"`) — globals are not enabled
+- Tests are offline: mock `@/lib/prisma` and `@/auth`, and never point a test at a real database or a third-party API
+- Use `vi.stubEnv` for anything reading `process.env`; Vitest loads no `.env` file
+- Cover the branch or rule that earns the test — happy path plus the error cases that matter. Don't write tests for the sake of a number
 
 ## Error Handling
 

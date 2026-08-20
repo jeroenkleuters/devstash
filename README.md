@@ -6,7 +6,7 @@ See [context/project-overview.md](context/project-overview.md) for the full prod
 
 ## Status
 
-Early development. The dashboard at `/dashboard` renders live data from Neon: stat cards, the recent collection grid, pinned items and recent items, plus the sidebar navigation. Authentication is not wired up yet — [src/lib/db/user.ts](src/lib/db/user.ts) resolves the seeded demo account as a stand-in for the session until NextAuth lands. The `/items/[type]` and `/collections` routes are linked from the sidebar but do not exist yet.
+Early development, but the signed-in experience is real. Authentication is NextAuth v5 with email/password and GitHub OAuth, plus email verification, password reset and a `/profile` page with change-password and delete-account. `/dashboard` renders the signed-in account's own data from Neon — stat cards, the recent collection grid, pinned and recent items, and the sidebar — and `/items/[type]` lists the items of one type. `/collections` is still linked from the sidebar but does not exist yet, and there is no way to create or open an item from the UI: the quick-create drawer is not built.
 
 ## Stack
 
@@ -18,6 +18,7 @@ Early development. The dashboard at `/dashboard` renders live data from Neon: st
 | ORM | Prisma 7 with the Neon driver adapter |
 | Styling | Tailwind CSS v4 + shadcn/ui |
 | Fonts | Geist Sans / Geist Mono via `next/font` |
+| Unit tests | Vitest (server actions & utilities only) |
 
 Dark mode is the default, applied as `.dark` on `<html>` in [src/app/layout.tsx](src/app/layout.tsx).
 
@@ -54,6 +55,8 @@ npm run dev         # dev server on http://localhost:3000
 npm run build       # production build
 npm run start       # serve the production build
 npm run lint        # bare `eslint` (Next 16 removed `next lint`)
+npm test            # vitest run — unit suite (server actions & utilities)
+npm run test:watch  # vitest in watch mode
 
 npm run db:migrate  # prisma migrate dev — the only way to change the schema
 npm run db:deploy   # prisma migrate deploy (production)
@@ -65,17 +68,25 @@ npm run db:studio   # prisma studio
 
 Never use `prisma db push` or edit the database directly.
 
-There is no test runner configured — `db:test` is a data integrity script, not a unit test suite.
+`db:test` is a data integrity script against a live database, **not** part of the unit suite — that is `npm test`.
+
+## Testing
+
+Vitest, configured in [vitest.config.mts](vitest.config.mts). The scope is deliberately narrow: **server actions and utilities, not components.** Only `src/lib/**/*.test.ts` and `src/actions/**/*.test.ts` are collected, so a test file elsewhere is never run.
+
+Tests are co-located with the module they cover and stay offline — `src/lib/prisma.ts` throws at import time without `DATABASE_URL`, so anything touching `lib/db/` mocks it, and `@/auth` is mocked for action tests. Vitest loads no `.env` file; modules reading `process.env` are exercised with `vi.stubEnv`.
 
 ## Project layout
 
 ```
 prisma/          schema, migrations, seed
-scripts/         one-off maintenance scripts (test-db)
+scripts/         one-off maintenance scripts (test-db, prune-users)
 context/         product spec, coding standards, feature specs, history
-src/app/         routes — root layout + /dashboard
-src/components/  ui/ (shadcn primitives), layout/, dashboard/, collections/, items/
-src/lib/         prisma client, utils, db/ query modules
+src/app/         routes — root layout, (auth) group, /dashboard, /items/[type], /profile, api/
+src/components/  ui/ (shadcn primitives), layout/, dashboard/, collections/, items/, auth/, profile/, user/
+src/actions/     server actions (+ co-located *.test.ts)
+src/lib/         prisma client, utils, db/ query modules, validations/ (+ co-located *.test.ts)
+src/types/       shared type definitions and action state
 src/constants/   item type icons and Pro-gated slugs
 src/generated/   Prisma client output (gitignored, rebuilt by postinstall)
 ```

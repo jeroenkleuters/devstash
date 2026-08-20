@@ -378,6 +378,7 @@ flowchart TD
 | AI | OpenAI `gpt-5-nano` | [platform.openai.com/docs](https://platform.openai.com/docs) |
 | Styling | Tailwind CSS v4 + ShadCN UI | [tailwindcss.com/docs](https://tailwindcss.com/docs) · [ui.shadcn.com](https://ui.shadcn.com) |
 | Payments | Stripe (subscriptions) | [stripe.com/docs](https://stripe.com/docs) |
+| Unit tests | Vitest — server actions & utilities only | [vitest.dev](https://vitest.dev) |
 
 **Architecture notes:**
 
@@ -451,6 +452,7 @@ devstash/
 │   │   └── layout/
 │   │       ├── sidebar.tsx
 │   │       └── mobile-nav-drawer.tsx
+│   ├── actions/                            # server actions (+ co-located *.test.ts)
 │   ├── lib/
 │   │   ├── prisma.ts                       # Prisma client singleton + Neon adapter
 │   │   ├── auth.ts                         # NextAuth v5 config
@@ -482,6 +484,7 @@ devstash/
 ├── next.config.ts
 ├── postcss.config.mjs                      # Tailwind v4 plugin — no tailwind.config.ts
 ├── prisma.config.ts                        # Prisma 7 CLI config (schema, seed, datasource)
+├── vitest.config.mts                       # Vitest — node env, `@/*` alias, lib/ + actions/ only
 ├── package.json
 └── tsconfig.json
 ```
@@ -491,6 +494,7 @@ devstash/
 - Route groups `(marketing)`, `(auth)`, `(app)` share the `app/` URL namespace but get separate layouts — e.g. `(app)/layout.tsx` renders the sidebar shell only for logged-in pages.
 - `lib/` holds all third-party client singletons (Prisma, R2, OpenAI, Stripe) so API routes import one shared instance instead of re-initializing per request.
 - `lib/db/` holds the read queries server components call directly; each module owns its own `select` and returns a narrow summary type rather than a raw Prisma model.
+- Unit tests are co-located as `*.test.ts` next to the module they cover, and only under `lib/` and `actions/` — `vitest.config.mts` collects nothing else, so components are out of scope by configuration rather than by convention.
 - `constants/item-types.ts` is the single source of truth for system type icons and Pro gating — reused by the sidebar and item cards. Type *colors* live in `globals.css` as `--type-*` custom properties, not here, since only CSS consumes them.
 - Tailwind v4 is configured in CSS via `@theme` in `globals.css`. There is **no** `tailwind.config.ts` — see @context/coding-standards.md.
 
