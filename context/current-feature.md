@@ -1,16 +1,36 @@
-# Current Feature
+# Current Feature: Item List Column Ladder
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
 <!-- What does success look like? -->
 
+- The item list renders **3 columns** on wide screens, **2 columns** from 1024px, and **1 column** below that.
+- The full ladder: `< 1024px` → 1 · `1024–1535px` → 2 · `≥ 1536px` → 3.
+- The dashboard's Pinned and Recent lists follow the same ladder, as they did when the list went two-column.
+- No Tailwind utility classes in the markup — the change lives in `globals.css`.
+
 ## Notes
 
 <!-- Constraints, context, details -->
+
+Inline request: "change the item listing to three columns in a row for wide screens. keep 2 for >= 1024px screens size and 1 column for >= 768px".
+
+**Decisions taken when loading:**
+
+- **"Wide" is 1536px / 96rem** (Tailwind's 2xl), so a 1440px laptop keeps 2 columns and only a 4K or ultrawide display gets 3.
+- **One shared rule on `.item-list`**, so the dashboard's Pinned and Recent sections get the ladder too — consistent with the two-column decision, and it avoids adding a modifier prop to `ItemList`.
+
+**Context from the existing code:**
+
+- `.item-list` in `src/app/globals.css:649` is currently `repeat(2, 1fr)` at base, collapsing to `1fr` inside the existing `@media (max-width: 47.99rem)` block at line 1071, where it shares a selector with `.collection-grid`.
+- **The single-column band widens**: today 768–1023px is two columns, and it becomes one. That is a real change, not just an addition, and it is the fix for the "titles wrap more than the dashboard used to" note the items-list-view feature left open.
+- `.collection-grid` is deliberately **not** in scope — it is `repeat(auto-fill, minmax(17rem, 1fr))` and already sizes itself.
+- The file is desktop-first: base rules describe the wide layout and `max-width` blocks narrow it. A three-step ladder does not fit that shape cleanly, so how it is expressed is an implementation call — either add a `min-width: 96rem` block for the third column, or restate `.item-list` mobile-first on its own. Whichever is chosen, the existing `47.99rem` block still needs its `.item-list` entry reconciled with the new 1024px boundary.
+- No new dependency and no migration. Nothing to unit test — this is one CSS rule, and the suite covers server actions and utilities only.
 
 ## History
 

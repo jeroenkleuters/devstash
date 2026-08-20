@@ -646,13 +646,34 @@ a.sidebar-user-name:hover {
   color: var(--type-color);
 }
 
+/*
+ * Stated mobile-first, unlike the rest of the file: three steps do not fit the
+ * desktop-first shape without scattering across two more `max-width` blocks,
+ * and the ladder is easier to read with its rungs adjacent.
+ *
+ * One column until 64rem/1024px — an item card carries a title, a description
+ * and a date on one row, and below that it has to wrap to fit two of them.
+ * The third column waits for 96rem/1536px so a 1440px laptop keeps two.
+ */
 .item-list {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: 1fr;
   gap: 0.75rem;
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+@media (min-width: 64rem) {
+  .item-list {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 96rem) {
+  .item-list {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
 
 .item-card {
@@ -1068,8 +1089,7 @@ a.sidebar-user-name:hover {
     grid-template-columns: repeat(2, 1fr);
   }
 
-  .collection-grid,
-  .item-list {
+  .collection-grid {
     grid-template-columns: 1fr;
   }
 }
