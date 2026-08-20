@@ -10,20 +10,22 @@ interface ItemDrawerActionsProps {
   isPinned: boolean;
   /** Absent while the detail is still loading, or if it failed. */
   detail: ItemDetail | null;
+  /** Switches the drawer into edit mode. */
+  onEdit: () => void;
 }
 
 /**
  * The drawer's action bar.
  *
- * Only Copy does anything: it is the one action that never touches the server.
- * Favorite, Pin and Delete each need a server action and a revalidation story,
- * and Edit needs an item form that does not exist yet — so they render for the
- * layout and say why they are inert rather than promising something.
+ * Copy and Edit work; Favorite, Pin and Delete each still need a server action
+ * and a revalidation story, so they render for the layout and say why they are
+ * inert rather than promising something.
  */
 export function ItemDrawerActions({
   isFavorite,
   isPinned,
   detail,
+  onEdit,
 }: ItemDrawerActionsProps) {
   const copyable = detail ? copyText(detail) : null;
 
@@ -82,8 +84,9 @@ export function ItemDrawerActions({
         <button
           type="button"
           className="item-drawer-action"
-          disabled
-          title={SOON}
+          onClick={onEdit}
+          // There is nothing to populate the form with until the detail lands.
+          disabled={!detail}
         >
           <Pencil size={16} aria-hidden />
           Edit

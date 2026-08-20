@@ -1,18 +1,15 @@
 "use client";
 
 import { CalendarDays, ExternalLink, Folder, Tag } from "lucide-react";
+import { useState } from "react";
 
 import { ItemDrawerActions } from "@/components/items/item-drawer-actions";
+import { ItemDrawerEdit } from "@/components/items/item-drawer-edit";
+import { ItemDrawerHeading } from "@/components/items/item-drawer-heading";
 import { ItemDrawerSkeleton } from "@/components/items/item-drawer-skeleton";
 import type { ItemDetailState } from "@/components/items/item-drawer-provider";
-import { Badge } from "@/components/ui/badge";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
-import { NUMBERED_TYPE_SLUGS, TYPE_ICONS } from "@/constants/item-types";
+import { Sheet, SheetContent, SheetHeader } from "@/components/ui/sheet";
+import { NUMBERED_TYPE_SLUGS } from "@/constants/item-types";
 import type { ItemSummary } from "@/lib/db/items";
 import { formatFileSize, formatLongDate } from "@/lib/utils";
 import type { ItemDetail } from "@/types/item";
@@ -23,6 +20,8 @@ interface ItemDrawerProps {
   state: ItemDetailState;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Passes the saved item up so the provider can refresh what it holds. */
+  onSaved: (detail: ItemDetail) => void;
 }
 
 /** The item detail view. There is no item page — this is it. */
@@ -31,12 +30,33 @@ export function ItemDrawer({
   state,
   open,
   onOpenChange,
+  onSaved,
 }: ItemDrawerProps) {
-  const Icon = TYPE_ICONS[summary.type.icon];
+  // Which item edit mode was entered on, rather than a bare boolean: clicking a
+  // second card swaps `summary` without remounting the drawer, and comparing
+  // the two here means the new item cannot inherit the old one's open form.
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const editing = editingId === summary.id;
+
   const detail = state.status === "ready" ? state.detail : null;
 
+  function handleSaved(saved: ItemDetail) {
+    setEditingId(null);
+    onSaved(saved);
+  }
+
+  function handleOpenChange(next: boolean) {
+    // Reopening the same item should start in view mode, so the drawer cannot
+    // be closed mid-edit and come back to a stale form.
+    if (!next) {
+      setEditingId(null);
+    }
+
+    onOpenChange(next);
+  }
+
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet open={open} onOpenChange={handleOpenChange}>
       {/* `aria-describedby={undefined}` because the drawer has no one-line
           summary to point at: the description is a section of the body, and
           Radix would otherwise warn about the missing `Sheet.Description`. */}
@@ -45,42 +65,40 @@ export function ItemDrawer({
         side="right"
         aria-describedby={undefined}
       >
-        <SheetHeader className="item-drawer-header">
-          <div className="item-drawer-heading" data-type={summary.type.slug}>
-            <span className="item-drawer-icon">
-              {Icon && <Icon size={20} aria-hidden />}
-            </span>
-
-            <div className="item-drawer-heading-text">
-              <SheetTitle className="item-drawer-title">
-                {summary.title}
-              </SheetTitle>
-
-              <div className="item-drawer-badges">
-                <Badge variant="secondary">{summary.type.name}</Badge>
-                {detail?.language && (
-                  <Badge variant="secondary">{detail.language}</Badge>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <ItemDrawerActions
-            isFavorite={detail?.isFavorite ?? summary.isFavorite}
-            isPinned={detail?.isPinned ?? summary.isPinned}
+        {editing && detail ? (
+          <ItemDrawerEdit
             detail={detail}
+            onSaved={handleSaved}
+            onCancel={() => setEditingId(null)}
           />
-        </SheetHeader>
+        ) : (
+          <>
+            <SheetHeader className="item-drawer-header">
+              <ItemDrawerHeading
+                title={detail?.title ?? summary.title}
+                type={summary.type}
+                language={detail?.language ?? null}
+              />
 
-        {state.status === "loading" && <ItemDrawerSkeleton />}
+              <ItemDrawerActions
+                isFavorite={detail?.isFavorite ?? summary.isFavorite}
+                isPinned={detail?.isPinned ?? summary.isPinned}
+                detail={detail}
+                onEdit={() => setEditingId(summary.id)}
+              />
+            </SheetHeader>
 
-        {state.status === "error" && (
-          <div className="item-drawer-body">
-            <p className="item-drawer-error">{state.message}</p>
-          </div>
+            {state.status === "loading" && <ItemDrawerSkeleton />}
+
+            {state.status === "error" && (
+              <div className="item-drawer-body">
+                <p className="item-drawer-error">{state.message}</p>
+              </div>
+            )}
+
+            {detail && <ItemDrawerBody detail={detail} />}
+          </>
         )}
-
-        {detail && <ItemDrawerBody detail={detail} />}
       </SheetContent>
     </Sheet>
   );

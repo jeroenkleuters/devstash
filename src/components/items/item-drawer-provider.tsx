@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import {
   createContext,
   useCallback,
@@ -54,6 +55,7 @@ export function ItemDrawerProvider({ children }: { children: ReactNode }) {
   const [summary, setSummary] = useState<ItemSummary | null>(null);
   const [state, setState] = useState<ItemDetailState>({ status: "loading" });
   const [open, setOpen] = useState(false);
+  const router = useRouter();
 
   // Identifies the fetch the drawer is currently showing. Clicking a second
   // card, or closing, bumps it — so a slower earlier response cannot land on
@@ -96,6 +98,36 @@ export function ItemDrawerProvider({ children }: { children: ReactNode }) {
     })();
   }, []);
 
+  /**
+   * Takes the item a save just returned. It bumps `requestRef` for the same
+   * reason a second click does: a GET issued before the save must not land on
+   * top of a newer, stored value.
+   *
+   * `summary` is updated alongside, since the header and the card behind the
+   * drawer paint from it — leaving it would show the old title next to the new
+   * content until the router refresh caught up.
+   */
+  const handleSaved = useCallback((detail: ItemDetail) => {
+    requestRef.current += 1;
+    setState({ status: "ready", detail });
+
+    setSummary((current) =>
+      current && current.id === detail.id
+        ? {
+            ...current,
+            title: detail.title,
+            description: detail.description,
+            tags: detail.tags,
+            updatedAt: new Date(detail.updatedAt),
+          }
+        : current,
+    );
+
+    // The lists are server-rendered, so the cards behind the drawer only pick
+    // the change up on a refetch.
+    router.refresh();
+  }, [router]);
+
   const handleOpenChange = useCallback((next: boolean) => {
     setOpen(next);
 
@@ -117,6 +149,7 @@ export function ItemDrawerProvider({ children }: { children: ReactNode }) {
           state={state}
           open={open}
           onOpenChange={handleOpenChange}
+          onSaved={handleSaved}
         />
       )}
     </ItemDrawerContext.Provider>

@@ -35,3 +35,10 @@ export const PRO_TYPE_SLUGS = new Set(["files", "images"]);
  * and commands, where numbering a line or two of prose is noise.
  */
 export const NUMBERED_TYPE_SLUGS = new Set(["snippets"]);
+
+/**
+ * `ItemType.slug`s that carry a syntax-highlighting hint. Slug again rather
+ * than `ContentType`: a prompt and a note are TEXT too, and neither has a
+ * language.
+ */
+export const LANGUAGE_TYPE_SLUGS = new Set(["snippets", "commands"]);

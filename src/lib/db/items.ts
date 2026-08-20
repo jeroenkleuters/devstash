@@ -1,9 +1,11 @@
+import type { Prisma } from "@/generated/prisma/client";
 import {
   compareItemTypes,
   itemTypeSelect,
   type ItemTypeSummary,
 } from "@/lib/db/item-types";
 import { prisma } from "@/lib/prisma";
+import type { UpdateItemInput } from "@/lib/validations/item";
 import type { ItemDetail } from "@/types/item";
 
 export interface ItemSummary {
@@ -119,12 +121,70 @@ export async function getItemDetail(
     select: itemDetailSelect,
   });
 
-  if (!item) {
+  return item && toDetail(item);
+}
+
+/**
+ * Saves the drawer's edit mode. Returns the updated item so the drawer can show
+ * what was stored without a second fetch, or `null` if the item does not exist
+ * or belongs to someone else — the same conflation `getItemDetail` makes, and
+ * for the same reason.
+ *
+ * Only the payload field the item's `contentType` owns is written. The three
+ * are mutually exclusive with no constraint enforcing it (project overview
+ * §10), so a crafted request that sent `content` for a link would otherwise
+ * store both and break the integrity check in `scripts/test-db.ts`.
+ */
+export async function updateItem(
+  userId: string,
+  itemId: string,
+  input: UpdateItemInput,
+): Promise<ItemDetail | null> {
+  const existing = await prisma.item.findFirst({
+    where: { id: itemId, userId },
+    select: { contentType: true },
+  });
+
+  if (!existing) {
     return null;
   }
 
-  const { itemType, tags, collections, createdAt, updatedAt, ...rest } = item;
+  const item = await prisma.item.update({
+    // `userId` narrows a `where` that is already unique, so the row cannot be
+    // swapped for another account's between the read above and this write.
+    where: { id: itemId, userId },
+    data: {
+      title: input.title,
+      description: input.description,
+      language: input.language,
+      content: existing.contentType === "TEXT" ? input.content : undefined,
+      url: existing.contentType === "URL" ? input.url : undefined,
+      tags: {
+        // `set: []` drops the item's existing tags before the new ones are
+        // attached; the rows themselves stay, since other items may use them.
+        set: [],
+        connectOrCreate: input.tags.map((name) => ({
+          where: { userId_name: { userId, name } },
+          create: { userId, name },
+        })),
+      },
+    },
+    select: itemDetailSelect,
+  });
 
+  return toDetail(item);
+}
+
+type ItemDetailRow = Prisma.ItemGetPayload<{ select: typeof itemDetailSelect }>;
+
+function toDetail({
+  itemType,
+  tags,
+  collections,
+  createdAt,
+  updatedAt,
+  ...rest
+}: ItemDetailRow): ItemDetail {
   return {
     ...rest,
     type: itemType,
