@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { creatableType } from "@/constants/item-types";
+
 /** Long enough for a sentence, short enough to stay one line on a card. */
 const TITLE_MAX_LENGTH = 200;
 const DESCRIPTION_MAX_LENGTH = 500;
@@ -65,16 +67,16 @@ const tagsSchema = z
   );
 
 /**
- * The payload the drawer's edit mode submits.
+ * The fields an item form submits, shared by create and edit — the two carry
+ * the same set, and only the create payload also names a type.
  *
- * `contentType` is absent because an item's type cannot change here, and the
- * three mutually exclusive payload fields (`content` / `url` / `fileUrl`) are
- * not policed against each other here — this schema cannot see which type the
- * item is. `updateItem` in `src/lib/db/items.ts` reads the stored `contentType`
- * and writes only the field that type owns, which is where that rule from
- * project overview §10 is actually enforced.
+ * The three mutually exclusive payload fields (`content` / `url` / `fileUrl`)
+ * are not policed against each other here. `updateItem` cannot be: this shape
+ * does not say which type the item is, so `src/lib/db/items.ts` reads the
+ * stored `contentType` and writes only the field that type owns, which is where
+ * that rule from project overview §10 is enforced.
  */
-export const updateItemSchema = z.object({
+const itemFields = {
   title: z
     .string()
     .trim()
@@ -106,6 +108,40 @@ export const updateItemSchema = z.object({
     `Language is limited to ${LANGUAGE_MAX_LENGTH} characters.`,
   ),
   tags: tagsSchema,
-});
+};
+
+/**
+ * The payload the drawer's edit mode submits. No `typeSlug`, because an item's
+ * type cannot change here.
+ */
+export const updateItemSchema = z.object(itemFields);
 
 export type UpdateItemInput = z.infer<typeof updateItemSchema>;
+
+/**
+ * The payload the create dialog submits.
+ *
+ * `typeSlug` rather than an `itemTypeId`: the id is the database's to hand out,
+ * and accepting one from the caller would let a request name a type the dialog
+ * does not offer — the Pro-gated File and Image among them. The slug is checked
+ * against `CREATABLE_TYPES` here and resolved to a row server-side.
+ *
+ * Which payload field the chosen type owns is still `src/lib/db/items.ts`'s
+ * call; the only cross-field rule here is the one a form can act on, that a
+ * link is not a link without its URL.
+ */
+export const createItemSchema = z
+  .object({
+    typeSlug: z.string().refine((slug) => creatableType(slug) !== undefined, {
+      error: "Choose an item type.",
+    }),
+    ...itemFields,
+  })
+  .refine(
+    (values) =>
+      creatableType(values.typeSlug)?.contentType !== "URL" ||
+      values.url !== null,
+    { error: "A URL is required.", path: ["url"] },
+  );
+
+export type CreateItemInput = z.infer<typeof createItemSchema>;

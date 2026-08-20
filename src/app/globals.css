@@ -904,31 +904,113 @@ a.sidebar-user-name:hover {
   color: var(--primary-foreground);
 }
 
-.item-edit-form {
+/* ---------- Item form ----------
+   Shared by the drawer's edit mode and the create dialog: the two carry the
+   same fields, so they carry the same box model. */
+
+.item-form {
   display: flex;
   flex-direction: column;
   gap: 1.125rem;
 }
 
-.item-edit-field {
+.item-form-field {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
 }
 
-.item-edit-hint {
+.item-form-hint {
   font-size: 0.8125rem;
   color: var(--muted-foreground);
 }
 
 /* The one field that is code rather than prose. `field-sizing-content` on the
    primitive would otherwise grow the box to the whole snippet. */
-.item-edit-content {
+.item-form-content {
   field-sizing: fixed;
   max-height: 60vh;
   font-family: var(--font-mono);
   font-size: 0.8125rem;
   line-height: 1.6;
+}
+
+/* The primitive caps itself at `sm:max-w-sm`, which is too narrow for a form
+   carrying a content box. Unlayered, so it beats the utility without
+   `!important` — the same mechanism the sidebar's PRO badge relies on. */
+.item-create-dialog {
+  max-width: 40rem;
+}
+
+/* The fields scroll, so the footer's buttons stay in view on a long form. */
+.item-create-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.125rem;
+  max-height: min(60vh, 30rem);
+  overflow-y: auto;
+}
+
+.item-type-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  border: 0;
+}
+
+.item-type-legend {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.item-type-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.item-type-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4375rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    color 0.15s,
+    background 0.15s;
+}
+
+.item-type-option:hover {
+  color: var(--foreground);
+}
+
+/* The radio itself is hidden rather than removed, so the group keeps its
+   keyboard behaviour and its focus lands somewhere visible. */
+.item-type-option input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.item-type-option svg {
+  color: var(--type-color);
+}
+
+.item-type-option:has(:checked) {
+  border-color: var(--type-color);
+  background: color-mix(in oklch, var(--type-color) 12%, transparent);
+  color: var(--foreground);
+}
+
+.item-type-option:has(:focus-visible) {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
 }
 
 .item-drawer-body {

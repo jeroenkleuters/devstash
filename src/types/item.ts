@@ -43,6 +43,15 @@ export interface ItemDetail {
 }
 
 /**
+ * What `createItem` in `src/actions/items.ts` answers with. Structurally the
+ * same as `UpdateItemResult` and kept separate anyway: the two actions are free
+ * to diverge, and a create result reading `UpdateItemResult` would not.
+ */
+export type CreateItemResult =
+  | { success: true; data: ItemDetail }
+  | { success: false; error: string };
+
+/**
  * What `updateItem` in `src/actions/items.ts` answers with — the project's
  * `{ success, data, error }` action shape, narrowed so a successful result
  * always carries the saved item and a failed one always carries a message.

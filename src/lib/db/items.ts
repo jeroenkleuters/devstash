@@ -1,3 +1,4 @@
+import { LANGUAGE_TYPE_SLUGS } from "@/constants/item-types";
 import type { Prisma } from "@/generated/prisma/client";
 import {
   compareItemTypes,
@@ -5,8 +6,8 @@ import {
   type ItemTypeSummary,
 } from "@/lib/db/item-types";
 import { prisma } from "@/lib/prisma";
-import type { UpdateItemInput } from "@/lib/validations/item";
-import type { ItemDetail } from "@/types/item";
+import type { CreateItemInput, UpdateItemInput } from "@/lib/validations/item";
+import type { ItemContentType, ItemDetail } from "@/types/item";
 
 export interface ItemSummary {
   id: string;
@@ -122,6 +123,52 @@ export async function getItemDetail(
   });
 
   return item && toDetail(item);
+}
+
+/** The resolved type a new item is created as. */
+export interface CreateItemType {
+  /** `ItemType.id`, read from the database rather than taken from the request. */
+  id: string;
+  slug: string;
+  contentType: ItemContentType;
+}
+
+/**
+ * Creates one item for the signed-in account, and returns it in the same shape
+ * the drawer reads so the caller needs no follow-up fetch.
+ *
+ * Only the payload field the chosen type owns is written, for the reason
+ * `updateItem` spells out — the difference is that the type is being decided
+ * here rather than read off the row, so it is the caller's resolved
+ * `contentType` that decides, never what the request happened to send. Language
+ * is dropped the same way for the types that do not carry one.
+ */
+export async function createItem(
+  userId: string,
+  type: CreateItemType,
+  input: CreateItemInput,
+): Promise<ItemDetail> {
+  const item = await prisma.item.create({
+    data: {
+      userId,
+      itemTypeId: type.id,
+      contentType: type.contentType,
+      title: input.title,
+      description: input.description,
+      content: type.contentType === "TEXT" ? input.content : null,
+      url: type.contentType === "URL" ? input.url : null,
+      language: LANGUAGE_TYPE_SLUGS.has(type.slug) ? input.language : null,
+      tags: {
+        connectOrCreate: input.tags.map((name) => ({
+          where: { userId_name: { userId, name } },
+          create: { userId, name },
+        })),
+      },
+    },
+    select: itemDetailSelect,
+  });
+
+  return toDetail(item);
 }
 
 /**

@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { deleteItem, updateItem } from "@/actions/items";
+import { createItem, deleteItem, updateItem } from "@/actions/items";
+import { getItemTypeBySlug } from "@/lib/db/item-types";
 import {
+  createItem as createItemRow,
   deleteItem as deleteItemRow,
   updateItem as updateItemRow,
 } from "@/lib/db/items";
@@ -9,20 +11,31 @@ import { getCurrentUserId } from "@/lib/db/user";
 import type { ItemDetail } from "@/types/item";
 
 /**
- * Both modules import `@/lib/prisma`, which throws at import time without a
+ * These modules import `@/lib/prisma`, which throws at import time without a
  * `DATABASE_URL`. Replacing them keeps the test offline and leaves the action's
  * own job — session, validation, and turning a result into a response — as the
  * only thing under test.
  */
 vi.mock("@/lib/db/items", () => ({
+  createItem: vi.fn(),
   updateItem: vi.fn(),
   deleteItem: vi.fn(),
 }));
+vi.mock("@/lib/db/item-types", () => ({ getItemTypeBySlug: vi.fn() }));
 vi.mock("@/lib/db/user", () => ({ getCurrentUserId: vi.fn() }));
 
+const createItemRowMock = vi.mocked(createItemRow);
 const updateItemRowMock = vi.mocked(updateItemRow);
 const deleteItemRowMock = vi.mocked(deleteItemRow);
+const getItemTypeBySlugMock = vi.mocked(getItemTypeBySlug);
 const getCurrentUserIdMock = vi.mocked(getCurrentUserId);
+
+const SNIPPET_TYPE = {
+  id: "type-1",
+  slug: "snippets",
+  name: "Snippet",
+  icon: "Code",
+};
 
 const DETAIL = {
   id: "item-1",
@@ -49,8 +62,89 @@ beforeEach(() => {
   vi.clearAllMocks();
 
   getCurrentUserIdMock.mockResolvedValue("user-1");
+  getItemTypeBySlugMock.mockResolvedValue(SNIPPET_TYPE);
+  createItemRowMock.mockResolvedValue(DETAIL);
   updateItemRowMock.mockResolvedValue(DETAIL);
   deleteItemRowMock.mockResolvedValue(true);
+});
+
+describe("createItem", () => {
+  /** The dialog's payload: the edit fields plus the type it is created as. */
+  function createPayload(overrides: Record<string, unknown> = {}) {
+    return { typeSlug: "snippets", ...payload(overrides) };
+  }
+
+  it("creates the item as the resolved type", async () => {
+    const result = await createItem(createPayload({ title: "  Saved  " }));
+
+    expect(result).toEqual({ success: true, data: DETAIL });
+
+    // The id comes from the row the slug resolved to, and the content kind from
+    // the constant — never from the request. The payload arrives parsed, so the
+    // trim and the null-normalization have already happened.
+    expect(createItemRowMock).toHaveBeenCalledWith(
+      "user-1",
+      { id: "type-1", slug: "snippets", contentType: "TEXT" },
+      expect.objectContaining({ title: "Saved", description: null }),
+    );
+  });
+
+  it("refuses when the session has no live account", async () => {
+    getCurrentUserIdMock.mockResolvedValue(null);
+
+    const result = await createItem(createPayload());
+
+    expect(result).toEqual({
+      success: false,
+      error: "Your session has ended. Sign in again.",
+    });
+    expect(createItemRowMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects an invalid payload without touching the database", async () => {
+    const result = await createItem(createPayload({ title: "" }));
+
+    expect(result).toEqual({ success: false, error: "Title is required." });
+    expect(getItemTypeBySlugMock).not.toHaveBeenCalled();
+    expect(createItemRowMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses a type the dialog does not offer", async () => {
+    // `files` is a real system type, so the slug would resolve — the schema is
+    // what keeps a request from creating one, since nothing uploads a file.
+    const result = await createItem(createPayload({ typeSlug: "files" }));
+
+    expect(result).toEqual({ success: false, error: "Choose an item type." });
+    expect(getItemTypeBySlugMock).not.toHaveBeenCalled();
+    expect(createItemRowMock).not.toHaveBeenCalled();
+  });
+
+  it("reports a type with no row behind it", async () => {
+    // An un-seeded database: the slug is one the dialog offers, but nothing
+    // answers to it.
+    getItemTypeBySlugMock.mockResolvedValue(null);
+
+    const result = await createItem(createPayload());
+
+    expect(result).toEqual({
+      success: false,
+      error: "That item type is not available.",
+    });
+    expect(createItemRowMock).not.toHaveBeenCalled();
+  });
+
+  it("turns a failed write into a message rather than throwing", async () => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    createItemRowMock.mockRejectedValue(new Error("connection lost"));
+
+    const result = await createItem(createPayload());
+
+    expect(result).toEqual({
+      success: false,
+      error: "Could not create this item. Try again.",
+    });
+    expect(logged).toHaveBeenCalled();
+  });
 });
 
 describe("updateItem", () => {
