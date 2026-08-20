@@ -28,3 +28,10 @@ export const TYPE_ICONS: Record<string, LucideIcon> = {
  * while all users get full access during development.
  */
 export const PRO_TYPE_SLUGS = new Set(["files", "images"]);
+
+/**
+ * `ItemType.slug`s whose content is shown with a line-number gutter. Keyed on
+ * the slug rather than `ContentType` because TEXT also covers prompts, notes
+ * and commands, where numbering a line or two of prose is noise.
+ */
+export const NUMBERED_TYPE_SLUGS = new Set(["snippets"]);

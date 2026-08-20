@@ -940,6 +940,45 @@ a.sidebar-user-name:hover {
   line-height: 1.6;
 }
 
+/* The gutter is generated content, so it stays out of a copied selection —
+   more reliable across browsers than `user-select: none` on real text. The
+   `<code>` is deliberately not `display: grid`: with `white-space: pre` the
+   newline text nodes a highlighter emits between line spans would become
+   anonymous grid items and throw the rows off. */
+/* The gutter provides its own inset instead: padding-left is inside the
+   scrollport, so code scrolled sideways would otherwise show through the strip
+   to the left of the sticky numbers. */
+.item-drawer-code-numbered {
+  padding-left: 0;
+}
+
+.item-drawer-code-numbered code {
+  counter-reset: line;
+}
+
+.item-drawer-code-numbered .line {
+  display: block;
+  /* An empty line has no content to give it height; without this the numbers
+     drift out of step with the code. */
+  min-height: 1lh;
+  counter-increment: line;
+}
+
+.item-drawer-code-numbered .line::before {
+  content: counter(line);
+  /* Keeps the gutter in view while a long line scrolls the block sideways. */
+  position: sticky;
+  left: 0;
+  display: inline-block;
+  /* border-box, so this is the number column plus the gap after it. */
+  width: 3.5rem;
+  padding-right: 1rem;
+  text-align: right;
+  background: var(--muted);
+  color: var(--muted-foreground);
+  user-select: none;
+}
+
 .item-drawer-url {
   display: inline-flex;
   align-items: center;
