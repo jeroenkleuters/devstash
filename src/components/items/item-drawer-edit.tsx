@@ -4,12 +4,17 @@ import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
 import { updateItem } from "@/actions/items";
+import { CodeEditor } from "@/components/items/code-editor";
 import { ItemDrawerHeading } from "@/components/items/item-drawer-heading";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SheetHeader } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
-import { LANGUAGE_TYPE_SLUGS } from "@/constants/item-types";
+import {
+  LANGUAGE_TYPE_SLUGS,
+  codeTypeLanguage,
+  isCodeType,
+} from "@/constants/item-types";
 import { updateItemSchema } from "@/lib/validations/item";
 import { firstIssueMessage } from "@/lib/validations/auth";
 import type { ItemDetail } from "@/types/item";
@@ -45,6 +50,7 @@ export function ItemDrawerEdit({
   const showContent = detail.contentType === "TEXT";
   const showUrl = detail.contentType === "URL";
   const showLanguage = LANGUAGE_TYPE_SLUGS.has(detail.type.slug);
+  const showCode = showContent && isCodeType(detail.type.slug);
 
   // A title is the one field the item cannot be stored without, so the guard is
   // here as well as in the schema — an obviously dead Save button beats a round
@@ -161,16 +167,33 @@ export function ItemDrawerEdit({
 
           {showContent && (
             <div className="item-form-field">
-              <Label htmlFor="item-content">Content</Label>
-              <Textarea
-                id="item-content"
-                name="content"
-                className="item-form-content"
-                value={values.content}
-                onChange={(event) => setField("content", event.target.value)}
-                rows={12}
-                spellCheck={false}
-              />
+              {/* Monaco has no element to pair a label with, so the editor
+                  names itself through `ariaLabel` instead. */}
+              <Label htmlFor={showCode ? undefined : "item-content"}>
+                Content
+              </Label>
+
+              {showCode ? (
+                <CodeEditor
+                  value={values.content}
+                  // The live field, so the highlighting follows what is being
+                  // typed into Language rather than what was last saved.
+                  language={values.language}
+                  fallbackLanguage={codeTypeLanguage(detail.type.slug)}
+                  onChange={(next) => setField("content", next)}
+                  ariaLabel="Content"
+                />
+              ) : (
+                <Textarea
+                  id="item-content"
+                  name="content"
+                  className="item-form-content"
+                  value={values.content}
+                  onChange={(event) => setField("content", event.target.value)}
+                  rows={12}
+                  spellCheck={false}
+                />
+              )}
             </div>
           )}
 

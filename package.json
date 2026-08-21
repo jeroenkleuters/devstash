@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.3",
+    "@monaco-editor/react": "^4.7.0",
     "@neondatabase/serverless": "^1.1.0",
     "@prisma/adapter-neon": "^7.9.1",
     "@prisma/client": "^7.9.1",
@@ -49,6 +50,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.0",
+    "monaco-editor": "^0.56.0",
     "prisma": "^7.9.1",
     "tailwindcss": "^4",
     "tsx": "^4.23.12",

@@ -1,16 +1,27 @@
-# Current Feature
+# Current Feature: Code Editor (Monaco)
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
-<!-- What does success look like? -->
+- A `CodeEditor` component built on Monaco Editor, dark theme, used in both **display (readonly)** and **edit** modes.
+- Snippets and commands render/edit through `CodeEditor`; notes, prompts and every other non-code type keep the plain `Textarea`.
+- Editor chrome: macOS-style window dots (red / yellow / green) across the top.
+- Editor header carries a quick **copy** button, with the item's **language** shown next to it.
+- Height is fluid up to a **400px** max, with a themed scrollbar.
 
 ## Notes
 
-<!-- Additional context, constraints, details -->
+Spec: @context/features/code-editor-spec.md
+
+- Replaces two current renderings: the read-only content block in the item drawer (`item-drawer` content section, which today uses the CSS `counter()` line-number gutter for the slugs in `NUMBERED_TYPE_SLUGS`) and the `Textarea` in the item **edit** and **create** forms (`.item-form-content` / `.item-edit-content`).
+- Which types count as "code" wants a constant in `src/constants/item-types.ts` alongside `PRO_TYPE_SLUGS` / `NUMBERED_TYPE_SLUGS` / `LANGUAGE_TYPE_SLUGS` / `CREATABLE_TYPES` — `NUMBERED_TYPE_SLUGS` is already snippets-only, so decide whether commands join it or a new set is needed.
+- Monaco is a new dependency and a heavy one; it is browser-only, so it must be loaded in a client component (dynamic import, no SSR).
+- The spec's line-number question is implicit: Monaco draws its own gutter, so the hand-rolled `counter()` gutter for snippets is superseded wherever the editor replaces it.
+- Per project convention the markup carries no Tailwind utility classes — styling goes in `globals.css`, and Monaco's own theming is configured in JS.
+- Vitest collects only `src/lib/**` and `src/actions/**`, so a component-only change may add no tests; anything pure (language mapping, say) belongs in `src/lib/`.
 
 ## History
 
