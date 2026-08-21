@@ -5,6 +5,7 @@ import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
 import { createItem } from "@/actions/items";
+import { CodeEditor } from "@/components/items/code-editor";
 import { Button } from "@/components/ui/button";
 import { DialogClose, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -14,7 +15,9 @@ import {
   CREATABLE_TYPES,
   LANGUAGE_TYPE_SLUGS,
   TYPE_ICONS,
+  codeTypeLanguage,
   creatableType,
+  isCodeType,
 } from "@/constants/item-types";
 import { firstIssueMessage } from "@/lib/validations/auth";
 import { createItemSchema } from "@/lib/validations/item";
@@ -45,6 +48,7 @@ export function ItemCreateForm({ onCreated }: ItemCreateFormProps) {
   const showContent = type?.contentType === "TEXT";
   const showUrl = type?.contentType === "URL";
   const showLanguage = LANGUAGE_TYPE_SLUGS.has(typeSlug);
+  const showCode = showContent && isCodeType(typeSlug);
 
   // A title is the one field no type can be stored without, so the guard is
   // here as well as in the schema — an obviously dead button beats a round trip
@@ -167,16 +171,33 @@ export function ItemCreateForm({ onCreated }: ItemCreateFormProps) {
 
         {showContent && (
           <div className="item-form-field">
-            <Label htmlFor="create-item-content">Content</Label>
-            <Textarea
-              id="create-item-content"
-              name="content"
-              className="item-form-content"
-              value={values.content}
-              onChange={(event) => setField("content", event.target.value)}
-              rows={10}
-              spellCheck={false}
-            />
+            {/* Monaco has no element to pair a label with, so the editor names
+                itself through `ariaLabel` instead. */}
+            <Label htmlFor={showCode ? undefined : "create-item-content"}>
+              Content
+            </Label>
+
+            {showCode ? (
+              <CodeEditor
+                value={values.content}
+                // The live field, so the highlighting follows what is being
+                // typed into Language.
+                language={values.language}
+                fallbackLanguage={codeTypeLanguage(typeSlug)}
+                onChange={(next) => setField("content", next)}
+                ariaLabel="Content"
+              />
+            ) : (
+              <Textarea
+                id="create-item-content"
+                name="content"
+                className="item-form-content"
+                value={values.content}
+                onChange={(event) => setField("content", event.target.value)}
+                rows={10}
+                spellCheck={false}
+              />
+            )}
           </div>
         )}
 

@@ -3,13 +3,14 @@
 import { CalendarDays, ExternalLink, Folder, Tag } from "lucide-react";
 import { useState } from "react";
 
+import { CodeEditor } from "@/components/items/code-editor";
 import { ItemDrawerActions } from "@/components/items/item-drawer-actions";
 import { ItemDrawerEdit } from "@/components/items/item-drawer-edit";
 import { ItemDrawerHeading } from "@/components/items/item-drawer-heading";
 import { ItemDrawerSkeleton } from "@/components/items/item-drawer-skeleton";
 import type { ItemDetailState } from "@/components/items/item-drawer-provider";
 import { Sheet, SheetContent, SheetHeader } from "@/components/ui/sheet";
-import { NUMBERED_TYPE_SLUGS } from "@/constants/item-types";
+import { codeTypeLanguage, isCodeType } from "@/constants/item-types";
 import type { ItemSummary } from "@/lib/db/items";
 import { formatFileSize, formatLongDate } from "@/lib/utils";
 import type { ItemDetail } from "@/types/item";
@@ -178,10 +179,7 @@ function ItemDrawerBody({ detail }: { detail: ItemDetail }) {
   );
 }
 
-/**
- * The item's payload. Syntax highlighting and the per-type editors come later —
- * for now each content type is shown as what it is.
- */
+/** The item's payload, shown as whatever its content type makes it. */
 function ItemContent({ detail }: { detail: ItemDetail }) {
   if (detail.contentType === "URL") {
     return detail.url ? (
@@ -214,34 +212,18 @@ function ItemContent({ detail }: { detail: ItemDetail }) {
     return <p className="item-drawer-empty">This item has no content.</p>;
   }
 
-  return NUMBERED_TYPE_SLUGS.has(detail.type.slug) ? (
-    <NumberedCode content={detail.content} />
+  // Prompts and notes are TEXT too, and prose in a code editor reads worse
+  // than prose in a paragraph — only the code types get the editor.
+  return isCodeType(detail.type.slug) ? (
+    <CodeEditor
+      value={detail.content}
+      language={detail.language}
+      fallbackLanguage={codeTypeLanguage(detail.type.slug)}
+      readOnly
+    />
   ) : (
     <pre className="item-drawer-code">
       <code>{detail.content}</code>
-    </pre>
-  );
-}
-
-/**
- * Code with a line-number gutter. The numbers are drawn by a CSS counter rather
- * than written out as text, so they can't land in the clipboard when the block
- * is drag-selected. Each line is its own `.line` element — the shape and the
- * class name Shiki emits — so this markup can be swapped for highlighted HTML
- * later without touching the gutter's styling.
- */
-function NumberedCode({ content }: { content: string }) {
-  const lines = content.split("\n");
-
-  return (
-    <pre className="item-drawer-code item-drawer-code-numbered">
-      <code>
-        {lines.map((line, index) => (
-          <span className="line" key={index}>
-            {line}
-          </span>
-        ))}
-      </code>
     </pre>
   );
 }
