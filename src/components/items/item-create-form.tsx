@@ -12,6 +12,7 @@ import { DialogClose, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { MarkdownEditor } from "@/components/items/markdown-editor";
 import {
   CREATABLE_TYPES,
   LANGUAGE_TYPE_SLUGS,
@@ -19,6 +20,7 @@ import {
   TYPE_ICONS,
   codeTypeLanguage,
   isCodeType,
+  isMarkdownType,
   pickerType,
 } from "@/constants/item-types";
 import { firstIssueMessage } from "@/lib/validations/auth";
@@ -62,6 +64,7 @@ export function ItemCreateForm({
   const showUrl = creatable && type?.contentType === "URL";
   const showLanguage = creatable && LANGUAGE_TYPE_SLUGS.has(typeSlug);
   const showCode = showContent && isCodeType(typeSlug);
+  const showMarkdown = showContent && isMarkdownType(typeSlug);
 
   // A title is the one field no type can be stored without, so the guard is
   // here as well as in the schema — an obviously dead button beats a round trip
@@ -196,9 +199,13 @@ export function ItemCreateForm({
 
         {showContent && (
           <div className="item-form-field">
-            {/* Monaco has no element to pair a label with, so the editor names
-                itself through `ariaLabel` instead. */}
-            <Label htmlFor={showCode ? undefined : "create-item-content"}>
+            {/* Neither editor has an element to pair a label with, so each
+                names itself through `ariaLabel` instead. */}
+            <Label
+              htmlFor={
+                showCode || showMarkdown ? undefined : "create-item-content"
+              }
+            >
               Content
             </Label>
 
@@ -209,6 +216,12 @@ export function ItemCreateForm({
                 // typed into Language.
                 language={values.language}
                 fallbackLanguage={codeTypeLanguage(typeSlug)}
+                onChange={(next) => setField("content", next)}
+                ariaLabel="Content"
+              />
+            ) : showMarkdown ? (
+              <MarkdownEditor
+                value={values.content}
                 onChange={(next) => setField("content", next)}
                 ariaLabel="Content"
               />

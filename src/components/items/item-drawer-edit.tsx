@@ -10,10 +10,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SheetHeader } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
+import { MarkdownEditor } from "@/components/items/markdown-editor";
 import {
   LANGUAGE_TYPE_SLUGS,
   codeTypeLanguage,
   isCodeType,
+  isMarkdownType,
 } from "@/constants/item-types";
 import { updateItemSchema } from "@/lib/validations/item";
 import { firstIssueMessage } from "@/lib/validations/auth";
@@ -51,6 +53,7 @@ export function ItemDrawerEdit({
   const showUrl = detail.contentType === "URL";
   const showLanguage = LANGUAGE_TYPE_SLUGS.has(detail.type.slug);
   const showCode = showContent && isCodeType(detail.type.slug);
+  const showMarkdown = showContent && isMarkdownType(detail.type.slug);
 
   // A title is the one field the item cannot be stored without, so the guard is
   // here as well as in the schema — an obviously dead Save button beats a round
@@ -167,9 +170,11 @@ export function ItemDrawerEdit({
 
           {showContent && (
             <div className="item-form-field">
-              {/* Monaco has no element to pair a label with, so the editor
+              {/* Neither editor has an element to pair a label with, so each
                   names itself through `ariaLabel` instead. */}
-              <Label htmlFor={showCode ? undefined : "item-content"}>
+              <Label
+                htmlFor={showCode || showMarkdown ? undefined : "item-content"}
+              >
                 Content
               </Label>
 
@@ -180,6 +185,12 @@ export function ItemDrawerEdit({
                   // typed into Language rather than what was last saved.
                   language={values.language}
                   fallbackLanguage={codeTypeLanguage(detail.type.slug)}
+                  onChange={(next) => setField("content", next)}
+                  ariaLabel="Content"
+                />
+              ) : showMarkdown ? (
+                <MarkdownEditor
+                  value={values.content}
                   onChange={(next) => setField("content", next)}
                   ariaLabel="Content"
                 />

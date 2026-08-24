@@ -4,13 +4,18 @@ import { CalendarDays, ExternalLink, Folder, Tag } from "lucide-react";
 import { useState } from "react";
 
 import { CodeEditor } from "@/components/items/code-editor";
+import { MarkdownEditor } from "@/components/items/markdown-editor";
 import { ItemDrawerActions } from "@/components/items/item-drawer-actions";
 import { ItemDrawerEdit } from "@/components/items/item-drawer-edit";
 import { ItemDrawerHeading } from "@/components/items/item-drawer-heading";
 import { ItemDrawerSkeleton } from "@/components/items/item-drawer-skeleton";
 import type { ItemDetailState } from "@/components/items/item-drawer-provider";
 import { Sheet, SheetContent, SheetHeader } from "@/components/ui/sheet";
-import { codeTypeLanguage, isCodeType } from "@/constants/item-types";
+import {
+  codeTypeLanguage,
+  isCodeType,
+  isMarkdownType,
+} from "@/constants/item-types";
 import type { ItemSummary } from "@/lib/db/items";
 import { formatFileSize, formatLongDate } from "@/lib/utils";
 import type { ItemDetail } from "@/types/item";
@@ -212,16 +217,24 @@ function ItemContent({ detail }: { detail: ItemDetail }) {
     return <p className="item-drawer-empty">This item has no content.</p>;
   }
 
-  // Prompts and notes are TEXT too, and prose in a code editor reads worse
-  // than prose in a paragraph — only the code types get the editor.
-  return isCodeType(detail.type.slug) ? (
-    <CodeEditor
-      value={detail.content}
-      language={detail.language}
-      fallbackLanguage={codeTypeLanguage(detail.type.slug)}
-      readOnly
-    />
-  ) : (
+  if (isCodeType(detail.type.slug)) {
+    return (
+      <CodeEditor
+        value={detail.content}
+        language={detail.language}
+        fallbackLanguage={codeTypeLanguage(detail.type.slug)}
+        readOnly
+      />
+    );
+  }
+
+  // Notes and prompts are prose, so they render rather than being shown as
+  // their source.
+  if (isMarkdownType(detail.type.slug)) {
+    return <MarkdownEditor value={detail.content} readOnly />;
+  }
+
+  return (
     <pre className="item-drawer-code">
       <code>{detail.content}</code>
     </pre>
