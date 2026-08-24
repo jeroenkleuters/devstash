@@ -9,6 +9,17 @@ export type UploadKind = "image" | "file";
 const MEGABYTE = 1024 * 1024;
 
 /**
+ * The most one upload may be, for either kind.
+ *
+ * One number rather than two because the reason for a cap is the same for both
+ * now: the bytes go straight from the browser to R2, so the app is not holding
+ * them and the limit is about what an account may store rather than what a
+ * request can carry. It is signed into the upload URL — see `presignPut` — so
+ * this is the number R2 itself enforces, not a rule the form merely states.
+ */
+export const MAX_UPLOAD_BYTES = 100 * MEGABYTE;
+
+/**
  * Extension → the content type the object is stored and served as.
  *
  * The extension decides, not what the browser reported: `.md`, `.toml` and
@@ -74,7 +85,7 @@ const CONSTRAINTS = new Map<UploadKind, UploadConstraint>([
   [
     "image",
     {
-      maxBytes: 5 * MEGABYTE,
+      maxBytes: MAX_UPLOAD_BYTES,
       extensions: [...IMAGE_TYPES.keys()],
       mimeTypes: new Set(IMAGE_TYPES.values()),
       contentTypes: IMAGE_TYPES,
@@ -84,7 +95,7 @@ const CONSTRAINTS = new Map<UploadKind, UploadConstraint>([
   [
     "file",
     {
-      maxBytes: 10 * MEGABYTE,
+      maxBytes: MAX_UPLOAD_BYTES,
       extensions: [...FILE_TYPES.keys()],
       mimeTypes: new Set([...FILE_TYPES.values(), ...TYPE_ALIASES.keys()]),
       contentTypes: FILE_TYPES,

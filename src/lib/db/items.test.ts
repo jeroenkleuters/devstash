@@ -31,7 +31,12 @@ const FILE: CreateItemType = {
   contentType: "FILE",
 };
 
-const UPLOAD = { key: "uploads/user-1/abc.pdf", name: "notes.pdf", size: 2048 };
+const UPLOAD = { key: "uploads/user-1/abc.pdf", name: "notes.pdf" };
+
+/** The same object once R2 has confirmed it — the action's `confirmUpload`
+ * result, which is where the size comes from now that no byte of the file
+ * passes through the app. */
+const STORED = { ...UPLOAD, size: 2048 };
 
 /** The parsed payload, which arrives with its optional fields already nulled. */
 function input(overrides: Partial<CreateItemInput> = {}): CreateItemInput {
@@ -73,7 +78,7 @@ beforeEach(() => {
 
 describe("createItem", () => {
   it("writes text content for a text type, and no URL", async () => {
-    await createItem("user-1", SNIPPET, input({ content: "const a = 1;" }));
+    await createItem("user-1", SNIPPET, input({ content: "const a = 1;" }), null);
 
     expect(written()).toMatchObject({
       userId: "user-1",
@@ -97,6 +102,7 @@ describe("createItem", () => {
         url: "https://example.com",
         content: "left over",
       }),
+      null,
     );
 
     expect(written()).toMatchObject({
@@ -116,14 +122,15 @@ describe("createItem", () => {
         content: "left over",
         url: "https://example.com",
       }),
+      STORED,
     );
 
     // `fileUrl` holds the R2 object key, not a URL — see `createItem`.
     expect(written()).toMatchObject({
       contentType: "FILE",
-      fileUrl: UPLOAD.key,
-      fileName: UPLOAD.name,
-      fileSize: UPLOAD.size,
+      fileUrl: STORED.key,
+      fileName: STORED.name,
+      fileSize: STORED.size,
       content: null,
       url: null,
     });
@@ -132,7 +139,7 @@ describe("createItem", () => {
   it("ignores an upload sent for a type that holds no file", async () => {
     // The form clears it when the type changes, so this only happens to a
     // crafted request — the stored type decides, never the payload.
-    await createItem("user-1", SNIPPET, input({ file: UPLOAD }));
+    await createItem("user-1", SNIPPET, input({ file: UPLOAD }), STORED);
 
     expect(written()).toMatchObject({
       fileUrl: null,
@@ -142,7 +149,7 @@ describe("createItem", () => {
   });
 
   it("keeps the language on a type that carries one", async () => {
-    await createItem("user-1", SNIPPET, input({ language: "typescript" }));
+    await createItem("user-1", SNIPPET, input({ language: "typescript" }), null);
 
     expect(written().language).toBe("typescript");
   });
@@ -154,13 +161,14 @@ describe("createItem", () => {
       "user-1",
       NOTE,
       input({ typeSlug: "notes", language: "typescript" }),
+      null,
     );
 
     expect(written().language).toBeNull();
   });
 
   it("attaches tags scoped to the owner", async () => {
-    await createItem("user-1", SNIPPET, input({ tags: ["react", "hooks"] }));
+    await createItem("user-1", SNIPPET, input({ tags: ["react", "hooks"] }), null);
 
     // `connectOrCreate` on the compound unique, so an existing tag of the same
     // name is reused and someone else's identically named tag is not.
@@ -181,7 +189,7 @@ describe("createItem", () => {
   it("returns the item with its dates as ISO strings", async () => {
     // The drawer reads this shape over JSON from `GET /api/items/[id]`, so a
     // `Date` here would be one type on the server and another in the browser.
-    const detail = await createItem("user-1", SNIPPET, input());
+    const detail = await createItem("user-1", SNIPPET, input(), null);
 
     expect(detail).toMatchObject({
       id: "item-1",

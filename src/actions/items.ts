@@ -8,8 +8,11 @@ import {
   deleteItem as deleteItemRow,
   getItemFile,
   updateItem as updateItemRow,
+  type NewItemFile,
 } from "@/lib/db/items";
-import { deleteFile, ownsObjectKey } from "@/lib/r2";
+import { MAX_UPLOAD_BYTES } from "@/lib/file-constraints";
+import { deleteFile, headFile, ownsObjectKey } from "@/lib/r2";
+import { formatFileSize } from "@/lib/utils";
 import { firstIssueMessage } from "@/lib/validations/auth";
 import { createItemSchema, updateItemSchema } from "@/lib/validations/item";
 import type {
@@ -42,6 +45,14 @@ const UNKNOWN_TYPE = "That item type is not available.";
 
 /** An upload key from outside the caller's own prefix — see `ownsObjectKey`. */
 const FOREIGN_FILE = "That file does not belong to this account.";
+
+/** A key with nothing behind it: never uploaded, or already cleaned up. */
+const MISSING_UPLOAD = "That upload is no longer there. Try choosing it again.";
+
+/** Only reachable if the signed length did not hold — see `createItem`. */
+const OVERSIZE_UPLOAD = `That file is larger than ${formatFileSize(
+  MAX_UPLOAD_BYTES,
+)}.`;
 
 /**
  * Creates an item from the "New Item" dialog.
@@ -89,10 +100,17 @@ export async function createItem(input: unknown): Promise<CreateItemResult> {
       return { success: false, error: UNKNOWN_TYPE };
     }
 
+    const stored = await confirmUpload(file);
+
+    if (typeof stored === "string") {
+      return { success: false, error: stored };
+    }
+
     const detail = await createItemRow(
       userId,
       { id: type.id, slug: type.slug, contentType: creatable.contentType },
       parsed.data,
+      stored,
     );
 
     return { success: true, data: detail };
@@ -100,6 +118,40 @@ export async function createItem(input: unknown): Promise<CreateItemResult> {
     console.error("createItem failed", error);
     return { success: false, error: CREATE_FAILED };
   }
+}
+
+/**
+ * Confirms that an upload actually reached the bucket, and reports how big it
+ * turned out to be — or the reason it cannot be attached.
+ *
+ * This is the second half of the size cap, and the half that does not depend on
+ * a signature holding. The file is PUT straight to R2 by the browser, so the
+ * app has never seen a byte of it: `content-length` is signed into the upload
+ * URL, which is what should make an over-size body impossible, and this asks the
+ * bucket what it really stored anyway. That answer is also what the item keeps,
+ * so `fileSize` is never the client's word for it.
+ *
+ * A string is a message for the caller; `null` means there was no file to
+ * confirm, which is the ordinary case for every type but File and Image.
+ */
+async function confirmUpload(
+  file: { key: string; name: string } | null,
+): Promise<NewItemFile | string | null> {
+  if (!file) {
+    return null;
+  }
+
+  const object = await headFile(file.key);
+
+  if (!object) {
+    return MISSING_UPLOAD;
+  }
+
+  if (object.size !== null && object.size > MAX_UPLOAD_BYTES) {
+    return OVERSIZE_UPLOAD;
+  }
+
+  return { key: file.key, name: file.name, size: object.size };
 }
 
 /**

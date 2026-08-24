@@ -160,6 +160,19 @@ export async function getItemFile(
   };
 }
 
+/**
+ * An object confirmed to be in the bucket, ready to hang off a new item.
+ *
+ * `size` is what R2 reported, which is the only size anyone can vouch for: the
+ * upload goes straight from the browser to the bucket, so the app never counts
+ * the bytes itself.
+ */
+export interface NewItemFile {
+  key: string;
+  name: string;
+  size: number | null;
+}
+
 /** The resolved type a new item is created as. */
 export interface CreateItemType {
   /** `ItemType.id`, read from the database rather than taken from the request. */
@@ -178,6 +191,11 @@ export interface CreateItemType {
  * `contentType` that decides, never what the request happened to send. Language
  * is dropped the same way for the types that do not carry one.
  *
+ * The file is passed in rather than read off `input`, and is the object the
+ * action has already confirmed is in the bucket — `input.file` carries only a
+ * key and a name, since the bytes never passed through the app for anything
+ * here to have measured. Its `size` is R2's own.
+ *
  * `fileUrl` holds the R2 **object key**, not a URL. Nothing in the app ever
  * needs a public one: the file is served through `/api/items/[id]/file`, which
  * is what keeps the bucket private and the fetch same-origin, and both that
@@ -188,8 +206,9 @@ export async function createItem(
   userId: string,
   type: CreateItemType,
   input: CreateItemInput,
+  file: NewItemFile | null,
 ): Promise<ItemDetail> {
-  const file = type.contentType === "FILE" ? input.file : null;
+  const stored = type.contentType === "FILE" ? file : null;
 
   const item = await prisma.item.create({
     data: {
@@ -200,9 +219,9 @@ export async function createItem(
       description: input.description,
       content: type.contentType === "TEXT" ? input.content : null,
       url: type.contentType === "URL" ? input.url : null,
-      fileUrl: file?.key ?? null,
-      fileName: file?.name ?? null,
-      fileSize: file?.size ?? null,
+      fileUrl: stored?.key ?? null,
+      fileName: stored?.name ?? null,
+      fileSize: stored?.size ?? null,
       language: LANGUAGE_TYPE_SLUGS.has(type.slug) ? input.language : null,
       tags: {
         connectOrCreate: input.tags.map((name) => ({

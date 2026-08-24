@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   acceptAttribute,
   fileExtension,
+  MAX_UPLOAD_BYTES,
   uploadContentType,
   validateUpload,
 } from "@/lib/file-constraints";
@@ -111,16 +112,22 @@ describe("validateUpload", () => {
     );
   });
 
-  it("holds each kind to its own size cap", () => {
-    const FIVE_MB = 5 * 1024 * 1024;
-    const TEN_MB = 10 * 1024 * 1024;
+  it("caps both kinds at 100 MB, the boundary included", () => {
+    const HUNDRED_MB = 100 * 1024 * 1024;
 
-    expect(image({ size: FIVE_MB })).toBeNull();
-    expect(image({ size: FIVE_MB + 1 })).toBe("Images are limited to 5 MB.");
+    // Spelled out rather than derived from the constant, so a change to the cap
+    // fails here instead of quietly agreeing with itself.
+    expect(MAX_UPLOAD_BYTES).toBe(HUNDRED_MB);
 
-    // The larger cap is the point: the same size passes as a file.
-    expect(file({ size: FIVE_MB + 1 })).toBeNull();
-    expect(file({ size: TEN_MB + 1 })).toBe("Files are limited to 10 MB.");
+    expect(image({ size: HUNDRED_MB })).toBeNull();
+    expect(image({ size: HUNDRED_MB + 1 })).toBe(
+      "Images are limited to 100 MB.",
+    );
+
+    // The two kinds share a cap now, so only the wording tells them apart — it
+    // names the kind that was refused.
+    expect(file({ size: HUNDRED_MB })).toBeNull();
+    expect(file({ size: HUNDRED_MB + 1 })).toBe("Files are limited to 100 MB.");
   });
 
   it("rejects an empty file", () => {

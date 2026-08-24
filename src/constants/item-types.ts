@@ -62,8 +62,8 @@ export function codeTypeLanguage(slug: string): string | undefined {
 
 /**
  * Which upload rules a type's file takes, or undefined for a type that holds
- * no file. This is what makes an image a 5 MB `.png` and a file a 10 MB `.pdf`
- * — both are `ContentType.FILE`, so the column cannot say it.
+ * no file. This is what makes an image a `.png` and a file a `.pdf` — both are
+ * `ContentType.FILE`, so the column cannot say it.
  */
 export function uploadKindFor(slug: string): UploadKind | undefined {
   return creatableType(slug)?.upload;

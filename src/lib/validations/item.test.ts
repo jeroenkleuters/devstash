@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { createItemSchema, updateItemSchema } from "@/lib/validations/item";
+import {
+  createItemSchema,
+  presignUploadSchema,
+  updateItemSchema,
+} from "@/lib/validations/item";
 
 /** The shape the drawer submits, with every field at its empty default. */
 function payload(overrides: Record<string, unknown> = {}) {
@@ -165,17 +169,33 @@ describe("createItemSchema", () => {
   it("accepts a file item that has one", () => {
     const result = createParse({
       typeSlug: "files",
-      file: { key: "uploads/user-1/abc.pdf", name: "notes.pdf", size: 120 },
+      file: { key: "uploads/user-1/abc.pdf", name: "notes.pdf" },
     });
 
     expect(result.success).toBe(true);
+  });
+
+  it("keeps no size the client sends with an upload", () => {
+    // The bytes go straight to R2, so a size here could only be the browser's
+    // word for it. `createItem` asks the bucket instead, and this is what stops
+    // a crafted one reaching the row.
+    const result = createParse({
+      typeSlug: "files",
+      file: { key: "uploads/user-1/abc.pdf", name: "notes.pdf", size: 1 },
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.success && result.data.file).toEqual({
+      key: "uploads/user-1/abc.pdf",
+      name: "notes.pdf",
+    });
   });
 
   it("rejects an upload that names no object", () => {
     expect(
       createError({
         typeSlug: "images",
-        file: { key: "  ", name: "shot.png", size: 10 },
+        file: { key: "  ", name: "shot.png" },
       }),
     ).toBe("That upload is missing its file.");
   });
@@ -204,5 +224,51 @@ describe("createItemSchema", () => {
   it("does not ask a text type for a URL", () => {
     // Only the URL types are held to it — a snippet has nowhere to put one.
     expect(createParse({ typeSlug: "notes", url: "" }).success).toBe(true);
+  });
+});
+
+describe("presignUploadSchema", () => {
+  function presign(overrides: Record<string, unknown> = {}) {
+    return presignUploadSchema.safeParse({
+      kind: "file",
+      name: "notes.pdf",
+      type: "application/pdf",
+      size: 2048,
+      ...overrides,
+    });
+  }
+
+  it("accepts what the upload zone sends", () => {
+    expect(presign().success).toBe(true);
+  });
+
+  it("takes only the two upload kinds", () => {
+    // The route hands this straight to `validateUpload`, which has rules for
+    // these two and nothing else.
+    expect(presign({ kind: "video" }).success).toBe(false);
+    expect(presign({ kind: "image", name: "shot.png" }).success).toBe(true);
+  });
+
+  it("accepts a content type the browser could not name", () => {
+    // Common for `.md`, `.toml` and `.ini`. Whether an empty type is allowed
+    // for this extension is `validateUpload`'s call, not the shape's.
+    expect(presign({ type: "" }).success).toBe(true);
+  });
+
+  it("refuses a size that is not a whole count of bytes", () => {
+    expect(presign({ size: 12.5 }).success).toBe(false);
+    expect(presign({ size: -1 }).success).toBe(false);
+    expect(presign({ size: "2048" }).success).toBe(false);
+  });
+
+  it("says nothing about the cap itself", () => {
+    // Deliberate: the shape is one thing and the rules are another, and the
+    // route runs both. A 200 MB claim parses here and is refused by
+    // `validateUpload` a line later.
+    expect(presign({ size: 200 * 1024 * 1024 }).success).toBe(true);
+  });
+
+  it("requires a file name", () => {
+    expect(presign({ name: "   " }).success).toBe(false);
   });
 });

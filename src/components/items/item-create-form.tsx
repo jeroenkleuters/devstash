@@ -93,7 +93,9 @@ export function ItemCreateForm({
     const payload = {
       typeSlug,
       ...values,
-      file,
+      // Key and name only: the size shown in the zone is for reading, and the
+      // server takes R2's word for it rather than ours.
+      file: file && { key: file.key, name: file.name },
       tags: values.tags.split(","),
     };
 
