@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
 import { SIGN_IN_PATH } from "@/auth.config";
+import { ItemCreateDialog } from "@/components/items/item-create-dialog";
 import { ItemListSkeleton } from "@/components/items/item-list-skeleton";
 import { TypeItems } from "@/components/items/type-items";
 import { getItemTypeBySlug } from "@/lib/db/item-types";
@@ -47,9 +48,18 @@ export default async function ItemsByTypePage({
 
   return (
     <>
-      <div className="dashboard-heading">
-        <h1>{label}</h1>
-        <p>All your {label.toLowerCase()}</p>
+      <div className="dashboard-heading dashboard-heading-row">
+        <div>
+          <h1>{label}</h1>
+          <p>All your {label.toLowerCase()}</p>
+        </div>
+
+        {/* `ItemType.name` is the singular, which is what a button wants —
+            `label` above is the plural the slug carries. */}
+        <ItemCreateDialog
+          typeSlug={itemType.slug}
+          label={`New ${itemType.name}`}
+        />
       </div>
 
       <section className="dashboard-section">

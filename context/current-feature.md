@@ -1,4 +1,4 @@
-# Current Feature
+# Current Feature: Type-specific add button on the type pages
 
 ## Status
 
@@ -6,11 +6,26 @@ Not Started
 
 ## Goals
 
-<!-- What does success look like? -->
+- Each `/items/[type]` page carries its own add button, next to the page heading, labelled for that type (e.g. **New Snippet**).
+- That button opens the **existing** create dialog with the page's type already selected, so the type picker opens on the right option instead of always on Snippet.
+- The top bar's generic **New Item** button is unchanged and still opens on the default type.
+- One dialog component serves both entry points — no second copy of the create flow.
 
 ## Notes
 
-<!-- Additional context, constraints, details -->
+Loaded inline (no spec file).
+
+**The wrinkle worth deciding first: two of the seven type pages cannot create anything.** `CREATABLE_TYPES` in [item-types.ts](src/constants/item-types.ts) deliberately omits `files` and `images` — they are the Pro-gated types and nothing in the app uploads a file, so there is no payload to create them with. But all seven are seeded system types with real pages and sidebar links, so `/items/files` and `/items/images` would get a button that cannot work. Options are: hide it there, or render it disabled with a reason. Needs an answer before implementing.
+
+**Current state of the pieces:**
+
+- [item-create-dialog.tsx](src/components/items/item-create-dialog.tsx) takes no props and hardcodes its own trigger (`Plus` + "New Item"). It is mounted only in [top-bar.tsx](src/components/layout/top-bar.tsx). To serve both entry points it needs an optional initial type and a way to vary the trigger's label.
+- [item-create-form.tsx](src/components/items/item-create-form.tsx) initialises `useState(CREATABLE_TYPES[0].slug)` — that literal is what "always opens on Snippet" comes from, and it becomes the *fallback* rather than the value.
+- The dialog's copy ("New item" / "Pick a type, then fill in what it needs.") reads oddly when the type is already chosen; decide whether it adapts and whether the picker still renders (it probably should stay switchable).
+- [page.tsx](src/app/items/[type]/page.tsx) is a server component, so passing a `typeSlug` string into the client dialog is fine. It already holds `itemType` from `getItemTypeBySlug`, whose `name` is the **singular** ("Snippet") — the button label wants that, not the page's plural `typeLabel` ("Snippets").
+- The heading block is `.dashboard-heading` (h1 + p) with no room for a right-hand action; per project convention the row goes in `globals.css`, not as utility classes on the markup.
+
+**Testing:** the change is a prop threaded through two client components, so Vitest — which collects only `src/lib/**` and `src/actions/**` — likely has nothing to collect. If a slug→creatable-type resolution helper falls out of it, that belongs in `src/constants/` or `src/lib/` and is worth a test; `creatableType()` already exists and may be all that is needed.
 
 ## History
 

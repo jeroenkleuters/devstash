@@ -27,7 +27,7 @@ export function TopBar() {
       <div className="dashboard-topbar-actions">
         <Button variant="outline" size="lg" aria-label="New Collection">
           <FolderPlus aria-hidden />
-          <span className="dashboard-topbar-action-label">New Collection</span>
+          <span className="action-label">New Collection</span>
         </Button>
         <ItemCreateDialog />
       </div>

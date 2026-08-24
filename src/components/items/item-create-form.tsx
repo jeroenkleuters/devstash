@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { createItem } from "@/actions/items";
 import { CodeEditor } from "@/components/items/code-editor";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DialogClose, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -14,10 +15,11 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   CREATABLE_TYPES,
   LANGUAGE_TYPE_SLUGS,
+  PICKER_TYPES,
   TYPE_ICONS,
   codeTypeLanguage,
-  creatableType,
   isCodeType,
+  pickerType,
 } from "@/constants/item-types";
 import { firstIssueMessage } from "@/lib/validations/auth";
 import { createItemSchema } from "@/lib/validations/item";
@@ -26,6 +28,8 @@ import { createItemSchema } from "@/lib/validations/item";
 const UNREACHABLE = "Could not reach the server. Try again.";
 
 interface ItemCreateFormProps {
+  /** Type to open on. Falls back to the first creatable one. */
+  initialTypeSlug?: string;
   /** Fires once the item exists, for the dialog to close. */
   onCreated: () => void;
 }
@@ -35,25 +39,34 @@ interface ItemCreateFormProps {
  *
  * Which fields render follows the selected type: every type takes a title, a
  * description and tags, the text types add a content box, a link takes a URL
- * instead, and only the types in `LANGUAGE_TYPE_SLUGS` carry a language.
+ * instead, and only the types in `LANGUAGE_TYPE_SLUGS` carry a language. The
+ * two file types are offered but cannot be stored — see `PICKER_TYPES`.
  */
-export function ItemCreateForm({ onCreated }: ItemCreateFormProps) {
-  const [typeSlug, setTypeSlug] = useState(CREATABLE_TYPES[0].slug);
+export function ItemCreateForm({
+  initialTypeSlug,
+  onCreated,
+}: ItemCreateFormProps) {
+  const [typeSlug, setTypeSlug] = useState(
+    initialTypeSlug ?? CREATABLE_TYPES[0].slug,
+  );
   const [values, setValues] = useState<FormValues>(EMPTY_VALUES);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const router = useRouter();
 
-  const type = creatableType(typeSlug);
-  const showContent = type?.contentType === "TEXT";
-  const showUrl = type?.contentType === "URL";
-  const showLanguage = LANGUAGE_TYPE_SLUGS.has(typeSlug);
+  const type = pickerType(typeSlug);
+  const creatable = type?.creatable ?? false;
+  // A type with no upload flow has no payload field to offer, so the fields
+  // give way to the note explaining why.
+  const showContent = creatable && type?.contentType === "TEXT";
+  const showUrl = creatable && type?.contentType === "URL";
+  const showLanguage = creatable && LANGUAGE_TYPE_SLUGS.has(typeSlug);
   const showCode = showContent && isCodeType(typeSlug);
 
   // A title is the one field no type can be stored without, so the guard is
   // here as well as in the schema — an obviously dead button beats a round trip
   // that comes back with a message.
-  const canSave = values.title.trim() !== "" && !saving;
+  const canSave = creatable && values.title.trim() !== "" && !saving;
 
   function setField(name: keyof FormValues, value: string) {
     setValues((current) => ({ ...current, [name]: value }));
@@ -62,7 +75,7 @@ export function ItemCreateForm({ onCreated }: ItemCreateFormProps) {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (saving) return;
+    if (saving || !creatable) return;
 
     const payload = {
       typeSlug,
@@ -121,7 +134,7 @@ export function ItemCreateForm({ onCreated }: ItemCreateFormProps) {
           <legend className="item-type-legend">Type</legend>
 
           <div className="item-type-options">
-            {CREATABLE_TYPES.map((option) => {
+            {PICKER_TYPES.map((option) => {
               const Icon = TYPE_ICONS[option.icon];
 
               return (
@@ -140,11 +153,23 @@ export function ItemCreateForm({ onCreated }: ItemCreateFormProps) {
                   />
                   {Icon && <Icon size={16} aria-hidden />}
                   {option.label}
+                  {!option.creatable && (
+                    <Badge variant="outline" className="item-type-badge">
+                      PRO
+                    </Badge>
+                  )}
                 </label>
               );
             })}
           </div>
         </fieldset>
+
+        {!creatable && (
+          <p className="item-create-locked">
+            {type?.label ?? "This type"} items need a file upload, which comes
+            with Pro. Pick another type to create something now.
+          </p>
+        )}
 
         <div className="item-form-field">
           <Label htmlFor="create-item-title">Title</Label>

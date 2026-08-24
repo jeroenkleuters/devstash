@@ -13,36 +13,67 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { pickerType } from "@/constants/item-types";
+
+interface ItemCreateDialogProps {
+  /**
+   * Type the picker opens on. The type pages pass their own so the dialog
+   * arrives on the type the page is already about; the top bar passes none and
+   * gets the first creatable one.
+   */
+  typeSlug?: string;
+  /**
+   * The trigger's text. Built here rather than taken as a `ReactNode` because
+   * `DialogTrigger asChild` clones what it is given, and the callers include a
+   * server component — the button has to be constructed on the client.
+   */
+  label?: string;
+}
 
 /**
- * The top bar's "New Item" button and the dialog it opens.
+ * The create dialog, opened either from the top bar or from a type page.
  *
  * Controlled, so the form can close it once the item exists. Radix unmounts the
  * content on close, which is what makes the next open start on an empty form
  * rather than on the last one — the same reason the change-password dialog
- * needs no reset of its own.
+ * needs no reset of its own. That unmount is also what re-applies `typeSlug`,
+ * so the picker returns to the page's type after a create.
  */
-export function ItemCreateDialog() {
+export function ItemCreateDialog({
+  typeSlug,
+  label = "New Item",
+}: ItemCreateDialogProps) {
   const [open, setOpen] = useState(false);
+
+  // Only preselects a type the picker actually knows; anything else falls
+  // through to the form's own default rather than selecting nothing.
+  const selected = typeSlug ? pickerType(typeSlug) : undefined;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="lg" aria-label="New Item">
+        <Button size="lg" aria-label={label}>
           <Plus aria-hidden />
-          <span className="dashboard-topbar-action-label">New Item</span>
+          <span className="action-label">{label}</span>
         </Button>
       </DialogTrigger>
 
       <DialogContent className="item-create-dialog">
         <DialogHeader>
-          <DialogTitle>New item</DialogTitle>
+          <DialogTitle>
+            {selected ? `New ${selected.label.toLowerCase()}` : "New item"}
+          </DialogTitle>
           <DialogDescription>
-            Pick a type, then fill in what it needs.
+            {selected
+              ? "Fill in what it needs, or switch to another type."
+              : "Pick a type, then fill in what it needs."}
           </DialogDescription>
         </DialogHeader>
 
-        <ItemCreateForm onCreated={() => setOpen(false)} />
+        <ItemCreateForm
+          initialTypeSlug={selected?.slug}
+          onCreated={() => setOpen(false)}
+        />
       </DialogContent>
     </Dialog>
   );
