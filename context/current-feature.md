@@ -1,16 +1,62 @@
-# Current Feature
+# Current Feature: Direct-to-R2 uploads with a 100 MB cap
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
-<!-- What does success look like? -->
+- The file goes straight from the browser to R2. The bytes never pass through the Next app, which is what lifts Vercel's 4.5 MB request-body limit.
+- Both kinds — File and Image — are capped at **100 MB**.
+- The cap is enforced by R2, not by the form: a hand-rolled request cannot store more than was authorised.
+- The item stores the size R2 reports, not the size the client claimed.
+- Upload progress still shows, now measured against the PUT to R2.
+- Everything the current flow guarantees is kept: 401 when signed out, the per-account rate limit, the `uploads/{userId}/` prefix and its `ownsObjectKey` check at create, and the stored content type decided by the extension rather than by what the browser reported.
+- `npm test` and `npm run build` pass.
 
 ## Notes
 
-<!-- Additional context, constraints, details -->
+### The shape of the change
+
+`POST /api/upload` stops *taking* the file and starts *authorising* one. It goes from a multipart body to JSON `{ kind, name, type, size }`, and answers `{ key, url, contentType }` — `url` being a presigned PUT straight at the bucket, short-lived (5 minutes is plenty; the client uses it immediately).
+
+It keeps every check it has now, just against the claimed metadata rather than the bytes: `getCurrentUserId` → 401, the 30-per-15-minutes limit keyed on the user id, `validateUpload` for the extension/MIME/size rules, and `objectKey(userId, name)` for the key. The rate limit is still worth keeping at that number even though signing costs nothing — it authorises storage, and storage is the thing being spent.
+
+The client then does two requests instead of one: `fetch` the presign, then XHR `PUT` the raw `File` at `url`. Progress moves onto the PUT, which is now the long part. The XHR stays for exactly the reason it is there today — `fetch` reports no upload progress.
+
+### Enforcing the cap when the app never sees the file — both halves
+
+**Sign `content-length`.** `getSignedUrl` over a `PutObjectCommand` carrying `ContentLength`, with `signableHeaders: new Set(["content-type", "content-length"])`. The browser sets `Content-Length` itself from the body it is given, so a body of any other size fails the signature and R2 refuses it. That makes the cap a limit rather than a UI rule.
+
+⚠️ **This needs verifying against R2 early**, not assumed — it is the one part of the design that rests on how Cloudflare's S3 implementation treats a signed `content-length`. If R2 rejects or ignores it, say so rather than working around it silently; the fallback is the second half below, alone.
+
+**HEAD the object at create.** `createItem` asks R2 for the object it is about to attach and stores `ContentLength` as `fileSize`. Two things follow: a create naming a key nothing was ever uploaded to fails cleanly instead of storing a row pointing at nothing, and the size on the item is R2's rather than the client's claim.
+
+Consequence worth taking: **`size` can then come out of the upload payload entirely** (`uploadedFileSchema` in [src/lib/validations/item.ts](src/lib/validations/item.ts)), since the server no longer has any use for a number the caller supplies. The presign request still carries a claimed size — it has to, to sign against one — but the item's stored size comes from HEAD. Touches the schema and its tests.
+
+### Bucket CORS is required, and it is not code
+
+The PUT is cross-origin, so the R2 bucket needs a CORS policy allowing `PUT` from the app's origin with `Content-Type` in `AllowedHeaders`. **This is exactly what the original file-upload spec avoided by proxying**, and it is a Cloudflare-side configuration step — without it the browser fails the upload with an opaque network error that looks nothing like a bug in the code. Document it (README / `.env.example` neighbourhood) as part of the feature, and expect the first real upload to be the thing that proves the policy is right.
+
+### Files to expect in the diff
+
+- [src/lib/r2.ts](src/lib/r2.ts) — add `presignPut` and `headFile`; **delete `putFile`**, which has no other caller once the route stops using it (coding-standards: no dead code).
+- [src/app/api/upload/route.ts](src/app/api/upload/route.ts) — JSON in, presigned URL out.
+- [src/components/items/file-upload.tsx](src/components/items/file-upload.tsx) — two-step upload. Note R2 answers a failed PUT with XML, not our JSON, so any non-2xx there gets a generic message rather than a parsed one.
+- [src/lib/file-constraints.ts](src/lib/file-constraints.ts) — both `maxBytes` to `100 * MEGABYTE`.
+- [src/lib/validations/item.ts](src/lib/validations/item.ts) — drop `size` from the uploaded-file payload; add a schema for the presign request body.
+- [src/lib/db/items.ts](src/lib/db/items.ts) / [src/actions/items.ts](src/actions/items.ts) — the HEAD-and-store-the-real-size step.
+- Tests: the two cap assertions in [src/lib/file-constraints.test.ts:114-124](src/lib/file-constraints.test.ts#L114-L124) (its "the larger cap is the point" case dissolves — both kinds now share a cap), plus new coverage for the presign body and for `createItem` refusing a key with no object behind it.
+- New dependency: `@aws-sdk/s3-request-presigner`.
+- Comments naming the old sizes: [src/constants/item-types.ts:65](src/constants/item-types.ts#L65).
+
+### Out of scope, but now more true than it was
+
+**Downloads still stream through the app.** `/api/items/[id]/file` proxies the object, so a 100 MB file is a 100 MB response out of a serverless function on every view and every download. That is the mirror of the problem this feature fixes on the way in, and its fix is the same idea — a presigned GET, or a public bucket behind a CDN. Worth naming in the history entry as the next thing.
+
+**Orphans get bigger.** An upload that is abandoned before the item is created still leaves its object behind, and that object can now be 100 MB. There is still no sweep.
+
+**The edit drawer still cannot replace a file**, and that does not change here.
 
 ## History
 

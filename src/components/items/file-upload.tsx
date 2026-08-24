@@ -12,16 +12,34 @@ import {
 } from "@/lib/file-constraints";
 import { formatFileSize } from "@/lib/utils";
 
-/** What the upload route answers with, and what the create payload carries. */
+/** The stored object, and what the create payload then carries a part of. */
 export interface UploadedFile {
   /** The R2 object key. */
   key: string;
   name: string;
+  /**
+   * Shown while the dialog is open. It is not sent with the create payload —
+   * the server asks R2 for the size it actually stored.
+   */
   size: number;
 }
 
 /** Said when the request never reached the route, so it named no reason. */
 const UNREACHABLE = "Could not reach the server. Try again.";
+
+/**
+ * Said when R2 refused the PUT.
+ *
+ * Deliberately generic: the bucket answers in XML rather than in our JSON, and
+ * for an expired URL it omits the CORS headers altogether, so the browser will
+ * not let us read the reason even when there is one. The realistic causes — an
+ * expired signature, or a bucket whose CORS policy does not allow this origin —
+ * are all "start again", and none of them is the visitor's to fix.
+ */
+const STORAGE_REFUSED = "Could not store that file. Try again.";
+
+/** A failure with something worth showing, as against an unexpected throw. */
+class UploadError extends Error {}
 
 interface FileUploadProps {
   kind: UploadKind;
@@ -40,9 +58,14 @@ interface FileUploadProps {
  * anything to store. Cancelling the dialog afterwards leaves that object
  * behind — see the route for why that is the accepted cost.
  *
- * `XMLHttpRequest` rather than `fetch`, which reports no upload progress: it
- * resolves when the response arrives, by which point the transfer it would have
- * been describing is over.
+ * It takes two requests. The app authorises the upload and hands back a signed
+ * URL; the browser then PUTs the file straight at R2, so the bytes never pass
+ * through the app and a 100 MB file is not a 100 MB request to our own server.
+ * Progress is measured on that second request, which is the long one.
+ *
+ * `XMLHttpRequest` rather than `fetch` for the PUT, which reports no upload
+ * progress: it resolves when the response arrives, by which point the transfer
+ * it would have been describing is over.
  */
 export function FileUpload({
   kind,
@@ -59,13 +82,13 @@ export function FileUpload({
   const busy = uploading || disabled;
   const { maxBytes, extensions } = uploadConstraint(kind);
 
-  function upload(file: File) {
+  async function upload(chosen: File) {
     // The same rules the route enforces, run here so an obviously wrong file
     // costs no round trip. The route is still the rule.
     const problem = validateUpload(kind, {
-      name: file.name,
-      type: file.type,
-      size: file.size,
+      name: chosen.name,
+      type: chosen.type,
+      size: chosen.size,
     });
 
     if (problem) {
@@ -76,48 +99,23 @@ export function FileUpload({
     setError(null);
     setProgress(0);
 
-    const body = new FormData();
-    body.set("kind", kind);
-    body.set("file", file);
+    try {
+      const { key, url, contentType } = await authorise(kind, chosen);
+      const outcome = await store(url, contentType, chosen, setProgress);
 
-    const request = new XMLHttpRequest();
-
-    request.upload.addEventListener("progress", (event) => {
-      if (event.lengthComputable) {
-        setProgress(Math.round((event.loaded / event.total) * 100));
-      }
-    });
-
-    request.addEventListener("load", () => {
       setProgress(null);
 
-      const payload = parse(request.responseText);
-
-      if (request.status !== 200) {
-        setError(payload?.error || UNREACHABLE);
+      if (outcome === "aborted") {
         return;
       }
 
-      if (!payload?.key) {
-        setError(UNREACHABLE);
-        return;
-      }
-
-      onChange({ key: payload.key, name: payload.name, size: payload.size });
-    });
-
-    // Offline, a dropped connection, or the visitor navigating away mid-upload.
-    request.addEventListener("error", () => {
+      onChange({ key, name: chosen.name, size: chosen.size });
+    } catch (failure) {
       setProgress(null);
-      setError(UNREACHABLE);
-    });
-
-    request.addEventListener("abort", () => {
-      setProgress(null);
-    });
-
-    request.open("POST", "/api/upload");
-    request.send(body);
+      // Anything that is not an `UploadError` is a throw we did not plan for —
+      // a TypeError out of `fetch`, say — whose message is no use to a visitor.
+      setError(failure instanceof UploadError ? failure.message : UNREACHABLE);
+    }
   }
 
   function handleDrop(event: DragEvent<HTMLDivElement>) {
@@ -129,7 +127,7 @@ export function FileUpload({
     const [file] = Array.from(event.dataTransfer.files);
 
     if (file) {
-      upload(file);
+      void upload(file);
     }
   }
 
@@ -199,7 +197,7 @@ export function FileUpload({
             const file = event.target.files?.[0];
 
             if (file) {
-              upload(file);
+              void upload(file);
             }
           }}
           aria-label={kind === "image" ? "Upload an image" : "Upload a file"}
@@ -236,28 +234,103 @@ export function FileUpload({
   );
 }
 
-interface UploadResponse {
+/** What the route answers with once it has signed an upload. */
+interface Authorised {
+  key: string;
+  url: string;
+  contentType: string;
+}
+
+interface AuthoriseResponse {
   key?: string;
-  name?: string;
-  size?: number;
+  url?: string;
+  contentType?: string;
   error?: string;
 }
 
 /**
- * The route answers JSON either way, but a proxy or a crash in front of it may
- * not — so a body that will not parse is treated as no body at all.
+ * Asks the app to authorise this upload, describing the file rather than
+ * sending it.
+ *
+ * `fetch` here rather than XHR: this request is a few hundred bytes, so there
+ * is no progress worth reporting until the PUT that follows it.
  */
-function parse(body: string): Required<UploadResponse> | null {
-  try {
-    const payload = JSON.parse(body) as UploadResponse;
+async function authorise(kind: UploadKind, file: File): Promise<Authorised> {
+  const response = await fetch("/api/upload", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      kind,
+      name: file.name,
+      type: file.type,
+      size: file.size,
+    }),
+  });
 
-    return {
-      key: payload.key ?? "",
-      name: payload.name ?? "",
-      size: payload.size ?? 0,
-      error: payload.error ?? "",
-    };
-  } catch {
-    return null;
+  // The route answers JSON either way, but a proxy or a crash in front of it
+  // may not — so a body that will not parse is treated as no body at all.
+  const payload = (await response
+    .json()
+    .catch(() => null)) as AuthoriseResponse | null;
+
+  if (!response.ok) {
+    throw new UploadError(payload?.error || UNREACHABLE);
   }
+
+  if (!payload?.url || !payload.key || !payload.contentType) {
+    throw new UploadError(UNREACHABLE);
+  }
+
+  return {
+    key: payload.key,
+    url: payload.url,
+    contentType: payload.contentType,
+  };
+}
+
+/**
+ * Puts the file in R2 over the signed URL.
+ *
+ * `Content-Type` has to be the type the URL was signed for, or the signature
+ * does not match and the bucket refuses the object. `Content-Length` is set by
+ * the browser from the body — it is signed too, which is what makes the size
+ * cap something R2 enforces rather than something this form asks for.
+ */
+function store(
+  url: string,
+  contentType: string,
+  file: File,
+  onProgress: (percent: number) => void,
+): Promise<"done" | "aborted"> {
+  return new Promise((resolve, reject) => {
+    const request = new XMLHttpRequest();
+
+    request.upload.addEventListener("progress", (event) => {
+      if (event.lengthComputable) {
+        onProgress(Math.round((event.loaded / event.total) * 100));
+      }
+    });
+
+    request.addEventListener("load", () => {
+      if (request.status >= 200 && request.status < 300) {
+        resolve("done");
+        return;
+      }
+
+      reject(new UploadError(STORAGE_REFUSED));
+    });
+
+    // Offline, a dropped connection, the visitor navigating away mid-upload —
+    // and also a CORS rejection, which reaches the page as an indistinguishable
+    // network error with a status of 0.
+    request.addEventListener("error", () => {
+      reject(new UploadError(STORAGE_REFUSED));
+    });
+
+    request.addEventListener("abort", () => resolve("aborted"));
+
+    request.open("PUT", url);
+    request.setRequestHeader("Content-Type", contentType);
+    request.send(file);
+  });
 }

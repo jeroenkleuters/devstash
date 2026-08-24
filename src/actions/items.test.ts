@@ -9,7 +9,7 @@ import {
   updateItem as updateItemRow,
 } from "@/lib/db/items";
 import { getCurrentUserId } from "@/lib/db/user";
-import { deleteFile } from "@/lib/r2";
+import { deleteFile, headFile } from "@/lib/r2";
 import type { ItemDetail } from "@/types/item";
 
 /**
@@ -35,7 +35,11 @@ vi.mock("@/lib/db/user", () => ({ getCurrentUserId: vi.fn() }));
 vi.mock("@/lib/r2", async () => {
   const actual = await vi.importActual<typeof import("@/lib/r2")>("@/lib/r2");
 
-  return { ownsObjectKey: actual.ownsObjectKey, deleteFile: vi.fn() };
+  return {
+    ownsObjectKey: actual.ownsObjectKey,
+    deleteFile: vi.fn(),
+    headFile: vi.fn(),
+  };
 });
 
 const createItemRowMock = vi.mocked(createItemRow);
@@ -43,6 +47,7 @@ const updateItemRowMock = vi.mocked(updateItemRow);
 const deleteItemRowMock = vi.mocked(deleteItemRow);
 const getItemFileMock = vi.mocked(getItemFile);
 const deleteFileMock = vi.mocked(deleteFile);
+const headFileMock = vi.mocked(headFile);
 const getItemTypeBySlugMock = vi.mocked(getItemTypeBySlug);
 const getCurrentUserIdMock = vi.mocked(getCurrentUserId);
 
@@ -93,6 +98,16 @@ describe("createItem", () => {
     return { typeSlug: "snippets", ...payload(overrides) };
   }
 
+  /** Resolves the File type, for the cases that carry an upload. */
+  function asFileType() {
+    getItemTypeBySlugMock.mockResolvedValue({
+      id: "type-5",
+      slug: "files",
+      name: "File",
+      icon: "File",
+    });
+  }
+
   it("creates the item as the resolved type", async () => {
     const result = await createItem(createPayload({ title: "  Saved  " }));
 
@@ -105,7 +120,10 @@ describe("createItem", () => {
       "user-1",
       { id: "type-1", slug: "snippets", contentType: "TEXT" },
       expect.objectContaining({ title: "Saved", description: null }),
+      // No file to confirm, so nothing is attached and R2 is never asked.
+      null,
     );
+    expect(headFileMock).not.toHaveBeenCalled();
   });
 
   it("refuses when the session has no live account", async () => {
@@ -142,7 +160,7 @@ describe("createItem", () => {
     const result = await createItem(
       createPayload({
         typeSlug: "files",
-        file: { key: "uploads/user-2/secret.pdf", name: "s.pdf", size: 10 },
+        file: { key: "uploads/user-2/secret.pdf", name: "s.pdf" },
       }),
     );
 
@@ -154,21 +172,80 @@ describe("createItem", () => {
   });
 
   it("creates a file item from the caller's own upload", async () => {
-    getItemTypeBySlugMock.mockResolvedValue({
-      id: "type-5",
-      slug: "files",
-      name: "File",
-      icon: "File",
-    });
+    asFileType();
+    headFileMock.mockResolvedValue({ size: 4096 });
 
-    const file = { key: "uploads/user-1/abc.pdf", name: "notes.pdf", size: 12 };
+    const file = { key: "uploads/user-1/abc.pdf", name: "notes.pdf" };
     const result = await createItem(createPayload({ typeSlug: "files", file }));
 
     expect(result).toEqual({ success: true, data: DETAIL });
+    expect(headFileMock).toHaveBeenCalledWith(file.key);
+
+    // The size stored is R2's, not the browser's: the upload went straight to
+    // the bucket, so this is the only count anyone can vouch for.
     expect(createItemRowMock).toHaveBeenCalledWith(
       "user-1",
       { id: "type-5", slug: "files", contentType: "FILE" },
       expect.objectContaining({ file }),
+      { key: file.key, name: file.name, size: 4096 },
+    );
+  });
+
+  it("refuses a key the bucket holds nothing under", async () => {
+    // Never uploaded, or uploaded and already gone. Either way there is no file
+    // to attach, and a row naming a missing object is worse than no row.
+    asFileType();
+    headFileMock.mockResolvedValue(null);
+
+    const result = await createItem(
+      createPayload({
+        typeSlug: "files",
+        file: { key: "uploads/user-1/ghost.pdf", name: "ghost.pdf" },
+      }),
+    );
+
+    expect(result).toEqual({
+      success: false,
+      error: "That upload is no longer there. Try choosing it again.",
+    });
+    expect(createItemRowMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses an object larger than the cap", async () => {
+    // Only reachable if the signed `content-length` did not hold, which is the
+    // reason this check exists at all: the cap should not rest on one mechanism.
+    asFileType();
+    headFileMock.mockResolvedValue({ size: 200 * 1024 * 1024 });
+
+    const result = await createItem(
+      createPayload({
+        typeSlug: "files",
+        file: { key: "uploads/user-1/huge.pdf", name: "huge.pdf" },
+      }),
+    );
+
+    expect(result).toEqual({
+      success: false,
+      error: "That file is larger than 100 MB.",
+    });
+    expect(createItemRowMock).not.toHaveBeenCalled();
+  });
+
+  it("stores no size for an object R2 reports none for", async () => {
+    // `fileSize` is nullable, and a size we cannot vouch for is better absent
+    // than guessed.
+    asFileType();
+    headFileMock.mockResolvedValue({ size: null });
+
+    const file = { key: "uploads/user-1/abc.pdf", name: "notes.pdf" };
+    const result = await createItem(createPayload({ typeSlug: "files", file }));
+
+    expect(result.success).toBe(true);
+    expect(createItemRowMock).toHaveBeenCalledWith(
+      "user-1",
+      expect.anything(),
+      expect.anything(),
+      { key: file.key, name: file.name, size: null },
     );
   });
 

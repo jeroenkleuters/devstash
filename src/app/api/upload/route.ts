@@ -1,47 +1,52 @@
 import { NextResponse } from "next/server";
 
 import { getCurrentUserId } from "@/lib/db/user";
-import {
-  uploadContentType,
-  validateUpload,
-  type UploadKind,
-} from "@/lib/file-constraints";
-import { objectKey, putFile } from "@/lib/r2";
+import { uploadContentType, validateUpload } from "@/lib/file-constraints";
+import { objectKey, presignPut } from "@/lib/r2";
 import { rateLimit, tooManyAttemptsResponse } from "@/lib/rate-limit";
+import { firstIssueMessage } from "@/lib/validations/auth";
+import { presignUploadSchema } from "@/lib/validations/item";
 
-// Reads the session and writes to R2, so there is nothing here to cache.
+// Reads the session and signs against live credentials, so there is nothing
+// here to cache.
 export const dynamic = "force-dynamic";
 
 /**
- * Sized against storage rather than against guessing: every accepted call
- * writes an object nothing else deletes, and the app has no quota of its own.
+ * Sized against storage rather than against guessing: every authorised call can
+ * put an object in the bucket that nothing else deletes, and the app has no
+ * quota of its own.
  */
 const UPLOAD_LIMIT = 30;
 const UPLOAD_WINDOW_MS = 15 * 60 * 1000;
 
-const UPLOAD_KINDS: readonly string[] = ["image", "file"];
-
-function isUploadKind(value: unknown): value is UploadKind {
-  return typeof value === "string" && UPLOAD_KINDS.includes(value);
-}
-
 /**
- * Takes one file for a File or Image item and puts it in R2, answering with the
- * object key the create payload then carries.
+ * Authorises one upload and answers with a URL the browser PUTs the file to
+ * directly.
+ *
+ * The file does not come through here. That is the point: a 100 MB body would
+ * have to fit inside the platform's request-body limit and be held in a
+ * serverless function while it arrived, so instead this signs a URL for the
+ * object the caller says it is about to store, and the bytes go straight to R2.
+ *
+ * What that costs is that nothing here has seen the file — every value in the
+ * request is a claim about one still sitting on the visitor's machine. Two
+ * things make the claims safe to act on. The size is checked against the cap and
+ * then **signed into the URL**, so R2 refuses a body of any other length; and
+ * `createItem` asks R2 what it actually stored rather than believing anything
+ * the browser reports afterwards.
  *
  * An API route rather than a server action, for the reason coding-standards
- * carves out: an action gives the browser no upload progress to show, and this
- * is a multipart body rather than a form of fields.
+ * carves out — this is the endpoint an upload with progress is built around.
  *
  * Deliberately outside the proxy's matcher, like `/api/items/[id]`: the proxy
  * answers an unauthenticated request with a redirect to the sign-in page, which
  * a `fetch` would receive as an opaque 200 of HTML. The check lives here and
  * says 401 so the caller can tell.
  *
- * The object is written before any item exists, so a file picked and then
- * abandoned leaves an object behind. That is the accepted cost of showing
- * progress before the item is created — nothing else can be uploading while the
- * form is still being filled in.
+ * The object is written before any item exists, so a file uploaded and then
+ * abandoned leaves an object behind. That is the accepted cost of uploading
+ * before the item is created — and it is a larger cost than it was, since an
+ * orphan can now be 100 MB.
  */
 export async function POST(request: Request) {
   const userId = await getCurrentUserId();
@@ -62,63 +67,55 @@ export async function POST(request: Request) {
     return tooManyAttemptsResponse(limit);
   }
 
-  let form: FormData;
+  let payload: unknown;
 
   try {
-    form = await request.formData();
+    payload = await request.json();
   } catch {
     return NextResponse.json(
-      { error: "Send the file as multipart form data." },
+      { error: "Send the upload details as JSON." },
       { status: 400 },
     );
   }
 
-  const kind = form.get("kind");
-  const file = form.get("file");
+  const parsed = presignUploadSchema.safeParse(payload);
 
-  if (!isUploadKind(kind)) {
+  if (!parsed.success) {
     return NextResponse.json(
-      { error: "Say whether this is an image or a file." },
+      { error: firstIssueMessage(parsed.error) },
       { status: 400 },
     );
   }
 
-  if (!(file instanceof File)) {
-    return NextResponse.json({ error: "No file was sent." }, { status: 400 });
-  }
+  const { kind, name, type, size } = parsed.data;
 
-  // The same rules the form runs before it uploads. That copy is the caller's
-  // to skip, so this one is the rule.
-  const problem = validateUpload(kind, {
-    name: file.name,
-    type: file.type,
-    size: file.size,
-  });
+  // The same rules the form runs before it asks. That copy is the caller's to
+  // skip, so this one is the rule — and the size it checks is the size the URL
+  // is then signed for, which is what stops the claim and the body diverging.
+  const problem = validateUpload(kind, { name, type, size });
 
   if (problem) {
     return NextResponse.json({ error: problem }, { status: 400 });
   }
 
-  const key = objectKey(userId, file.name);
+  const key = objectKey(userId, name);
+  // From the extension, not from what the browser reported — see
+  // `uploadContentType`. Signed into the URL, so the object cannot be stored as
+  // anything else, and returned so the caller knows what header to send.
+  const contentType = uploadContentType(kind, name);
 
   try {
-    await putFile(
-      key,
-      new Uint8Array(await file.arrayBuffer()),
-      // From the extension, not from what the browser reported — see
-      // `uploadContentType`.
-      uploadContentType(kind, file.name),
-    );
+    const url = await presignPut(key, contentType, size);
+
+    return NextResponse.json({ key, url, contentType });
   } catch (error) {
-    // Missing credentials, a bucket that is not there, R2 being down. None of
-    // it is the visitor's to fix, so log it and say the one useful thing.
-    console.error("upload failed", error);
+    // Missing credentials, or a bucket name that is not there. None of it is
+    // the visitor's to fix, so log it and say the one useful thing.
+    console.error("presign failed", error);
 
     return NextResponse.json(
-      { error: "Could not store that file. Try again." },
+      { error: "Could not start that upload. Try again." },
       { status: 502 },
     );
   }
-
-  return NextResponse.json({ key, name: file.name, size: file.size });
 }

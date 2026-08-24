@@ -3,10 +3,13 @@ import { randomUUID } from "node:crypto";
 import {
   DeleteObjectCommand,
   GetObjectCommand,
+  HeadObjectCommand,
   NoSuchKey,
+  NotFound,
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 import { fileExtension } from "@/lib/file-constraints";
 
@@ -34,6 +37,16 @@ function getR2(): S3Client {
       region: "auto",
       endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
       credentials: { accessKeyId, secretAccessKey },
+      // Off unless an operation actually requires it, which none of ours does.
+      //
+      // The default ("WHEN_SUPPORTED") makes the SDK checksum every PutObject
+      // body — and a presigned command has no body, so it takes the CRC32 of
+      // nothing and hoists `x-amz-checksum-crc32=AAAAAA==` into the URL. The
+      // browser then PUTs the real file against a checksum of an empty one,
+      // which the store is entitled to reject. Nothing about that is visible
+      // until an upload fails, so it is switched off here rather than worked
+      // around at the call site.
+      requestChecksumCalculation: "WHEN_REQUIRED",
     });
   }
 
@@ -83,19 +96,100 @@ export function ownsObjectKey(userId: string, key: string): boolean {
   return key.startsWith(`uploads/${userId}/`);
 }
 
-export async function putFile(
+/**
+ * How long an upload URL is good for. Long enough to cover a slow start on a
+ * bad connection, short enough that a leaked URL is not a standing write
+ * permission — the transfer itself may outlast it, since expiry is checked when
+ * the request is received rather than while it streams.
+ */
+const UPLOAD_URL_TTL_SECONDS = 5 * 60;
+
+/**
+ * A URL the browser can PUT one object to, straight at the bucket.
+ *
+ * This is what keeps the bytes out of the app: a 100 MB upload through a Next
+ * route would have to fit in the platform's request-body limit, and a serverless
+ * function would be paid for holding it.
+ *
+ * **Both `content-type` and `content-length` are signed**, which is what turns
+ * the size cap from a rule the form states into one the store enforces:
+ *
+ * - `content-type` is in the presigner's unsignable set by default, so naming it
+ *   here is what makes R2 refuse a body sent as anything else.
+ * - `content-length` is signed by default once the command carries one, and the
+ *   browser sets that header itself from the body it is given — so a body of any
+ *   other length fails the signature. It is named here anyway, because the
+ *   guarantee is the whole point and a default is a quiet thing to rest one on.
+ *
+ * The payload itself is `UNSIGNED-PAYLOAD` — the SDK sets that for every
+ * presigned URL — so this pins how many bytes may be stored, never which.
+ */
+export async function presignPut(
   key: string,
-  body: Uint8Array,
   contentType: string,
-): Promise<void> {
-  await getR2().send(
+  contentLength: number,
+): Promise<string> {
+  return getSignedUrl(
+    getR2(),
     new PutObjectCommand({
       Bucket: bucket(),
       Key: key,
-      Body: body,
       ContentType: contentType,
+      ContentLength: contentLength,
     }),
+    {
+      expiresIn: UPLOAD_URL_TTL_SECONDS,
+      signableHeaders: new Set(["content-type", "content-length"]),
+    },
   );
+}
+
+/** What the bucket says about an object without sending it. */
+export interface StoredObject {
+  /** `null` for the rare object stored without a length R2 will report. */
+  size: number | null;
+}
+
+/**
+ * What the bucket holds under a key, or `null` when it holds nothing.
+ *
+ * The upload no longer passes through the app, so this is how the server learns
+ * anything true about a file: `createItem` asks before attaching a key, which
+ * both refuses a key nothing was ever uploaded to and gives the item R2's own
+ * size rather than a number the client supplied.
+ */
+export async function headFile(key: string): Promise<StoredObject | null> {
+  try {
+    const object = await getR2().send(
+      new HeadObjectCommand({ Bucket: bucket(), Key: key }),
+    );
+
+    return { size: object.ContentLength ?? null };
+  } catch (error) {
+    if (isMissing(error)) {
+      return null;
+    }
+
+    throw error;
+  }
+}
+
+/**
+ * Whether an error means "no such object" rather than something worth raising.
+ *
+ * The status is checked as well as the modelled exceptions: a HEAD carries no
+ * body for the SDK to read an error code out of, so a missing key can arrive as
+ * a bare 404 rather than as `NotFound`.
+ */
+function isMissing(error: unknown): boolean {
+  if (error instanceof NotFound || error instanceof NoSuchKey) {
+    return true;
+  }
+
+  const status = (error as { $metadata?: { httpStatusCode?: number } } | null)
+    ?.$metadata?.httpStatusCode;
+
+  return status === 404;
 }
 
 /** What the download route needs to answer with. */

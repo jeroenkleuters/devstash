@@ -48,6 +48,44 @@ Both variables point at the same Neon database through different endpoints:
 
 Prisma 7 no longer reads `.env` files itself, so [prisma.config.ts](prisma.config.ts) loads `.env.local` / `.env` via dotenv.
 
+### File uploads (Cloudflare R2)
+
+Files and images are uploaded **straight from the browser to R2**. The app only
+authorises the upload: `POST /api/upload` signs a short-lived PUT URL, the
+browser sends the bytes to the bucket, and the item then stores the object key.
+Nothing large ever passes through a Next route, which is what allows a 100 MB
+cap where a proxied upload would have to fit inside the platform's request-body
+limit.
+
+Two consequences worth knowing when setting this up:
+
+- **The bucket needs a CORS policy**, or the browser blocks the PUT before it is
+  sent. Set it under *R2 → your bucket → Settings → CORS policy*:
+
+  ```json
+  [
+    {
+      "AllowedOrigins": ["http://localhost:3000", "https://your-domain"],
+      "AllowedMethods": ["PUT"],
+      "AllowedHeaders": ["Content-Type"],
+      "MaxAgeSeconds": 3600
+    }
+  ]
+  ```
+
+  A missing policy fails as an opaque network error rather than as anything that
+  names CORS, so it is worth ruling out first when an upload will not go.
+
+- **The size cap is enforced by R2, not by the form.** `Content-Type` and
+  `Content-Length` are both signed into the upload URL, so a body of a different
+  length or type fails the signature. `createItem` then asks R2 how big the
+  stored object actually is and keeps that number, rather than trusting anything
+  the browser reported.
+
+`R2_PUBLIC_URL` is unused — downloads are served through
+`/api/items/[id]/file`, so the bucket stays private and the stored value is an
+object key rather than a URL.
+
 ## Scripts
 
 ```bash

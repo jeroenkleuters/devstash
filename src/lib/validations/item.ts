@@ -15,26 +15,54 @@ const MAX_TAGS = 20;
 /** Long enough for any real filename, short enough not to be a payload. */
 const FILE_NAME_MAX_LENGTH = 255;
 
+const fileNameSchema = z
+  .string()
+  .trim()
+  .min(1, "That upload is missing its file name.")
+  .max(
+    FILE_NAME_MAX_LENGTH,
+    `File names are limited to ${FILE_NAME_MAX_LENGTH} characters.`,
+  );
+
 /**
- * What `POST /api/upload` hands back once the object is in R2, carried into the
- * create payload as-is.
+ * What the browser asks `POST /api/upload` to authorise, before any object
+ * exists.
+ *
+ * Every value here is a claim: the file is still on the visitor's machine, so
+ * the route is signing a promise about one rather than inspecting it. That is
+ * what makes the signed `content-length` matter — the claimed size is checked
+ * against the cap here and then baked into the URL, so a claim and the body
+ * that follows it cannot disagree.
+ *
+ * `type` is whatever the browser reported, which is often nothing at all; it is
+ * length-capped only so a body cannot be smuggled through it.
+ */
+export const presignUploadSchema = z.object({
+  // Assignability to `UploadKind` is checked where the route hands this to
+  // `validateUpload` — if the two lists drift, that call stops compiling.
+  kind: z.enum(["image", "file"]),
+  name: fileNameSchema,
+  type: z.string().max(255, "That content type is not one we recognise."),
+  size: z.number().int().nonnegative(),
+});
+
+export type PresignUploadInput = z.infer<typeof presignUploadSchema>;
+
+/**
+ * What `POST /api/upload` hands back, carried into the create payload once the
+ * browser has finished putting the object in R2.
  *
  * The key is checked against the caller's own prefix server-side — see
  * `ownsObjectKey` — so a crafted request cannot attach someone else's object to
- * its own item. Size is the uploaded object's, not a number worth trusting for
- * anything but display.
+ * its own item.
+ *
+ * There is deliberately **no size**: the bytes never pass through the app, so a
+ * size in this payload could only ever be the client's word for it. `createItem`
+ * asks R2 instead, which is both true and unforgeable.
  */
 const uploadedFileSchema = z.object({
   key: z.string().trim().min(1, "That upload is missing its file."),
-  name: z
-    .string()
-    .trim()
-    .min(1, "That upload is missing its file name.")
-    .max(
-      FILE_NAME_MAX_LENGTH,
-      `File names are limited to ${FILE_NAME_MAX_LENGTH} characters.`,
-    ),
-  size: z.number().int().nonnegative(),
+  name: fileNameSchema,
 });
 
 /**
