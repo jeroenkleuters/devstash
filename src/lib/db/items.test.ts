@@ -25,6 +25,14 @@ const NOTE: CreateItemType = { id: "type-2", slug: "notes", contentType: "TEXT" 
 
 const LINK: CreateItemType = { id: "type-3", slug: "links", contentType: "URL" };
 
+const FILE: CreateItemType = {
+  id: "type-4",
+  slug: "files",
+  contentType: "FILE",
+};
+
+const UPLOAD = { key: "uploads/user-1/abc.pdf", name: "notes.pdf", size: 2048 };
+
 /** The parsed payload, which arrives with its optional fields already nulled. */
 function input(overrides: Partial<CreateItemInput> = {}): CreateItemInput {
   return {
@@ -34,6 +42,7 @@ function input(overrides: Partial<CreateItemInput> = {}): CreateItemInput {
     content: null,
     url: null,
     language: null,
+    file: null,
     tags: [],
     ...overrides,
   };
@@ -94,6 +103,41 @@ describe("createItem", () => {
       contentType: "URL",
       url: "https://example.com",
       content: null,
+    });
+  });
+
+  it("writes the upload for a file type, and neither of the others", async () => {
+    await createItem(
+      "user-1",
+      FILE,
+      input({
+        typeSlug: "files",
+        file: UPLOAD,
+        content: "left over",
+        url: "https://example.com",
+      }),
+    );
+
+    // `fileUrl` holds the R2 object key, not a URL — see `createItem`.
+    expect(written()).toMatchObject({
+      contentType: "FILE",
+      fileUrl: UPLOAD.key,
+      fileName: UPLOAD.name,
+      fileSize: UPLOAD.size,
+      content: null,
+      url: null,
+    });
+  });
+
+  it("ignores an upload sent for a type that holds no file", async () => {
+    // The form clears it when the type changes, so this only happens to a
+    // crafted request — the stored type decides, never the payload.
+    await createItem("user-1", SNIPPET, input({ file: UPLOAD }));
+
+    expect(written()).toMatchObject({
+      fileUrl: null,
+      fileName: null,
+      fileSize: null,
     });
   });
 

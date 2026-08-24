@@ -155,11 +155,35 @@ describe("createItemSchema", () => {
     expect(createError({ typeSlug: "banana" })).toBe("Choose an item type.");
   });
 
-  it("rejects a type the dialog does not offer", () => {
-    // Files and images are real system types, so the check cannot be "does this
-    // slug exist" — they have no upload flow and must not be creatable here.
-    expect(createError({ typeSlug: "files" })).toBe("Choose an item type.");
-    expect(createError({ typeSlug: "images" })).toBe("Choose an item type.");
+  it("requires a file for the file types", () => {
+    // Both are `ContentType.FILE`, and a file item with no object behind it is
+    // a title and nothing else.
+    expect(createError({ typeSlug: "files" })).toBe("Upload a file first.");
+    expect(createError({ typeSlug: "images" })).toBe("Upload a file first.");
+  });
+
+  it("accepts a file item that has one", () => {
+    const result = createParse({
+      typeSlug: "files",
+      file: { key: "uploads/user-1/abc.pdf", name: "notes.pdf", size: 120 },
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects an upload that names no object", () => {
+    expect(
+      createError({
+        typeSlug: "images",
+        file: { key: "  ", name: "shot.png", size: 10 },
+      }),
+    ).toBe("That upload is missing its file.");
+  });
+
+  it("asks for no file from a type that carries none", () => {
+    // The field is on the payload for every type, so this is what keeps the
+    // refine scoped to the two that own it.
+    expect(createParse({ typeSlug: "snippets" }).success).toBe(true);
   });
 
   it("requires a URL for a link", () => {

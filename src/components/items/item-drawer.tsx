@@ -1,6 +1,13 @@
 "use client";
 
-import { CalendarDays, ExternalLink, Folder, Tag } from "lucide-react";
+import {
+  CalendarDays,
+  Download,
+  ExternalLink,
+  File as FileIcon,
+  Folder,
+  Tag,
+} from "lucide-react";
 import { useState } from "react";
 
 import { CodeEditor } from "@/components/items/code-editor";
@@ -15,6 +22,7 @@ import {
   codeTypeLanguage,
   isCodeType,
   isMarkdownType,
+  uploadKindFor,
 } from "@/constants/item-types";
 import type { ItemSummary } from "@/lib/db/items";
 import { formatFileSize, formatLongDate } from "@/lib/utils";
@@ -203,14 +211,7 @@ function ItemContent({ detail }: { detail: ItemDetail }) {
   }
 
   if (detail.contentType === "FILE") {
-    return detail.fileName ? (
-      <p className="item-drawer-text">
-        {detail.fileName}
-        {detail.fileSize !== null && ` · ${formatFileSize(detail.fileSize)}`}
-      </p>
-    ) : (
-      <p className="item-drawer-empty">No file attached.</p>
-    );
+    return <ItemFile detail={detail} />;
   }
 
   if (!detail.content) {
@@ -238,5 +239,62 @@ function ItemContent({ detail }: { detail: ItemDetail }) {
     <pre className="item-drawer-code">
       <code>{detail.content}</code>
     </pre>
+  );
+}
+
+/**
+ * A File or Image item's payload: the picture itself for an image, the file's
+ * name and size for anything else, and a download either way.
+ *
+ * Both are served by `/api/items/[id]/file` rather than from R2 directly — the
+ * bucket is private, and the item's own ownership check is what opens it. A
+ * plain `<img>` and not `next/image`: the route is same-origin and per-account,
+ * so there is nothing for the optimizer to cache and no remote host to allow.
+ */
+function ItemFile({ detail }: { detail: ItemDetail }) {
+  if (!detail.fileUrl) {
+    return <p className="item-drawer-empty">No file attached.</p>;
+  }
+
+  const source = `/api/items/${detail.id}/file`;
+  const isImage = uploadKindFor(detail.type.slug) === "image";
+
+  return (
+    <div className="item-drawer-file">
+      {isImage && (
+        // `next/image` cannot serve this: its optimizer fetches the source
+        // server-side without the visitor's cookies, and this route answers 401
+        // without a session. There is nothing to optimize either — the response
+        // is per-account and uncacheable.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          className="item-drawer-image"
+          src={source}
+          alt={detail.description ?? detail.title}
+        />
+      )}
+
+      <div className="item-drawer-file-meta">
+        <FileIcon size={16} aria-hidden />
+
+        <span className="item-drawer-file-name">
+          {detail.fileName ?? "Attached file"}
+        </span>
+
+        {detail.fileSize !== null && (
+          <span className="item-drawer-file-size">
+            {formatFileSize(detail.fileSize)}
+          </span>
+        )}
+
+        {/* An anchor rather than a button: the response carries
+            `Content-Disposition: attachment`, so the browser saves it without
+            the page going anywhere. */}
+        <a className="item-drawer-download" href={`${source}?download`}>
+          <Download size={16} aria-hidden />
+          Download
+        </a>
+      </div>
+    </div>
   );
 }

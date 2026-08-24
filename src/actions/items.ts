@@ -6,8 +6,10 @@ import { getCurrentUserId } from "@/lib/db/user";
 import {
   createItem as createItemRow,
   deleteItem as deleteItemRow,
+  getItemFile,
   updateItem as updateItemRow,
 } from "@/lib/db/items";
+import { deleteFile, ownsObjectKey } from "@/lib/r2";
 import { firstIssueMessage } from "@/lib/validations/auth";
 import { createItemSchema, updateItemSchema } from "@/lib/validations/item";
 import type {
@@ -29,18 +31,25 @@ const FAILED = "Could not save this item. Try again.";
 
 const DELETE_FAILED = "Could not delete this item. Try again.";
 
+/** The item is kept when its file cannot go — see `deleteItem`. */
+const FILE_DELETE_FAILED =
+  "Could not delete this item's file, so the item was kept. Try again.";
+
 const CREATE_FAILED = "Could not create this item. Try again.";
 
 /** The slug parsed, but no system type answering to it — an un-seeded database. */
 const UNKNOWN_TYPE = "That item type is not available.";
+
+/** An upload key from outside the caller's own prefix — see `ownsObjectKey`. */
+const FOREIGN_FILE = "That file does not belong to this account.";
 
 /**
  * Creates an item from the "New Item" dialog.
  *
  * The type arrives as a slug and is resolved here, so `itemTypeId` and the
  * `contentType` that decides which payload field is stored both come from the
- * server. A request naming a type the dialog does not offer — File and Image,
- * which have no upload flow — fails the schema before any of this runs.
+ * server. A request naming a type `CREATABLE_TYPES` does not list fails the
+ * schema before any of this runs.
  */
 export async function createItem(input: unknown): Promise<CreateItemResult> {
   const userId = await getCurrentUserId();
@@ -62,6 +71,15 @@ export async function createItem(input: unknown): Promise<CreateItemResult> {
 
   if (!creatable) {
     return { success: false, error: UNKNOWN_TYPE };
+  }
+
+  // The key is the one thing in the payload that names something outside the
+  // row being written, so it is checked against the caller's own prefix — a
+  // crafted request cannot attach an object it did not upload.
+  const { file } = parsed.data;
+
+  if (file && !ownsObjectKey(userId, file.key)) {
+    return { success: false, error: FOREIGN_FILE };
   }
 
   try {
@@ -130,6 +148,11 @@ export async function updateItem(
  * There is nothing to validate beyond the session and the ownership the query
  * enforces — the id is the whole payload, and an id that is not the caller's
  * is answered as missing rather than refused.
+ *
+ * An item carrying a file loses the object **first**, and keeps its row if that
+ * fails. The other order would leave an object nothing points at and no way to
+ * find it again; this way a storage outage makes a file item undeletable until
+ * it clears, which is the recoverable half of the trade.
  */
 export async function deleteItem(itemId: string): Promise<DeleteItemResult> {
   const userId = await getCurrentUserId();
@@ -139,6 +162,27 @@ export async function deleteItem(itemId: string): Promise<DeleteItemResult> {
   }
 
   try {
+    const file = await getItemFile(userId, itemId);
+
+    if (file) {
+      // The key came off the caller's own row, so this holds unless something
+      // wrote a key by hand. Refusing beats deleting an object by that name in
+      // someone else's prefix.
+      if (!ownsObjectKey(userId, file.key)) {
+        console.error("deleteItem refused a foreign object key", file.key);
+        return { success: false, error: FILE_DELETE_FAILED };
+      }
+
+      try {
+        await deleteFile(file.key);
+      } catch (error) {
+        // Caught here rather than below so the message says which half failed:
+        // the item is still there, and trying again is worth something.
+        console.error("deleteItem could not remove the file", error);
+        return { success: false, error: FILE_DELETE_FAILED };
+      }
+    }
+
     const deleted = await deleteItemRow(userId, itemId);
 
     if (!deleted) {

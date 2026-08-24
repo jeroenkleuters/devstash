@@ -9,6 +9,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import type { UploadKind } from "@/lib/file-constraints";
 import type { ItemContentType } from "@/types/item";
 
 /**
@@ -43,12 +44,12 @@ export type ItemEditor = "code" | "markdown";
 
 /** Whether a type's content is edited and shown in the code editor. */
 export function isCodeType(slug: string): boolean {
-  return pickerType(slug)?.editor === "code";
+  return creatableType(slug)?.editor === "code";
 }
 
 /** Whether a type's content is written in Markdown. */
 export function isMarkdownType(slug: string): boolean {
-  return pickerType(slug)?.editor === "markdown";
+  return creatableType(slug)?.editor === "markdown";
 }
 
 /**
@@ -56,7 +57,16 @@ export function isMarkdownType(slug: string): boolean {
  * undefined for a type that is not code.
  */
 export function codeTypeLanguage(slug: string): string | undefined {
-  return pickerType(slug)?.fallbackLanguage;
+  return creatableType(slug)?.fallbackLanguage;
+}
+
+/**
+ * Which upload rules a type's file takes, or undefined for a type that holds
+ * no file. This is what makes an image a 5 MB `.png` and a file a 10 MB `.pdf`
+ * — both are `ContentType.FILE`, so the column cannot say it.
+ */
+export function uploadKindFor(slug: string): UploadKind | undefined {
+  return creatableType(slug)?.upload;
 }
 
 /**
@@ -76,33 +86,32 @@ export interface CreatableType {
   icon: string;
   /** Which of the item's mutually exclusive payload fields this type fills. */
   contentType: ItemContentType;
-  /**
-   * Whether an item of this type can actually be stored yet. False for the
-   * Pro-gated file types: nothing in the app uploads a file, so a created
-   * item would be a title with no payload behind it.
-   */
-  creatable: boolean;
   /** Which editor its content field uses; absent when it has no text payload. */
   editor?: ItemEditor;
   /** Monaco language a code type assumes when the item names none. */
   fallbackLanguage?: string;
+  /** Which upload rules its file takes; absent when it holds no file. */
+  upload?: UploadKind;
 }
 
 /**
- * Every system type the picker offers, and the content kind each one stores,
- * in the order the sidebar lists them.
+ * Every system type an item can be created as, and the content kind each one
+ * stores, in the order the sidebar lists them.
  *
  * `ItemType` has no column saying whether a type holds text, a URL or a file
  * (project overview §4.2), so for a new item that mapping lives here — the same
  * split `contentTypeFor` in `prisma/seed.ts` makes for the seeded content.
+ *
+ * This is the server's rule as well as the picker's: `createItem` refuses a
+ * slug that is not in here, so a type cannot be stored without the payload
+ * field its entry says it owns.
  */
-const ITEM_TYPE_OPTIONS: readonly CreatableType[] = [
+export const CREATABLE_TYPES: readonly CreatableType[] = [
   {
     slug: "snippets",
     label: "Snippet",
     icon: "Code",
     contentType: "TEXT",
-    creatable: true,
     editor: "code",
     fallbackLanguage: "plaintext",
   },
@@ -111,7 +120,6 @@ const ITEM_TYPE_OPTIONS: readonly CreatableType[] = [
     label: "Prompt",
     icon: "Sparkles",
     contentType: "TEXT",
-    creatable: true,
     editor: "markdown",
   },
   {
@@ -119,7 +127,6 @@ const ITEM_TYPE_OPTIONS: readonly CreatableType[] = [
     label: "Command",
     icon: "Terminal",
     contentType: "TEXT",
-    creatable: true,
     editor: "code",
     fallbackLanguage: "shell",
   },
@@ -128,7 +135,6 @@ const ITEM_TYPE_OPTIONS: readonly CreatableType[] = [
     label: "Note",
     icon: "StickyNote",
     contentType: "TEXT",
-    creatable: true,
     editor: "markdown",
   },
   {
@@ -136,40 +142,22 @@ const ITEM_TYPE_OPTIONS: readonly CreatableType[] = [
     label: "File",
     icon: "File",
     contentType: "FILE",
-    creatable: false,
+    upload: "file",
   },
   {
     slug: "images",
     label: "Image",
     icon: "Image",
     contentType: "FILE",
-    creatable: false,
+    upload: "image",
   },
   {
     slug: "links",
     label: "Link",
     icon: "Link",
     contentType: "URL",
-    creatable: true,
   },
 ];
-
-/** Every type the picker shows, storable or not. */
-export const PICKER_TYPES = ITEM_TYPE_OPTIONS;
-
-/**
- * The types an item can actually be created as. This is the server's rule:
- * `createItem` refuses a slug that is not in here, which is what stops a file
- * type being stored as a payload-less row while there is no upload flow.
- */
-export const CREATABLE_TYPES: readonly CreatableType[] = ITEM_TYPE_OPTIONS.filter(
-  (type) => type.creatable,
-);
-
-/** The type a slug names whether or not it can be stored, for the picker. */
-export function pickerType(slug: string): CreatableType | undefined {
-  return ITEM_TYPE_OPTIONS.find((type) => type.slug === slug);
-}
 
 /** The creatable type a slug names, or undefined when it names none. */
 export function creatableType(slug: string): CreatableType | undefined {

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { createItem } from "@/actions/items";
 import { CodeEditor } from "@/components/items/code-editor";
+import { FileUpload, type UploadedFile } from "@/components/items/file-upload";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DialogClose, DialogFooter } from "@/components/ui/dialog";
@@ -16,12 +17,13 @@ import { MarkdownEditor } from "@/components/items/markdown-editor";
 import {
   CREATABLE_TYPES,
   LANGUAGE_TYPE_SLUGS,
-  PICKER_TYPES,
+  PRO_TYPE_SLUGS,
   TYPE_ICONS,
   codeTypeLanguage,
+  creatableType,
   isCodeType,
   isMarkdownType,
-  pickerType,
+  uploadKindFor,
 } from "@/constants/item-types";
 import { firstIssueMessage } from "@/lib/validations/auth";
 import { createItemSchema } from "@/lib/validations/item";
@@ -41,8 +43,8 @@ interface ItemCreateFormProps {
  *
  * Which fields render follows the selected type: every type takes a title, a
  * description and tags, the text types add a content box, a link takes a URL
- * instead, and only the types in `LANGUAGE_TYPE_SLUGS` carry a language. The
- * two file types are offered but cannot be stored — see `PICKER_TYPES`.
+ * instead, the two file types take an upload, and only the types in
+ * `LANGUAGE_TYPE_SLUGS` carry a language.
  */
 export function ItemCreateForm({
   initialTypeSlug,
@@ -52,37 +54,46 @@ export function ItemCreateForm({
     initialTypeSlug ?? CREATABLE_TYPES[0].slug,
   );
   const [values, setValues] = useState<FormValues>(EMPTY_VALUES);
+  const [file, setFile] = useState<UploadedFile | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const router = useRouter();
 
-  const type = pickerType(typeSlug);
-  const creatable = type?.creatable ?? false;
-  // A type with no upload flow has no payload field to offer, so the fields
-  // give way to the note explaining why.
-  const showContent = creatable && type?.contentType === "TEXT";
-  const showUrl = creatable && type?.contentType === "URL";
-  const showLanguage = creatable && LANGUAGE_TYPE_SLUGS.has(typeSlug);
+  const type = creatableType(typeSlug);
+  const uploadKind = uploadKindFor(typeSlug);
+  const showContent = type?.contentType === "TEXT";
+  const showUrl = type?.contentType === "URL";
+  const showLanguage = LANGUAGE_TYPE_SLUGS.has(typeSlug);
   const showCode = showContent && isCodeType(typeSlug);
   const showMarkdown = showContent && isMarkdownType(typeSlug);
 
-  // A title is the one field no type can be stored without, so the guard is
-  // here as well as in the schema — an obviously dead button beats a round trip
-  // that comes back with a message.
-  const canSave = creatable && values.title.trim() !== "" && !saving;
+  // A title is the one field no type can be stored without, and a file item
+  // needs its file — both are in the schema too, but an obviously dead button
+  // beats a round trip that comes back with a message.
+  const canSave =
+    values.title.trim() !== "" && (!uploadKind || file !== null) && !saving;
 
   function setField(name: keyof FormValues, value: string) {
     setValues((current) => ({ ...current, [name]: value }));
   }
 
+  function changeType(slug: string) {
+    setTypeSlug(slug);
+
+    // The upload belongs to the type it was made for: switching away and back
+    // should not carry a `.png` into a File item, or a file into a snippet.
+    setFile(null);
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (saving || !creatable) return;
+    if (saving) return;
 
     const payload = {
       typeSlug,
       ...values,
+      file,
       tags: values.tags.split(","),
     };
 
@@ -137,7 +148,7 @@ export function ItemCreateForm({
           <legend className="item-type-legend">Type</legend>
 
           <div className="item-type-options">
-            {PICKER_TYPES.map((option) => {
+            {CREATABLE_TYPES.map((option) => {
               const Icon = TYPE_ICONS[option.icon];
 
               return (
@@ -151,12 +162,14 @@ export function ItemCreateForm({
                     name="typeSlug"
                     value={option.slug}
                     checked={option.slug === typeSlug}
-                    onChange={() => setTypeSlug(option.slug)}
+                    onChange={() => changeType(option.slug)}
                     disabled={saving}
                   />
                   {Icon && <Icon size={16} aria-hidden />}
                   {option.label}
-                  {!option.creatable && (
+                  {/* Labelled, not gated: all users get full access during
+                      development (project overview §8). */}
+                  {PRO_TYPE_SLUGS.has(option.slug) && (
                     <Badge variant="outline" className="item-type-badge">
                       PRO
                     </Badge>
@@ -167,11 +180,18 @@ export function ItemCreateForm({
           </div>
         </fieldset>
 
-        {!creatable && (
-          <p className="item-create-locked">
-            {type?.label ?? "This type"} items need a file upload, which comes
-            with Pro. Pick another type to create something now.
-          </p>
+        {uploadKind && (
+          <div className="item-form-field">
+            <Label htmlFor={undefined}>
+              {uploadKind === "image" ? "Image" : "File"}
+            </Label>
+            <FileUpload
+              kind={uploadKind}
+              value={file}
+              onChange={setFile}
+              disabled={saving}
+            />
+          </div>
         )}
 
         <div className="item-form-field">

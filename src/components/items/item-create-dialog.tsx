@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { pickerType } from "@/constants/item-types";
+import { creatableType } from "@/constants/item-types";
 
 interface ItemCreateDialogProps {
   /**
@@ -47,7 +47,7 @@ export function ItemCreateDialog({
 
   // Only preselects a type the picker actually knows; anything else falls
   // through to the form's own default rather than selecting nothing.
-  const selected = typeSlug ? pickerType(typeSlug) : undefined;
+  const selected = typeSlug ? creatableType(typeSlug) : undefined;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

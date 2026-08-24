@@ -12,6 +12,31 @@ const LANGUAGE_MAX_LENGTH = 32;
 const TAG_MAX_LENGTH = 32;
 const MAX_TAGS = 20;
 
+/** Long enough for any real filename, short enough not to be a payload. */
+const FILE_NAME_MAX_LENGTH = 255;
+
+/**
+ * What `POST /api/upload` hands back once the object is in R2, carried into the
+ * create payload as-is.
+ *
+ * The key is checked against the caller's own prefix server-side — see
+ * `ownsObjectKey` — so a crafted request cannot attach someone else's object to
+ * its own item. Size is the uploaded object's, not a number worth trusting for
+ * anything but display.
+ */
+const uploadedFileSchema = z.object({
+  key: z.string().trim().min(1, "That upload is missing its file."),
+  name: z
+    .string()
+    .trim()
+    .min(1, "That upload is missing its file name.")
+    .max(
+      FILE_NAME_MAX_LENGTH,
+      `File names are limited to ${FILE_NAME_MAX_LENGTH} characters.`,
+    ),
+  size: z.number().int().nonnegative(),
+});
+
 /**
  * The optional text fields arrive from inputs, which have no null — an emptied
  * field is `""`. Storing that instead of `null` would make "no description" and
@@ -123,12 +148,12 @@ export type UpdateItemInput = z.infer<typeof updateItemSchema>;
  *
  * `typeSlug` rather than an `itemTypeId`: the id is the database's to hand out,
  * and accepting one from the caller would let a request name a type the dialog
- * does not offer — the Pro-gated File and Image among them. The slug is checked
- * against `CREATABLE_TYPES` here and resolved to a row server-side.
+ * does not offer. The slug is checked against `CREATABLE_TYPES` here and
+ * resolved to a row server-side.
  *
  * Which payload field the chosen type owns is still `src/lib/db/items.ts`'s
- * call; the only cross-field rule here is the one a form can act on, that a
- * link is not a link without its URL.
+ * call; the cross-field rules here are the two a form can act on — a link is
+ * not a link without its URL, and a file item is not one without its file.
  */
 export const createItemSchema = z
   .object({
@@ -136,12 +161,23 @@ export const createItemSchema = z
       error: "Choose an item type.",
     }),
     ...itemFields,
+    // Only the create payload carries one: the drawer's edit mode cannot
+    // replace an item's file, so `updateItemSchema` has nothing to say about
+    // it. An omitted field is the same as no file — the refine below is what
+    // decides whether that is allowed.
+    file: uploadedFileSchema.nullish().transform((value) => value ?? null),
   })
   .refine(
     (values) =>
       creatableType(values.typeSlug)?.contentType !== "URL" ||
       values.url !== null,
     { error: "A URL is required.", path: ["url"] },
+  )
+  .refine(
+    (values) =>
+      creatableType(values.typeSlug)?.contentType !== "FILE" ||
+      values.file !== null,
+    { error: "Upload a file first.", path: ["file"] },
   );
 
 export type CreateItemInput = z.infer<typeof createItemSchema>;

@@ -117,8 +117,12 @@ const SOON = "Coming soon";
 
 /**
  * What Copy puts on the clipboard: the item's own payload, whichever of the
- * three mutually exclusive fields its content type fills.
+ * mutually exclusive fields its content type fills.
+ *
+ * A file item has nothing to offer — `fileUrl` holds an R2 object key, which
+ * means nothing outside the server — so Copy stays disabled and the drawer's
+ * Download button is what gets the file out.
  */
 function copyText(detail: ItemDetail) {
-  return detail.content || detail.url || detail.fileUrl || null;
+  return detail.content || detail.url || null;
 }
