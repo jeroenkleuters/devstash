@@ -125,6 +125,41 @@ export async function getItemDetail(
   return item && toDetail(item);
 }
 
+/** One item's stored file, as the download and delete paths need it. */
+export interface ItemFile {
+  /** The R2 object key — see `createItem` on why the column holds one. */
+  key: string;
+  name: string;
+  size: number | null;
+}
+
+/**
+ * The file an item carries, or `null` when it has none, does not exist, or
+ * belongs to someone else — the same conflation `getItemDetail` makes, and for
+ * the same reason.
+ */
+export async function getItemFile(
+  userId: string,
+  itemId: string,
+): Promise<ItemFile | null> {
+  const item = await prisma.item.findFirst({
+    where: { id: itemId, userId },
+    select: { fileUrl: true, fileName: true, fileSize: true },
+  });
+
+  if (!item?.fileUrl) {
+    return null;
+  }
+
+  return {
+    key: item.fileUrl,
+    // Every uploaded object is stored with its name; the fallback is only for a
+    // row written before this feature existed.
+    name: item.fileName ?? "download",
+    size: item.fileSize,
+  };
+}
+
 /** The resolved type a new item is created as. */
 export interface CreateItemType {
   /** `ItemType.id`, read from the database rather than taken from the request. */
@@ -142,12 +177,20 @@ export interface CreateItemType {
  * here rather than read off the row, so it is the caller's resolved
  * `contentType` that decides, never what the request happened to send. Language
  * is dropped the same way for the types that do not carry one.
+ *
+ * `fileUrl` holds the R2 **object key**, not a URL. Nothing in the app ever
+ * needs a public one: the file is served through `/api/items/[id]/file`, which
+ * is what keeps the bucket private and the fetch same-origin, and both that
+ * route and the delete path need the key. Storing a URL would mean parsing the
+ * key back out of it on every use.
  */
 export async function createItem(
   userId: string,
   type: CreateItemType,
   input: CreateItemInput,
 ): Promise<ItemDetail> {
+  const file = type.contentType === "FILE" ? input.file : null;
+
   const item = await prisma.item.create({
     data: {
       userId,
@@ -157,6 +200,9 @@ export async function createItem(
       description: input.description,
       content: type.contentType === "TEXT" ? input.content : null,
       url: type.contentType === "URL" ? input.url : null,
+      fileUrl: file?.key ?? null,
+      fileName: file?.name ?? null,
+      fileSize: file?.size ?? null,
       language: LANGUAGE_TYPE_SLUGS.has(type.slug) ? input.language : null,
       tags: {
         connectOrCreate: input.tags.map((name) => ({

@@ -1,16 +1,43 @@
-# Current Feature
+# Current Feature: File & Image Upload (Cloudflare R2)
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
-<!-- What does success look like? -->
+- Upload API route that stores a file in Cloudflare R2 and returns its key/URL, size, name and MIME type
+- All Prisma access stays in `src/lib/db/items.ts` — no queries in the route handlers or components
+- A `FileUpload` component with drag-and-drop plus a click-to-browse fallback
+- The create item dialog uses `FileUpload` for the File and Image types instead of today's "uploads come with Pro" dead end
+- Deleting an item deletes its object from R2 as well as its row
+- A download proxy API route, so downloads go through the app rather than hitting R2 cross-origin
+- A Download button in `ItemDrawer` for file-type items
+- An upload progress indicator while the transfer is in flight
+- The drawer shows an image preview for images, and file info (name, size, type) for files
+- Enforce the size and type constraints below on both the client and the server
 
 ## Notes
 
-<!-- Additional context, constraints, details -->
+**Constraints**
+
+| Type   | Max size | Extensions                                                                       |
+| ------ | -------- | -------------------------------------------------------------------------------- |
+| Images | 5 MB     | `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.svg`                                  |
+| Files  | 10 MB    | `.pdf`, `.txt`, `.md`, `.json`, `.yaml`, `.yml`, `.xml`, `.csv`, `.toml`, `.ini`  |
+
+Accepted MIME types — images: `image/png`, `image/jpeg`, `image/gif`, `image/webp`, `image/svg+xml`. Files: `application/pdf`, `text/plain`, `text/markdown`, `application/json`, `application/x-yaml`, `text/yaml`, `application/xml`, `text/xml`, `text/csv`, `application/toml` (`.ini` also arrives as `text/plain`).
+
+**Existing state this has to fit**
+
+- `Item` already has `fileUrl` / `fileName` / `fileSize` and `ContentType.FILE` — no migration expected.
+- The R2 env vars (`R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, `R2_PUBLIC_URL`) are already in `.env.example` and were committed last. No S3 client is installed yet, and `src/lib/r2.ts` does not exist.
+- `ITEM_TYPE_OPTIONS` in `src/constants/item-types.ts` marks `files` / `images` as **not** creatable, and `createItem` refuses those slugs — both are the current backstop against storing a payload-less row, and both have to change together with the new file payload.
+- `createItem` / `updateItem` write only the field the stored `contentType` owns; FILE currently owns nothing, so that branch needs the file fields.
+- Item delete is `deleteItem` in `src/lib/db/items.ts` + `src/components/items/item-delete-dialog.tsx`; the R2 cleanup hangs off there.
+- Upload progress needs `XMLHttpRequest` (or a stream) — `fetch` gives no upload progress event, and this is exactly the "file uploads with progress" case coding-standards names as an API-route job rather than a server action.
+- Uploads are Pro-gated per project overview §8, but all users get full access during development.
+- **A failed R2 delete blocks the item delete** (decided): delete the object first, and if that fails, leave the row alone and report the failure through the existing delete-dialog error slot + toast. No orphaned objects; the cost is that a storage outage makes file items undeletable until it clears.
 
 ## History
 

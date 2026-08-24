@@ -5,9 +5,11 @@ import { getItemTypeBySlug } from "@/lib/db/item-types";
 import {
   createItem as createItemRow,
   deleteItem as deleteItemRow,
+  getItemFile,
   updateItem as updateItemRow,
 } from "@/lib/db/items";
 import { getCurrentUserId } from "@/lib/db/user";
+import { deleteFile } from "@/lib/r2";
 import type { ItemDetail } from "@/types/item";
 
 /**
@@ -20,13 +22,27 @@ vi.mock("@/lib/db/items", () => ({
   createItem: vi.fn(),
   updateItem: vi.fn(),
   deleteItem: vi.fn(),
+  getItemFile: vi.fn(),
 }));
 vi.mock("@/lib/db/item-types", () => ({ getItemTypeBySlug: vi.fn() }));
 vi.mock("@/lib/db/user", () => ({ getCurrentUserId: vi.fn() }));
 
+/**
+ * Stands in for R2 as well, so nothing here reaches the network. `ownsObjectKey`
+ * is kept real: it is the rule the delete path leans on, and a mocked one would
+ * make those assertions say nothing.
+ */
+vi.mock("@/lib/r2", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/r2")>("@/lib/r2");
+
+  return { ownsObjectKey: actual.ownsObjectKey, deleteFile: vi.fn() };
+});
+
 const createItemRowMock = vi.mocked(createItemRow);
 const updateItemRowMock = vi.mocked(updateItemRow);
 const deleteItemRowMock = vi.mocked(deleteItemRow);
+const getItemFileMock = vi.mocked(getItemFile);
+const deleteFileMock = vi.mocked(deleteFile);
 const getItemTypeBySlugMock = vi.mocked(getItemTypeBySlug);
 const getCurrentUserIdMock = vi.mocked(getCurrentUserId);
 
@@ -66,6 +82,9 @@ beforeEach(() => {
   createItemRowMock.mockResolvedValue(DETAIL);
   updateItemRowMock.mockResolvedValue(DETAIL);
   deleteItemRowMock.mockResolvedValue(true);
+  // Most items carry no file at all.
+  getItemFileMock.mockResolvedValue(null);
+  deleteFileMock.mockResolvedValue(undefined);
 });
 
 describe("createItem", () => {
@@ -109,14 +128,48 @@ describe("createItem", () => {
     expect(createItemRowMock).not.toHaveBeenCalled();
   });
 
-  it("refuses a type the dialog does not offer", async () => {
-    // `files` is a real system type, so the slug would resolve — the schema is
-    // what keeps a request from creating one, since nothing uploads a file.
-    const result = await createItem(createPayload({ typeSlug: "files" }));
+  it("refuses a slug that names no type", async () => {
+    const result = await createItem(createPayload({ typeSlug: "banana" }));
 
     expect(result).toEqual({ success: false, error: "Choose an item type." });
     expect(getItemTypeBySlugMock).not.toHaveBeenCalled();
     expect(createItemRowMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses an upload from another account's prefix", async () => {
+    // The key is the one thing in the payload naming something outside the row
+    // being written, so it is checked against the caller's own prefix.
+    const result = await createItem(
+      createPayload({
+        typeSlug: "files",
+        file: { key: "uploads/user-2/secret.pdf", name: "s.pdf", size: 10 },
+      }),
+    );
+
+    expect(result).toEqual({
+      success: false,
+      error: "That file does not belong to this account.",
+    });
+    expect(createItemRowMock).not.toHaveBeenCalled();
+  });
+
+  it("creates a file item from the caller's own upload", async () => {
+    getItemTypeBySlugMock.mockResolvedValue({
+      id: "type-5",
+      slug: "files",
+      name: "File",
+      icon: "File",
+    });
+
+    const file = { key: "uploads/user-1/abc.pdf", name: "notes.pdf", size: 12 };
+    const result = await createItem(createPayload({ typeSlug: "files", file }));
+
+    expect(result).toEqual({ success: true, data: DETAIL });
+    expect(createItemRowMock).toHaveBeenCalledWith(
+      "user-1",
+      { id: "type-5", slug: "files", contentType: "FILE" },
+      expect.objectContaining({ file }),
+    );
   });
 
   it("reports a type with no row behind it", async () => {
@@ -266,5 +319,70 @@ describe("deleteItem", () => {
       error: "Could not delete this item. Try again.",
     });
     expect(logged).toHaveBeenCalled();
+  });
+
+  it("removes the stored file before the row", async () => {
+    getItemFileMock.mockResolvedValue({
+      key: "uploads/user-1/abc.pdf",
+      name: "notes.pdf",
+      size: 12,
+    });
+
+    const order: string[] = [];
+    deleteFileMock.mockImplementation(async () => void order.push("file"));
+    deleteItemRowMock.mockImplementation(async () => {
+      order.push("row");
+      return true;
+    });
+
+    const result = await deleteItem("item-1");
+
+    expect(result).toEqual({ success: true });
+    expect(order).toEqual(["file", "row"]);
+  });
+
+  it("keeps the item when its file cannot be deleted", async () => {
+    // The whole point of the ordering: the alternative leaves an object in the
+    // bucket that nothing points at and nothing can find again.
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    getItemFileMock.mockResolvedValue({
+      key: "uploads/user-1/abc.pdf",
+      name: "notes.pdf",
+      size: 12,
+    });
+    deleteFileMock.mockRejectedValue(new Error("R2 unreachable"));
+
+    const result = await deleteItem("item-1");
+
+    expect(result).toEqual({
+      success: false,
+      error:
+        "Could not delete this item's file, so the item was kept. Try again.",
+    });
+    expect(deleteItemRowMock).not.toHaveBeenCalled();
+    expect(logged).toHaveBeenCalled();
+  });
+
+  it("refuses to delete an object outside the caller's own prefix", async () => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    getItemFileMock.mockResolvedValue({
+      key: "uploads/user-2/abc.pdf",
+      name: "notes.pdf",
+      size: 12,
+    });
+
+    const result = await deleteItem("item-1");
+
+    expect(result.success).toBe(false);
+    expect(deleteFileMock).not.toHaveBeenCalled();
+    expect(deleteItemRowMock).not.toHaveBeenCalled();
+    expect(logged).toHaveBeenCalled();
+  });
+
+  it("does not reach for storage when the item carries no file", async () => {
+    const result = await deleteItem("item-1");
+
+    expect(result).toEqual({ success: true });
+    expect(deleteFileMock).not.toHaveBeenCalled();
   });
 });
