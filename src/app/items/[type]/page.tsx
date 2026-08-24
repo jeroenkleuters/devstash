@@ -3,9 +3,11 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
 import { SIGN_IN_PATH } from "@/auth.config";
+import { ImageGallerySkeleton } from "@/components/items/image-gallery-skeleton";
 import { ItemCreateDialog } from "@/components/items/item-create-dialog";
 import { ItemListSkeleton } from "@/components/items/item-list-skeleton";
 import { TypeItems } from "@/components/items/type-items";
+import { uploadKindFor } from "@/constants/item-types";
 import { getItemTypeBySlug } from "@/lib/db/item-types";
 import { getCurrentUser } from "@/lib/db/user";
 
@@ -46,6 +48,11 @@ export default async function ItemsByTypePage({
 
   const label = typeLabel(itemType.slug);
 
+  // Image types show their content, so they get the gallery instead of the row
+  // list. `uploadKindFor` is already the app's answer to "does this type hold a
+  // picture" — both file types are `ContentType.FILE`, so the column cannot say.
+  const gallery = uploadKindFor(itemType.slug) === "image";
+
   return (
     <>
       <div className="dashboard-heading dashboard-heading-row">
@@ -65,11 +72,20 @@ export default async function ItemsByTypePage({
       <section className="dashboard-section">
         {/* Its own boundary: the heading above needs only the type query, so it
             paints while the items resolve. */}
-        <Suspense fallback={<ItemListSkeleton count={ITEM_SKELETON_COUNT} />}>
+        <Suspense
+          fallback={
+            gallery ? (
+              <ImageGallerySkeleton count={ITEM_SKELETON_COUNT} />
+            ) : (
+              <ItemListSkeleton count={ITEM_SKELETON_COUNT} />
+            )
+          }
+        >
           <TypeItems
             userId={user.id}
             typeId={itemType.id}
             label={label.toLowerCase()}
+            gallery={gallery}
           />
         </Suspense>
       </section>
