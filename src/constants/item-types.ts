@@ -32,24 +32,23 @@ export const TYPE_ICONS: Record<string, LucideIcon> = {
 export const PRO_TYPE_SLUGS = new Set(["files", "images"]);
 
 /**
- * `ItemType.slug`s whose content is code, and the Monaco language each one
- * falls back to when the item names none.
+ * Which editor a type's content field uses.
  *
- * Keyed on the slug rather than `ContentType` because TEXT also covers prompts
- * and notes, where a code editor over a paragraph of prose is noise — those
- * keep the plain block and the plain textarea.
- *
- * This replaces the hand-rolled line-number gutter these types used to get:
- * Monaco draws its own.
+ * Keyed on the slug rather than `ContentType` because TEXT covers all four of
+ * these: a code editor over a paragraph of prose is noise, and a Markdown
+ * preview over a shell command is meaningless. Every TEXT type is one or the
+ * other, so the pair partitions them.
  */
-const CODE_TYPE_LANGUAGES = new Map([
-  ["snippets", "plaintext"],
-  ["commands", "shell"],
-]);
+export type ItemEditor = "code" | "markdown";
 
 /** Whether a type's content is edited and shown in the code editor. */
 export function isCodeType(slug: string): boolean {
-  return CODE_TYPE_LANGUAGES.has(slug);
+  return pickerType(slug)?.editor === "code";
+}
+
+/** Whether a type's content is written in Markdown. */
+export function isMarkdownType(slug: string): boolean {
+  return pickerType(slug)?.editor === "markdown";
 }
 
 /**
@@ -57,7 +56,7 @@ export function isCodeType(slug: string): boolean {
  * undefined for a type that is not code.
  */
 export function codeTypeLanguage(slug: string): string | undefined {
-  return CODE_TYPE_LANGUAGES.get(slug);
+  return pickerType(slug)?.fallbackLanguage;
 }
 
 /**
@@ -83,6 +82,10 @@ export interface CreatableType {
    * item would be a title with no payload behind it.
    */
   creatable: boolean;
+  /** Which editor its content field uses; absent when it has no text payload. */
+  editor?: ItemEditor;
+  /** Monaco language a code type assumes when the item names none. */
+  fallbackLanguage?: string;
 }
 
 /**
@@ -100,6 +103,8 @@ const ITEM_TYPE_OPTIONS: readonly CreatableType[] = [
     icon: "Code",
     contentType: "TEXT",
     creatable: true,
+    editor: "code",
+    fallbackLanguage: "plaintext",
   },
   {
     slug: "prompts",
@@ -107,6 +112,7 @@ const ITEM_TYPE_OPTIONS: readonly CreatableType[] = [
     icon: "Sparkles",
     contentType: "TEXT",
     creatable: true,
+    editor: "markdown",
   },
   {
     slug: "commands",
@@ -114,6 +120,8 @@ const ITEM_TYPE_OPTIONS: readonly CreatableType[] = [
     icon: "Terminal",
     contentType: "TEXT",
     creatable: true,
+    editor: "code",
+    fallbackLanguage: "shell",
   },
   {
     slug: "notes",
@@ -121,6 +129,7 @@ const ITEM_TYPE_OPTIONS: readonly CreatableType[] = [
     icon: "StickyNote",
     contentType: "TEXT",
     creatable: true,
+    editor: "markdown",
   },
   {
     slug: "files",

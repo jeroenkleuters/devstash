@@ -1,4 +1,4 @@
-# Current Feature
+# Current Feature: Markdown editor for notes and prompts
 
 ## Status
 
@@ -6,11 +6,34 @@ Not Started
 
 ## Goals
 
-<!-- What does success look like? -->
+- A `MarkdownEditor` component with a **Write / Preview** tabbed interface, rendering through `react-markdown` + `remark-gfm`.
+- Notes and prompts edit through it; **snippets and commands keep `CodeEditor` untouched**, links keep the URL input.
+- Both modes: **readonly** shows Preview only, **edit** opens on Write with Preview available.
+- Copy button in the header, styled as `CodeEditor`'s.
+- Fluid height capped at **400px**, matching `CodeEditor`.
+- A `.markdown-preview` class carrying the rendered styling — headings h1–h6 distinct, fenced and inline code, lists, blockquotes with a left accent, blue links, bordered tables with a header background.
+- Wired into all three call sites: create dialog, drawer edit mode, drawer view mode.
 
 ## Notes
 
-<!-- Additional context, constraints, details -->
+Spec: @context/features/markdown-editor-spec.md
+
+**One conflict in the spec to settle first.** It asks for `bg-[#1e1e1e]` container and `bg-[#2d2d2d]` header while also saying "match existing dark theme styling". Those disagree, twice over: they are Tailwind *arbitrary utility classes*, which CLAUDE.md forbids in markup, and the values are near-misses for what `CodeEditor` actually uses — `--card` is **#171717** and `--muted` is **#262626**. Recommend the tokens, so the two editors match each other and light mode stays possible later; the hexes would be the only hardcoded surface colors in the app.
+
+**Dependencies.** `react-markdown` (10.1.0) and `remark-gfm` (4.0.1), both React 19 ready. Unlike Monaco these are **bundled**, not CDN, so they land in the client bundle for real. ShadCN `tabs` is not installed — it would be the 13th file in `components/ui/`, and `radix-ui` is already a dependency so it adds none.
+
+**Security rule worth stating up front:** `react-markdown` ignores raw HTML by default and **must stay that way** — do not add `rehype-raw`. Item content is user-authored and stored, so rendering embedded HTML would be a stored-XSS path.
+
+**Where the type gating goes.** The last feature centralised all seven types into one ordered `ITEM_TYPE_OPTIONS` in [item-types.ts](src/constants/item-types.ts). With this change every TEXT type is either code (snippets, commands) or markdown (notes, prompts), so the partition is complete — an `editor` field on that list is likely cleaner than a second `isMarkdownType` set sitting beside `isCodeType` / `CODE_TYPE_LANGUAGES`.
+
+**Details to decide while building:**
+
+- Readonly is "Preview tab only" — decide whether the tab strip still renders with one tab, or the header just shows the label and copy.
+- `CodeEditor`'s `MAX_HEIGHT = 400` is private, and its height is *measured* from Monaco's content; markdown's cap is plain CSS `max-height` + overflow. "Matching" means the same number, not the same mechanism.
+- The copy button wants `CodeEditor`'s look, so `.code-editor-copy` probably generalises rather than being duplicated. The chrome otherwise differs — no macOS dots or language label here, tabs instead.
+- Drawer view currently renders notes/prompts as a plain `<pre class="item-drawer-code">`; that is what the readonly preview replaces.
+
+**Testing:** the whole surface is component rendering, which `vitest.config.mts` never collects (`src/lib/**` and `src/actions/**` only). Expect no new tests unless a pure helper falls out.
 
 ## History
 
