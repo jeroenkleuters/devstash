@@ -510,6 +510,15 @@ a.sidebar-user-name:hover {
   color: var(--muted-foreground);
 }
 
+/* A heading with an action opposite it — the type pages' own add button. */
+.dashboard-heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
 .dashboard-section {
   margin-top: 2.5rem;
 }
@@ -1000,6 +1009,28 @@ a.sidebar-user-name:hover {
 
 .item-type-option svg {
   color: var(--type-color);
+}
+
+/* Marks the two types the picker offers but cannot store yet. Sized down like
+   the sidebar's, so the option row's height does not move. */
+.item-type-badge {
+  height: 1.0625rem;
+  padding: 0 0.3125rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.5625rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--muted-foreground);
+}
+
+.item-create-locked {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--muted);
+  font-size: 0.8125rem;
+  color: var(--muted-foreground);
 }
 
 .item-type-option:has(:checked) {
@@ -1558,8 +1589,9 @@ a.sidebar-user-name:hover {
     padding: 0 1rem;
   }
 
-  /* Not enough room for both labels next to the search field. */
-  .dashboard-topbar-action-label {
+  /* Not enough room for both labels next to the search field, and the type
+     pages' add button collapses to its icon for the same reason. */
+  .action-label {
     display: none;
   }
 
