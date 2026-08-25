@@ -1,16 +1,44 @@
-# Current Feature
+# Current Feature: Quick Copy Icon on Item Cards
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
-<!-- What does success look like? -->
+- An item card carries a Copy icon button that puts the item's payload on the clipboard without opening the drawer.
+- The button appears on hover and is always present for keyboard focus, so the card stays quiet at rest.
+- Copying gives immediate feedback: the icon swaps to a check for ~2s, plus the existing success/failure toast.
+- Clicking Copy never opens the drawer, and the rest of the card still does.
+- Only items that have something copyable get the button - snippets, prompts, commands, notes and links. File and image items get none.
 
 ## Notes
 
-<!-- Additional context, constraints, details -->
+### Scope
+
+- `src/components/items/item-card.tsx` only - the row card used by the dashboard's Pinned and Recent lists and by `/items/[type]`.
+- `/items/files` rows (`file-row.tsx`) keep their Download button and get no Copy; `/items/images` tiles (`image-card.tsx`) are untouched.
+- The gate is the type slug, not `contentType`: `ItemTypeSummary` carries no content type, and `uploadKindFor(slug)` in `src/constants/item-types.ts` is already the app's answer to "is this a file type". A copyable card is one where that returns `undefined`.
+
+### Where the payload comes from (decided)
+
+- **Fetch on click**, via the existing `GET /api/items/[id]` - the same route the drawer uses.
+- `ItemSummary` carries no `content` or `url`, and widening the shared `itemSelect` would pull full snippet text (`@db.Text`) into every dashboard and type-page query and ship it to the browser for every row, copied or not.
+- Cost is a round trip before the toast. The button needs an in-flight state so a double click cannot fire two requests, and a failed request must clear it - the same missing-`.catch` defect that stranded the delete dialog and the edit form.
+- Copy text is the item's own payload: `content || url`, matching `copyText` in `item-drawer-actions.tsx`. Worth sharing that helper rather than writing it a second time.
+
+### Interaction
+
+- Icon-only button in the card, revealed by `:hover` / `:focus-visible` on the card, following the existing `:has(.item-card-open:hover)` pattern in `globals.css`.
+- It must sit **beside** the stretched `.item-card-open` button, not inside it - a button cannot nest in a button. The file row already solves exactly this: a sibling with `z-index: 2` so the stretched hit target does not cover it. No `stopPropagation` needed, since the click never bubbles through a sibling.
+- Reveal-on-hover means no visible affordance on touch, where there is no hover. Accepted: the drawer's Copy is the touch path.
+- The button needs its own `aria-label` naming the item, since the card already has one on the stretched button.
+
+### Out of scope
+
+- Favorite and Pin stay inert - they still need a server action and a revalidation story.
+- No copy on the image gallery or the file list.
+- No detail caching: each copy refetches, same as reopening the drawer does today.
 
 ## History
 

@@ -795,6 +795,54 @@ a.sidebar-user-name:hover {
   color: var(--muted-foreground);
 }
 
+/* Above the stretched hit target rather than under it, the same way the file
+   row's download link sits over its own — that button covers the whole card,
+   and this is the one thing in the card that does something else.
+
+   Hidden at rest so a list of cards stays quiet, and revealed by a hover
+   anywhere on the card. It is still in the tab order while invisible, so the
+   `:focus-visible` rule is what makes it reachable by keyboard rather than an
+   extra convenience. There is no hover on touch, where the drawer's Copy is
+   the way in. */
+.item-card-copy {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: var(--radius-md);
+  color: var(--muted-foreground);
+  opacity: 0;
+  cursor: pointer;
+  transition:
+    opacity 0.15s,
+    color 0.15s,
+    background 0.15s;
+}
+
+.item-card:hover .item-card-copy,
+.item-card-copy:focus-visible {
+  opacity: 1;
+}
+
+.item-card-copy:hover {
+  background: var(--muted);
+  color: var(--foreground);
+}
+
+/* Held visible for the two seconds the check is up: the pointer has usually
+   left by then, and a confirmation that disappears with it confirms nothing. */
+.item-card-copy[data-copied="true"] {
+  opacity: 1;
+  color: var(--type-link);
+}
+
+.item-card-copy:disabled {
+  cursor: default;
+}
+
 /* ---------- Image gallery ----------
    `/items/images` shows the picture rather than a row of metadata, so it gets
    its own grid instead of a variant of `.item-list`: that ladder is shared with
@@ -2348,6 +2396,12 @@ a.sidebar-user-name:hover {
   .image-card-image,
   .image-card:has(.item-card-open:hover) .image-card-image {
     transform: none;
+    transition: none;
+  }
+
+  /* The button still appears and still turns into a check — only the fade
+     between the two states goes. */
+  .item-card-copy {
     transition: none;
   }
 }

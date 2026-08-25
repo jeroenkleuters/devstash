@@ -96,6 +96,18 @@ export function uploadKindFor(slug: string): UploadKind | undefined {
 }
 
 /**
+ * Whether a type's items carry something worth putting on the clipboard.
+ *
+ * The slug again rather than `ContentType`: a file and an image are both
+ * `ContentType.FILE`, and their payload is an R2 object key that means nothing
+ * outside the server. Every other type holds either text or a URL, so "holds no
+ * file" is the same question as "has something to copy".
+ */
+export function isCopyableType(slug: string): boolean {
+  return uploadKindFor(slug) === undefined;
+}
+
+/**
  * `ItemType.slug`s that carry a syntax-highlighting hint. Slug again rather
  * than `ContentType`: a prompt and a note are TEXT too, and neither has a
  * language.
