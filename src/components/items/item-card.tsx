@@ -2,8 +2,9 @@
 
 import { Pin, Star } from "lucide-react";
 
+import { ItemCopyButton } from "@/components/items/item-copy-button";
 import { useItemDrawer } from "@/components/items/item-drawer-provider";
-import { TYPE_ICONS } from "@/constants/item-types";
+import { isCopyableType, TYPE_ICONS } from "@/constants/item-types";
 import type { ItemSummary } from "@/lib/db/items";
 import { formatShortDate } from "@/lib/utils";
 
@@ -61,6 +62,12 @@ export function ItemCard({ item }: ItemCardProps) {
       <time className="item-card-date" dateTime={item.updatedAt.toISOString()}>
         {formatShortDate(item.updatedAt)}
       </time>
+
+      {/* File and image items carry an R2 object key, which means nothing on a
+          clipboard — so they get no button rather than a dead one. */}
+      {isCopyableType(item.type.slug) && (
+        <ItemCopyButton itemId={item.id} title={item.title} />
+      )}
     </li>
   );
 }
