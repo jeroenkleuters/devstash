@@ -1,6 +1,10 @@
 import {
   Code,
   File,
+  FileCode,
+  FileJson,
+  FileSpreadsheet,
+  FileText,
   Image,
   Link,
   Sparkles,
@@ -24,6 +28,28 @@ export const TYPE_ICONS: Record<string, LucideIcon> = {
   File,
   Image,
   Link,
+};
+
+/**
+ * Extension → the icon a file row shows, for the extensions uploads accept.
+ *
+ * A plain object here, unlike the `Map`s in `file-constraints.ts` and
+ * `code-language.ts`: those are keyed on bare words, where a lookup can answer
+ * with something off the prototype, but every key below carries a leading dot
+ * and so does everything `fileExtension` returns — `".constructor"` is not a
+ * prototype member.
+ */
+export const FILE_ICONS: Record<string, LucideIcon> = {
+  ".pdf": FileText,
+  ".txt": FileText,
+  ".md": FileText,
+  ".ini": FileText,
+  ".json": FileJson,
+  ".yaml": FileCode,
+  ".yml": FileCode,
+  ".toml": FileCode,
+  ".xml": FileCode,
+  ".csv": FileSpreadsheet,
 };
 
 /**

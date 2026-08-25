@@ -903,6 +903,164 @@ a.sidebar-user-name:hover {
   color: var(--muted-foreground);
 }
 
+/* ---------- File list ----------
+   `/items/files` reads as a file manager rather than a grid of cards: one
+   column at every width, since a row is a name and three short columns and
+   gains nothing from a second one. Desktop-first, like the gallery above. */
+
+.file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.file-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+
+/* Stated through `:has` for the reason the other two cards' rules are: the
+   state belongs to the row and not to the transparent button over its text —
+   and the skeleton, which has no button inside, never looks interactive.
+   Hovering the download link leaves the row alone, which is the honest
+   feedback: that click does something else. */
+.file-row:has(.item-card-open:hover) {
+  border-color: color-mix(in oklch, var(--type-color) 45%, var(--border));
+  background: color-mix(in oklch, var(--type-color) 5%, var(--card));
+}
+
+.file-row:has(.item-card-open:focus-visible) {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.file-row-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--radius-md);
+  background: color-mix(in oklch, var(--type-color) 18%, transparent);
+  color: var(--type-color);
+}
+
+.file-row-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.file-row-name {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-width: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+/* A filename is one unbroken string with no wrap opportunity of its own, so a
+   long one would push the columns off the row. This sits on the text rather
+   than on the `h3` above, which is a flex container — `text-overflow` does not
+   apply to one, and the name would be an anonymous item inside it. */
+.file-row-name-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-row-subtitle {
+  margin-top: 0.125rem;
+  overflow: hidden;
+  font-size: 0.8125rem;
+  color: var(--muted-foreground);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-row-size,
+.file-row-date {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+
+.file-row-size {
+  /* Fixed, so the dates line up down the list instead of tracking each size. */
+  width: 4.5rem;
+  text-align: right;
+}
+
+.file-row-date {
+  width: 3.5rem;
+  text-align: right;
+}
+
+/* Above the stretched hit target rather than under it — that button covers the
+   whole row, and this is the one thing in the row that does something else. */
+.file-row-download {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--muted-foreground);
+  transition:
+    color 0.15s,
+    background 0.15s;
+}
+
+.file-row-download:hover {
+  background: var(--muted);
+  color: var(--foreground);
+}
+
+/* Below the breakpoint the four columns do not fit beside the name, so the
+   metadata drops under it and the download button stays on the first line. */
+@media (max-width: 47.99rem) {
+  .file-row {
+    flex-wrap: wrap;
+    row-gap: 0.5rem;
+  }
+
+  .file-row-size,
+  .file-row-date {
+    width: auto;
+    text-align: left;
+  }
+
+  /* The whole metadata line moves below the icon, name and button. */
+  .file-row-size {
+    order: 1;
+    margin-left: 3.25rem;
+  }
+
+  .file-row-date {
+    order: 2;
+  }
+
+  .file-row-date::before {
+    content: "·";
+    margin-right: 0.5rem;
+  }
+}
+
 /* ---------- Item drawer ----------
    The sheet primitive caps itself at `sm:max-w-sm`. These rules are unlayered
    while Tailwind's utilities sit in the `utilities` layer, so they win without
@@ -1997,6 +2155,14 @@ a.sidebar-user-name:hover {
 }
 
 .skeleton-item-date {
+  width: 3rem;
+}
+
+.skeleton-file-name {
+  width: min(100%, 14rem);
+}
+
+.skeleton-file-size {
   width: 3rem;
 }
 
