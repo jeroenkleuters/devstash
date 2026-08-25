@@ -21,6 +21,20 @@ export interface ItemSummary {
   updatedAt: Date;
 }
 
+/**
+ * An item of a file type, for the row list `/items/files` shows.
+ *
+ * A superset of `ItemSummary` rather than a shape of its own, because the row
+ * still opens the same drawer and `openItem` takes a summary — the three extra
+ * fields are what a row displays and a card does not.
+ */
+export interface FileItemSummary extends ItemSummary {
+  fileName: string | null;
+  fileSize: number | null;
+  /** When the file was uploaded. `updatedAt` moves when a title is edited. */
+  createdAt: Date;
+}
+
 export interface ItemStats {
   total: number;
   favorites: number;
@@ -82,6 +96,45 @@ export async function getItemsByType(
   });
 
   return items.map(toSummary);
+}
+
+/**
+ * What a file row needs on top of the shared card fields.
+ *
+ * Its own select rather than three more columns on `itemSelect`: that one is
+ * shared with the dashboard's Pinned and Recent lists, which display none of
+ * these.
+ */
+const fileItemSelect = {
+  ...itemSelect,
+  fileName: true,
+  fileSize: true,
+  createdAt: true,
+} as const;
+
+/**
+ * Every item of a file type, for `/items/files`.
+ *
+ * Ordered on `createdAt` rather than `updatedAt` — that is the date the row
+ * shows, and sorting on a column the list does not display puts the visible
+ * dates out of order. Pinned still comes first, as it does everywhere.
+ */
+export async function getFileItemsByType(
+  userId: string,
+  itemTypeId: string,
+): Promise<FileItemSummary[]> {
+  const items = await prisma.item.findMany({
+    where: { userId, itemTypeId },
+    orderBy: [{ isPinned: "desc" }, { createdAt: "desc" }],
+    select: fileItemSelect,
+  });
+
+  return items.map(({ fileName, fileSize, createdAt, ...item }) => ({
+    ...toSummary(item),
+    fileName,
+    fileSize,
+    createdAt,
+  }));
 }
 
 /** Everything the drawer shows on top of what the card already had. */

@@ -1,16 +1,30 @@
-# Current Feature
+# Current Feature: File List View
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
-<!-- What does success look like? -->
+- `/items/files` renders a single-column list of rows instead of the two-column `ItemCard` grid — the Google Drive / Dropbox shape.
+- Each row shows: an icon chosen by file extension, the file name, the file size, the upload date, and a download button.
+- Rows highlight on hover and open the existing `ItemDrawer` on click.
+- The download button downloads directly and does not open the drawer (stop propagation).
+- On mobile the row's metadata stacks vertically rather than overflowing.
 
 ## Notes
 
-<!-- Additional context, constraints, details -->
+Spec: @context/features/file-display-spec.md
+
+- **Decided: one `layout` variant, not a second boolean.** `/items/[type]` currently forks on `uploadKindFor(itemType.slug) === "image"` and passes a `gallery: boolean` to `TypeItems`. That flag is replaced by a single `layout: "list" | "gallery" | "files"` resolved once in the page from `uploadKindFor`, driving both the Suspense fallback and the component `TypeItems` renders. Three states in one value, so "gallery and files both true" cannot be expressed.
+- **Decided: a dedicated select for the file branch.** The shared `itemSelect` in `src/lib/db/items.ts` returns `id`, `title`, `description`, `type`, `tags`, `isFavorite`, `isPinned`, `updatedAt` — missing **`fileName`, `fileSize` and `createdAt`**, three of the five things a row must show. Rather than widen it (which would add columns to the dashboard's Pinned and Recent queries, which display none of them), the file branch gets its own `fileItemSelect` / `FileItemSummary` and its own query — likely `getFileItemsByType(userId, typeId)` — so the shared shape is untouched and the dashboard is unaffected.
+- **Consequence: the page's fork has to happen before the query, not after it.** Today `TypeItems` runs one `getItemsByType` and then picks a component; the two branches now return different shapes, so `TypeItems` switches on `layout` and awaits the matching query. `ItemDrawer` still opens from an item id, so the row needs nothing from `ItemSummary` that `FileItemSummary` will not carry.
+- **"Upload date" is `createdAt`, not `updatedAt`.** Editing a title must not look like a re-upload. `createdAt` is in the schema and simply not selected today.
+- **Download already exists**: `GET /api/items/[id]/file?download` sets `Content-Disposition: attachment`. The button is an anchor at that URL, not a fetch.
+- **The extension is in `fileName`**, which is why it has to be selected. `src/lib/file-constraints.ts` already parses extensions and holds the allowed lists; icons per extension are new and belong beside the existing sets in `src/constants/item-types.ts`.
+- The row's click target should reuse `ItemCard`'s stretched-button pattern (`.item-card-open`) so the download anchor stays independently clickable — a nested interactive element inside a wrapping `<button>` would be invalid markup.
+- No Tailwind utility classes in the markup; the row layout and its mobile stack go in `src/app/globals.css`. The gallery's ladder is desktop-first and this is single-column at every width, so it only needs one breakpoint for the stack.
+- No schema change and no new dependency expected. `lucide-react` already ships the file icons.
 
 ## History
 

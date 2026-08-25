@@ -3,11 +3,15 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
 import { SIGN_IN_PATH } from "@/auth.config";
+import { FileListSkeleton } from "@/components/items/file-list-skeleton";
 import { ImageGallerySkeleton } from "@/components/items/image-gallery-skeleton";
 import { ItemCreateDialog } from "@/components/items/item-create-dialog";
 import { ItemListSkeleton } from "@/components/items/item-list-skeleton";
-import { TypeItems } from "@/components/items/type-items";
-import { uploadKindFor } from "@/constants/item-types";
+import {
+  itemsLayoutFor,
+  TypeItems,
+  type ItemsLayout,
+} from "@/components/items/type-items";
 import { getItemTypeBySlug } from "@/lib/db/item-types";
 import { getCurrentUser } from "@/lib/db/user";
 
@@ -48,10 +52,8 @@ export default async function ItemsByTypePage({
 
   const label = typeLabel(itemType.slug);
 
-  // Image types show their content, so they get the gallery instead of the row
-  // list. `uploadKindFor` is already the app's answer to "does this type hold a
-  // picture" — both file types are `ContentType.FILE`, so the column cannot say.
-  const gallery = uploadKindFor(itemType.slug) === "image";
+  // Resolved once here so the fallback and the items agree on the shape.
+  const layout = itemsLayoutFor(itemType.slug);
 
   return (
     <>
@@ -72,25 +74,29 @@ export default async function ItemsByTypePage({
       <section className="dashboard-section">
         {/* Its own boundary: the heading above needs only the type query, so it
             paints while the items resolve. */}
-        <Suspense
-          fallback={
-            gallery ? (
-              <ImageGallerySkeleton count={ITEM_SKELETON_COUNT} />
-            ) : (
-              <ItemListSkeleton count={ITEM_SKELETON_COUNT} />
-            )
-          }
-        >
+        <Suspense fallback={<ItemsSkeleton layout={layout} />}>
           <TypeItems
             userId={user.id}
             typeId={itemType.id}
             label={label.toLowerCase()}
-            gallery={gallery}
+            layout={layout}
           />
         </Suspense>
       </section>
     </>
   );
+}
+
+/** The fallback that matches the layout the items will arrive in. */
+function ItemsSkeleton({ layout }: { layout: ItemsLayout }) {
+  switch (layout) {
+    case "gallery":
+      return <ImageGallerySkeleton count={ITEM_SKELETON_COUNT} />;
+    case "files":
+      return <FileListSkeleton count={ITEM_SKELETON_COUNT} />;
+    default:
+      return <ItemListSkeleton count={ITEM_SKELETON_COUNT} />;
+  }
 }
 
 /**
