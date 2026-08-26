@@ -12,6 +12,9 @@ const LANGUAGE_MAX_LENGTH = 32;
 const TAG_MAX_LENGTH = 32;
 const MAX_TAGS = 20;
 
+/** Generous: the free tier caps collections at 3, and Pro is unbounded. */
+const MAX_COLLECTIONS = 50;
+
 /** Long enough for any real filename, short enough not to be a payload. */
 const FILE_NAME_MAX_LENGTH = 255;
 
@@ -129,6 +132,29 @@ const tagsSchema = z
  * stored `contentType` and writes only the field that type owns, which is where
  * that rule from project overview §10 is enforced.
  */
+/**
+ * The collections an item is filed into.
+ *
+ * Deduplicated because the join is `@@id([itemId, collectionId])` — the same id
+ * twice would attempt one row twice and fail the whole write — and because the
+ * ownership check compares a count against this length.
+ *
+ * An absent field is an empty selection rather than an error, so a caller that
+ * has nothing to say about collections can simply say nothing.
+ */
+const collectionIdsSchema = z
+  .array(z.string())
+  .nullish()
+  .transform((values) => [...new Set((values ?? []).filter(Boolean))])
+  .pipe(
+    z
+      .array(z.string())
+      .max(
+        MAX_COLLECTIONS,
+        `An item can sit in at most ${MAX_COLLECTIONS} collections.`,
+      ),
+  );
+
 const itemFields = {
   title: z
     .string()
@@ -161,6 +187,7 @@ const itemFields = {
     `Language is limited to ${LANGUAGE_MAX_LENGTH} characters.`,
   ),
   tags: tagsSchema,
+  collectionIds: collectionIdsSchema,
 };
 
 /**

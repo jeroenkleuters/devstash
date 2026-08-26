@@ -7,7 +7,7 @@ import { updateItem } from "@/actions/items";
 import { ItemDrawerHeading } from "@/components/items/item-drawer-heading";
 import {
   ItemFormFields,
-  type ItemFormValues,
+  type TextField,
   itemFormValuesFrom,
 } from "@/components/items/item-form-fields";
 import { SheetHeader } from "@/components/ui/sheet";
@@ -48,8 +48,12 @@ export function ItemDrawerEdit({
   // trip that comes back with a message.
   const canSave = values.title.trim() !== "" && !saving;
 
-  function setField(name: keyof ItemFormValues, value: string) {
+  function setField(name: TextField, value: string) {
     setValues((current) => ({ ...current, [name]: value }));
+  }
+
+  function setCollectionIds(collectionIds: string[]) {
+    setValues((current) => ({ ...current, collectionIds }));
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -136,6 +140,7 @@ export function ItemDrawerEdit({
           <ItemFormFields
             values={values}
             setField={setField}
+            setCollectionIds={setCollectionIds}
             idPrefix="item"
             typeSlug={detail.type.slug}
             contentType={detail.contentType}

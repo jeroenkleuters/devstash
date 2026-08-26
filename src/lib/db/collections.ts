@@ -4,6 +4,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import { itemTypeSelect, type ItemTypeSummary } from "@/lib/db/item-types";
 import { prisma } from "@/lib/prisma";
 import type { CreateCollectionInput } from "@/lib/validations/collection";
+import type { CollectionOption } from "@/types/collection";
 
 export interface CollectionSummary {
   id: string;
@@ -98,6 +99,50 @@ export async function getCollectionStats(
     total: collections.length,
     favorites: collections.filter((collection) => collection.isFavorite).length,
   };
+}
+
+/**
+ * Every collection the user owns as `{ id, name }`, alphabetical — what the
+ * item forms' picker lists.
+ *
+ * Its own narrow query rather than a slice of `getCollections`: that one pulls
+ * every item row to rank the types a collection holds, and a picker needs none
+ * of it.
+ */
+export async function getCollectionOptions(
+  userId: string,
+): Promise<CollectionOption[]> {
+  return prisma.collection.findMany({
+    where: { userId },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true },
+  });
+}
+
+/**
+ * Whether every one of these collections belongs to this user.
+ *
+ * Scoping the *item* to its owner is not enough on its own: a crafted payload
+ * could name a collection id belonging to another account and file the item
+ * into their collection. This is the check that refuses it, and it is the
+ * collections' answer to `ownsObjectKey` on an upload key.
+ *
+ * Expects ids already deduplicated — the schema does that — since the count
+ * comparison is what makes an id that matched nothing fail.
+ */
+export async function ownsAllCollections(
+  userId: string,
+  collectionIds: string[],
+): Promise<boolean> {
+  if (collectionIds.length === 0) {
+    return true;
+  }
+
+  const owned = await prisma.collection.count({
+    where: { userId, id: { in: collectionIds } },
+  });
+
+  return owned === collectionIds.length;
 }
 
 /**

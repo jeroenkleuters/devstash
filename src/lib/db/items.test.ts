@@ -49,6 +49,7 @@ function input(overrides: Partial<CreateItemInput> = {}): CreateItemInput {
     language: null,
     file: null,
     tags: [],
+    collectionIds: [],
     ...overrides,
   };
 }

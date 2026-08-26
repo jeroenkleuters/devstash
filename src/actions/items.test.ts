@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createItem, deleteItem, updateItem } from "@/actions/items";
+import { ownsAllCollections } from "@/lib/db/collections";
 import { getItemTypeBySlug } from "@/lib/db/item-types";
 import {
   createItem as createItemRow,
@@ -25,6 +26,7 @@ vi.mock("@/lib/db/items", () => ({
   getItemFile: vi.fn(),
 }));
 vi.mock("@/lib/db/item-types", () => ({ getItemTypeBySlug: vi.fn() }));
+vi.mock("@/lib/db/collections", () => ({ ownsAllCollections: vi.fn() }));
 vi.mock("@/lib/db/user", () => ({ getCurrentUserId: vi.fn() }));
 
 /**
@@ -49,6 +51,7 @@ const getItemFileMock = vi.mocked(getItemFile);
 const deleteFileMock = vi.mocked(deleteFile);
 const headFileMock = vi.mocked(headFile);
 const getItemTypeBySlugMock = vi.mocked(getItemTypeBySlug);
+const ownsAllCollectionsMock = vi.mocked(ownsAllCollections);
 const getCurrentUserIdMock = vi.mocked(getCurrentUserId);
 
 const SNIPPET_TYPE = {
@@ -84,6 +87,7 @@ beforeEach(() => {
 
   getCurrentUserIdMock.mockResolvedValue("user-1");
   getItemTypeBySlugMock.mockResolvedValue(SNIPPET_TYPE);
+  ownsAllCollectionsMock.mockResolvedValue(true);
   createItemRowMock.mockResolvedValue(DETAIL);
   updateItemRowMock.mockResolvedValue(DETAIL);
   deleteItemRowMock.mockResolvedValue(true);
