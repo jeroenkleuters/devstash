@@ -36,6 +36,26 @@ if (!connectionString) {
 /** The one account that survives. Matches `prisma/seed.ts`. */
 const KEEP_EMAIL = "demo@devstash.io";
 
+/**
+ * Every `VerificationToken` row belonging to the account being kept.
+ *
+ * Not simply `identifier: KEEP_EMAIL`. The password-reset flow namespaces its
+ * rows as `password-reset:<email>` (see `passwordResetIdentifier` in
+ * `src/lib/password-reset.ts`), so bare equality misses them and the run
+ * silently invalidates demo's pending reset link along with everyone else's.
+ * Matching on the address after a `:` covers that prefix and any later one.
+ *
+ * The helper is deliberately not imported: `@/lib/password-reset` reaches the
+ * Prisma singleton at import time, which would evaluate before the `config()`
+ * call above has put `DATABASE_URL` into the environment.
+ */
+const KEEPER_TOKENS = {
+  OR: [
+    { identifier: KEEP_EMAIL },
+    { identifier: { endsWith: `:${KEEP_EMAIL}` } },
+  ],
+};
+
 const prisma = new PrismaClient({
   adapter: new PrismaNeon({ connectionString }),
 });
@@ -67,7 +87,7 @@ async function main() {
       select: { id: true, _count: { select: { items: true, collections: true } } },
     }),
     prisma.verificationToken.count({
-      where: { identifier: { not: KEEP_EMAIL } },
+      where: { NOT: KEEPER_TOKENS },
     }),
   ]);
 
@@ -111,7 +131,7 @@ async function main() {
   // Tokens first: they are matched on email, so they have to go while the
   // addresses are still readable.
   const removedTokens = await prisma.verificationToken.deleteMany({
-    where: { identifier: { not: KEEP_EMAIL } },
+    where: { NOT: KEEPER_TOKENS },
   });
   const removedUsers = await prisma.user.deleteMany({
     where: { email: { not: KEEP_EMAIL } },

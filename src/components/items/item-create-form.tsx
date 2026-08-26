@@ -5,24 +5,21 @@ import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
 import { createItem } from "@/actions/items";
-import { CodeEditor } from "@/components/items/code-editor";
 import { FileUpload, type UploadedFile } from "@/components/items/file-upload";
+import {
+  EMPTY_ITEM_FORM_VALUES,
+  ItemFormFields,
+  type ItemFormValues,
+} from "@/components/items/item-form-fields";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DialogClose, DialogFooter } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { MarkdownEditor } from "@/components/items/markdown-editor";
 import {
   CREATABLE_TYPES,
-  LANGUAGE_TYPE_SLUGS,
   PRO_TYPE_SLUGS,
   TYPE_ICONS,
-  codeTypeLanguage,
   creatableType,
-  isCodeType,
-  isMarkdownType,
   uploadKindFor,
 } from "@/constants/item-types";
 import { firstIssueMessage } from "@/lib/validations/auth";
@@ -53,7 +50,7 @@ export function ItemCreateForm({
   const [typeSlug, setTypeSlug] = useState(
     initialTypeSlug ?? CREATABLE_TYPES[0].slug,
   );
-  const [values, setValues] = useState<FormValues>(EMPTY_VALUES);
+  const [values, setValues] = useState<ItemFormValues>(EMPTY_ITEM_FORM_VALUES);
   const [file, setFile] = useState<UploadedFile | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -61,11 +58,6 @@ export function ItemCreateForm({
 
   const type = creatableType(typeSlug);
   const uploadKind = uploadKindFor(typeSlug);
-  const showContent = type?.contentType === "TEXT";
-  const showUrl = type?.contentType === "URL";
-  const showLanguage = LANGUAGE_TYPE_SLUGS.has(typeSlug);
-  const showCode = showContent && isCodeType(typeSlug);
-  const showMarkdown = showContent && isMarkdownType(typeSlug);
 
   // A title is the one field no type can be stored without, and a file item
   // needs its file — both are in the schema too, but an obviously dead button
@@ -73,7 +65,7 @@ export function ItemCreateForm({
   const canSave =
     values.title.trim() !== "" && (!uploadKind || file !== null) && !saving;
 
-  function setField(name: keyof FormValues, value: string) {
+  function setField(name: keyof ItemFormValues, value: string) {
     setValues((current) => ({ ...current, [name]: value }));
   }
 
@@ -196,110 +188,15 @@ export function ItemCreateForm({
           </div>
         )}
 
-        <div className="item-form-field">
-          <Label htmlFor="create-item-title">Title</Label>
-          <Input
-            id="create-item-title"
-            name="title"
-            value={values.title}
-            onChange={(event) => setField("title", event.target.value)}
-            required
-            autoFocus
-          />
-        </div>
-
-        <div className="item-form-field">
-          <Label htmlFor="create-item-description">Description</Label>
-          <Textarea
-            id="create-item-description"
-            name="description"
-            value={values.description}
-            onChange={(event) => setField("description", event.target.value)}
-            rows={2}
-          />
-        </div>
-
-        {showContent && (
-          <div className="item-form-field">
-            {/* Neither editor has an element to pair a label with, so each
-                names itself through `ariaLabel` instead. */}
-            <Label
-              htmlFor={
-                showCode || showMarkdown ? undefined : "create-item-content"
-              }
-            >
-              Content
-            </Label>
-
-            {showCode ? (
-              <CodeEditor
-                value={values.content}
-                // The live field, so the highlighting follows what is being
-                // typed into Language.
-                language={values.language}
-                fallbackLanguage={codeTypeLanguage(typeSlug)}
-                onChange={(next) => setField("content", next)}
-                ariaLabel="Content"
-              />
-            ) : showMarkdown ? (
-              <MarkdownEditor
-                value={values.content}
-                onChange={(next) => setField("content", next)}
-                ariaLabel="Content"
-              />
-            ) : (
-              <Textarea
-                id="create-item-content"
-                name="content"
-                className="item-form-content"
-                value={values.content}
-                onChange={(event) => setField("content", event.target.value)}
-                rows={10}
-                spellCheck={false}
-              />
-            )}
-          </div>
-        )}
-
-        {showUrl && (
-          <div className="item-form-field">
-            <Label htmlFor="create-item-url">URL</Label>
-            <Input
-              id="create-item-url"
-              name="url"
-              type="url"
-              value={values.url}
-              onChange={(event) => setField("url", event.target.value)}
-              placeholder="https://"
-              required
-            />
-          </div>
-        )}
-
-        {showLanguage && (
-          <div className="item-form-field">
-            <Label htmlFor="create-item-language">Language</Label>
-            <Input
-              id="create-item-language"
-              name="language"
-              value={values.language}
-              onChange={(event) => setField("language", event.target.value)}
-              placeholder="typescript"
-            />
-          </div>
-        )}
-
-        <div className="item-form-field">
-          <Label htmlFor="create-item-tags">Tags</Label>
-          <Input
-            id="create-item-tags"
-            name="tags"
-            value={values.tags}
-            onChange={(event) => setField("tags", event.target.value)}
-            placeholder="react, hooks"
-          />
-          <p className="item-form-hint">Separate tags with commas.</p>
-        </div>
+        <ItemFormFields
+          values={values}
+          setField={setField}
+          idPrefix="create-item"
+          typeSlug={typeSlug}
+          contentType={type?.contentType}
+          urlRequired
+          contentRows={10}
+        />
       </div>
 
       <DialogFooter>
@@ -316,23 +213,3 @@ export function ItemCreateForm({
     </form>
   );
 }
-
-interface FormValues {
-  title: string;
-  description: string;
-  content: string;
-  url: string;
-  language: string;
-  /** The comma-separated field, split into the array on submit. */
-  tags: string;
-}
-
-/** Inputs have no null, so every field starts as the empty string. */
-const EMPTY_VALUES: FormValues = {
-  title: "",
-  description: "",
-  content: "",
-  url: "",
-  language: "",
-  tags: "",
-};
