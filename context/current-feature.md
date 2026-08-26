@@ -1,14 +1,31 @@
-# Current Feature
+# Current Feature: Collection Create
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
-<!-- What does success look like? -->
+- The top bar's **New Collection** button stops being display-only: it opens a modal with the fields a collection needs (name, description).
+- Collections are created for the signed-in user only — `userId` comes from the session, never from the request.
+- A collection is created through a server action validated with Zod, mirroring `createItem`: `{ success, data, error }` back, no throw on a rejected write.
+- Reads stay in `src/lib/db/collections.ts` and are called from server components; any client-side read goes through an API route, as `GET /api/items/[id]` does for the drawer.
+- Success shows a toast and closes the modal; failure shows a toast and leaves the form open with what was typed.
+- Everything showing collections updates on save — the dashboard's collection grid, the sidebar's Favorites/Recent lists and the Collections stat cards — via `router.refresh()`, since all three are server-rendered.
 
 ## Notes
+
+- **Follow the item create flow file-for-file.** `ItemCreateDialog` (controlled `Dialog`, Radix unmounts the content on close so the next open starts empty) + `ItemCreateForm` (`.catch(() => null)` around the action so a failed *request* cannot strand `saving`) + `createItem` in `src/actions/items.ts` + `createItem` in `src/lib/db/items.ts` + `createItemSchema` in `src/lib/validations/item.ts`.
+- **Create is a server action, not an API route.** The request asked for "api routes for any client-side calls"; in the items pattern that means client-side *reads* (the drawer's `GET /api/items/[id]`), while mutations are server actions — which is also what coding-standards mandates for form submissions. Building create as an action is the reading that matches both. Flagging it rather than assuming: say so if a `POST /api/collections` was actually wanted.
+- `Collection` needs **no migration** — `name`, `description`, `isFavorite`, `defaultTypeId` and the `userId` relation have been in the schema since `20260814120000_init`.
+- `description` is `String?`, so an emptied field stores `null` rather than `""` — the same rule `updateItemSchema` already encodes.
+- `defaultTypeId` exists in the schema but nothing in the app sets or reads it. Out of scope unless asked; a collection is created without one.
+- `src/lib/db/collections.ts` has **no write function yet** — every export there is a read narrowing the `cache()`d `getCollections`. The new `createCollection` sits alongside them, and the `cache()` memoization is per-request so it cannot serve a stale list after the write.
+- Free-tier limits (3 collections) are **not** enforced anywhere in the app — per project overview §8 all users get full access during development. Not part of this feature.
+- The trigger lives in `src/components/layout/top-bar.tsx`, which is a **server component**: `DialogTrigger asChild` clones its child, so the button must be constructed inside the client dialog component and the caller passes a `label` string, exactly as `ItemCreateDialog` documents.
+- Toasts go through `sonner`, already mounted once in the root layout.
+- Markup carries no Tailwind utility classes; any new styling is a semantic class in `globals.css`.
+- Testable surface is the schema and the action (`src/lib/validations/**`, `src/actions/**` are what Vitest collects) — the dialog and form are components and are out of scope by configuration.
 
 ## History
 

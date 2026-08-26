@@ -1,7 +1,9 @@
 import { cache } from "react";
 
+import type { Prisma } from "@/generated/prisma/client";
 import { itemTypeSelect, type ItemTypeSummary } from "@/lib/db/item-types";
 import { prisma } from "@/lib/prisma";
+import type { CreateCollectionInput } from "@/lib/validations/collection";
 
 export interface CollectionSummary {
   id: string;
@@ -55,11 +57,7 @@ const getCollections = cache(
       select: collectionSelect,
     });
 
-    return collections.map(({ items, ...collection }) => ({
-      ...collection,
-      itemCount: items.length,
-      types: rankTypes(items.map(({ item }) => item.itemType)),
-    }));
+    return collections.map(toSummary);
   },
 );
 
@@ -99,6 +97,42 @@ export async function getCollectionStats(
   return {
     total: collections.length,
     favorites: collections.filter((collection) => collection.isFavorite).length,
+  };
+}
+
+/**
+ * Creates a collection from the "New Collection" dialog.
+ *
+ * `userId` is the session's, never the caller's, so a collection can only ever
+ * be created for the account that asked for it. It starts empty, which is why
+ * the summary it returns carries no types and a count of zero.
+ */
+export async function createCollection(
+  userId: string,
+  input: CreateCollectionInput,
+): Promise<CollectionSummary> {
+  const collection = await prisma.collection.create({
+    data: {
+      userId,
+      name: input.name,
+      description: input.description,
+    },
+    select: collectionSelect,
+  });
+
+  return toSummary(collection);
+}
+
+type CollectionRow = Prisma.CollectionGetPayload<{
+  select: typeof collectionSelect;
+}>;
+
+/** One row as the cards, the sidebar and the stat counts all read it. */
+function toSummary({ items, ...collection }: CollectionRow): CollectionSummary {
+  return {
+    ...collection,
+    itemCount: items.length,
+    types: rankTypes(items.map(({ item }) => item.itemType)),
   };
 }
 

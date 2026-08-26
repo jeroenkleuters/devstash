@@ -1227,17 +1227,20 @@ a.sidebar-user-name:hover {
   color: var(--primary-foreground);
 }
 
-/* ---------- Item form ----------
-   Shared by the drawer's edit mode and the create dialog: the two carry the
-   same fields, so they carry the same box model. */
+/* ---------- Entity forms ----------
+   Shared by the drawer's edit mode, the item create dialog and the collection
+   create dialog: they carry the same kind of fields, so they carry the same box
+   model. Grouped rather than copied, so the three cannot drift apart. */
 
-.item-form {
+.item-form,
+.collection-form {
   display: flex;
   flex-direction: column;
   gap: 1.125rem;
 }
 
-.item-form-field {
+.item-form-field,
+.collection-form-field {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -1263,6 +1266,12 @@ a.sidebar-user-name:hover {
    `!important` — the same mechanism the sidebar's PRO badge relies on. */
 .item-create-dialog {
   max-width: 40rem;
+}
+
+/* Two fields and no content box, so it needs less room than the item dialog —
+   but still more than the primitive's own `sm:max-w-sm`. */
+.collection-create-dialog {
+  max-width: 32rem;
 }
 
 /* The fields scroll, so the footer's buttons stay in view on a long form. */
@@ -1501,7 +1510,8 @@ a.sidebar-user-name:hover {
   color: var(--muted-foreground);
 }
 
-.item-drawer-error {
+.item-drawer-error,
+.collection-form-error {
   font-size: 0.875rem;
   color: var(--destructive);
 }
