@@ -2,13 +2,50 @@
 
 ## Status
 
-Not Started
+In Progress — `fix/audit-findings`
 
 ## Goals
 
 <!-- What does success look like? -->
 
+Two findings from a `code-scanner` audit pass, both verified against the source
+before being acted on:
+
+1. **`npm run db:prune` deletes the kept account's own password-reset token.**
+   The filter is `identifier: { not: KEEP_EMAIL }`, but the reset flow namespaces
+   its rows as `password-reset:<email>`, so demo's pending reset link does not
+   match the exclusion and is swept along with everyone else's.
+2. **~100 lines of form fields duplicated** between `item-create-form.tsx` and
+   `item-drawer-edit.tsx` — the CSS was unified into shared `.item-form-*`
+   classes when create landed, the JSX was not, so the two can drift.
+
 ## Notes
+
+- The prune fix expresses the rule locally rather than importing
+  `passwordResetIdentifier`. Probed it first: `@/lib/password-reset` reaches the
+  Prisma singleton at import time, and imports are hoisted above the script's own
+  `config()` call, so importing it kills the script with `DATABASE_URL is not
+  set` before it runs. `KEEPER_TOKENS` matches the bare address *or* anything
+  ending in `:<address>`, which covers the current prefix and any later one; the
+  `:` is what stops `evildemo@devstash.io` matching by suffix.
+- Confirmed live against the dev branch, read-only: it holds
+  `password-reset:demo@devstash.io` right now (left over from the auth-audit
+  testing), so the old filter would delete 3 tokens where the new one deletes 2.
+- `ItemFormFields` takes `contentType` and derives the `show*` flags itself
+  rather than taking the flags, which removes the duplicated derivation too. The
+  value shape moved with it — `ItemFormValues`, `EMPTY_ITEM_FORM_VALUES` and
+  `itemFormValuesFrom` — so the fields and their two constructors stay together.
+- Real differences between the two call sites, kept as props: the id prefix,
+  `urlRequired` (create demands a URL up front, edit does not, so an existing
+  link can be saved while its URL is being retyped) and `contentRows` (10 vs 12).
+- Not done, and not asked for: "Could not reach the server. Try again." is
+  declared 8 times — `NETWORK_ERROR` in the four `src/components/auth/` forms,
+  `UNREACHABLE` in four `src/components/items/` ones. Same string, same purpose,
+  worth one constant if either is touched again.
+- No new tests. The prune script and both forms sit outside what
+  `vitest.config.mts` collects (`src/lib/**` and `src/actions/**` only), and the
+  extraction is a pure move — the existing 201 passing unchanged is what covers
+  it.
 
 ## History
 
