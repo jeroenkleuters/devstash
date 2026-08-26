@@ -6,7 +6,9 @@ See [context/project-overview.md](context/project-overview.md) for the full prod
 
 ## Status
 
-Early development, but the signed-in experience is real. Authentication is NextAuth v5 with email/password and GitHub OAuth, plus email verification, password reset and a `/profile` page with change-password and delete-account. `/dashboard` renders the signed-in account's own data from Neon — stat cards, the recent collection grid, pinned and recent items, and the sidebar — and `/items/[type]` lists the items of one type. `/collections` is still linked from the sidebar but does not exist yet, and there is no way to create or open an item from the UI: the quick-create drawer is not built.
+Early development, but the signed-in experience is real. Authentication is NextAuth v5 with email/password and GitHub OAuth, plus email verification, password reset and a `/profile` page with change-password and delete-account. `/dashboard` renders the signed-in account's own data from Neon — stat cards, the recent collection grid, pinned and recent items, and the sidebar — and `/items/[type]` lists the items of one type, as a card list, an image gallery or a file list depending on the type.
+
+Items are fully workable: create one from the top bar or a type page, open any card in a right-side drawer to read it, edit it inline, copy its payload or delete it, with Monaco for code types and a Markdown editor for notes and prompts. File and image items upload straight to Cloudflare R2. Favorite and Pin are the remaining inert actions in the drawer, and `/collections` is still linked from the sidebar but does not exist yet.
 
 ## Stack
 
@@ -101,12 +103,21 @@ npm run db:deploy   # prisma migrate deploy (production)
 npm run db:status   # prisma migrate status — run before committing
 npm run db:seed     # prisma db seed
 npm run db:test     # integrity checks against the seeded data
+npm run db:prune    # delete every user but demo — dry run unless `-- --yes`
 npm run db:studio   # prisma studio
 ```
 
 Never use `prisma db push` or edit the database directly.
 
 `db:test` is a data integrity script against a live database, **not** part of the unit suite — that is `npm test`.
+
+`db:prune` is destructive: it deletes every user except `demo@devstash.io` and
+everything they own, including the `VerificationToken` rows that have no relation
+to `User` and so never cascade. It refuses to run when `NODE_ENV=production` or
+when the demo account is missing, and it is a **dry run** unless you pass
+`--yes`. Note PowerShell swallows the `--` separator, so
+`npm run db:prune -- --yes` silently no-ops there — run it from a POSIX shell,
+or use `--%`.
 
 ## Testing
 

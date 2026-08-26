@@ -498,21 +498,61 @@ devstash/
 - `constants/item-types.ts` is the single source of truth for system type icons and Pro gating — reused by the sidebar and item cards. Type *colors* live in `globals.css` as `--type-*` custom properties, not here, since only CSS consumes them.
 - Tailwind v4 is configured in CSS via `@theme` in `globals.css`. There is **no** `tailwind.config.ts` — see @context/coding-standards.md.
 
-**Current state (2026-08-16):**
+**Current state (2026-08-25):**
 
-The route groups above are not in place yet. Everything built so far lives under a plain `src/app/dashboard/` route:
+The `(auth)` route group is in place; `(marketing)` and `(app)` are not. The
+dashboard still lives at a plain `/dashboard` route, and `/items` and `/profile`
+sit beside it as top-level routes, each with a three-line layout wrapping the
+shared `AppShell`:
 
 ```
 src/app/
+├── (auth)/                                 # URLs stay top-level
+│   ├── layout.tsx
+│   ├── sign-in/page.tsx
+│   ├── register/page.tsx
+│   ├── verify/page.tsx
+│   ├── forgot-password/page.tsx
+│   └── reset-password/page.tsx
+├── api/
+│   ├── auth/[...nextauth]/route.ts
+│   ├── auth/register/route.ts
+│   ├── auth/verify/route.ts
+│   ├── auth/resend-verification/route.ts
+│   ├── auth/forgot-password/route.ts
+│   ├── auth/reset-password/route.ts
+│   ├── items/[id]/route.ts                 # GET one item's detail (the drawer)
+│   ├── items/[id]/file/route.ts            # download / inline preview proxy
+│   └── upload/route.ts                     # presigned direct-to-R2 PUT
 ├── dashboard/
-│   ├── layout.tsx                          # sidebar shell — async server component
-│   └── page.tsx                            # stats, collection grid, pinned + recent items
+│   ├── layout.tsx                          # AppShell wrapper
+│   └── page.tsx                            # stats, collection grid, pinned + recent
+├── items/
+│   ├── layout.tsx                          # AppShell wrapper
+│   └── [type]/page.tsx                     # /items/snippets, /items/files, ...
+├── profile/
+│   ├── layout.tsx                          # AppShell wrapper
+│   └── page.tsx
 ├── layout.tsx                              # root layout, dark by default
 ├── globals.css
 └── page.tsx                                # `<h1>Devstash</h1>` placeholder
 ```
 
-Deferred until auth lands, at which point the dashboard moves to `(app)/page.tsx` and the placeholder root page becomes `(marketing)/page.tsx`. There is no `api/` directory yet — data is read directly in server components through `lib/db/`. `lib/auth.ts`, `lib/r2.ts`, `lib/openai.ts`, `lib/stripe.ts`, `lib/validations/`, `hooks/`, `types/`, `components/search/` and `components/items/item-drawer.tsx` are all still unwritten.
+Moving `/dashboard` into `(app)/page.tsx` and the placeholder root page into
+`(marketing)/page.tsx` is still deferred — it is a route move touching typed-route
+generics, and the three `AppShell` wrappers above are what it would absorb.
+
+Most of `lib/` is written: `prisma.ts`, `r2.ts`, `resend.ts`, `utils.ts`,
+`app-url.ts`, `rate-limit.ts`, `feature-flags.ts`, `file-constraints.ts`,
+`code-language.ts`, `item-copy.ts`, the auth helpers (`email-verification.ts`,
+`password-reset.ts`, `password-fingerprint.ts`, `account.ts`), plus `db/` and
+`validations/`. Auth config lives at `src/auth.ts` / `src/auth.config.ts` rather
+than the `lib/auth.ts` this document originally planned.
+
+Still unwritten: `lib/openai.ts`, `lib/stripe.ts`, `hooks/` and
+`components/search/` — none of the AI, payment or search features have started.
+`/collections` does not exist yet, so the sidebar's "View all collections" link
+still 404s.
 
 ---
 

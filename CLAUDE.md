@@ -26,6 +26,7 @@ npm run db:deploy   # prisma migrate deploy (production)
 npm run db:status   # prisma migrate status — run before committing
 npm run db:seed     # prisma db seed
 npm run db:test     # integrity checks against the seeded data (not a test suite)
+npm run db:prune    # delete every user but demo — dry run unless `-- --yes`
 npm run db:studio   # prisma studio
 ```
 
