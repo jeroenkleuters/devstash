@@ -1,14 +1,80 @@
-# Current Feature
+# Current Feature: Collection Actions (Edit, Delete, Favorite)
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
-<!-- What does success look like? -->
+- On `/collections/[id]`, add an action row beside the heading with three
+  buttons: **Edit**, **Delete** and **Favorite**.
+- **Edit** opens a modal that edits the collection's metadata (name and
+  description — the same two fields the create dialog writes). Saving updates
+  the collection and refreshes the page.
+- **Delete** asks for confirmation first, then deletes the collection and
+  navigates away (to `/collections`) with a toast.
+- **Deleting a collection must not delete its items.** Only the collection and
+  its `ItemCollection` links go; every item stays and remains reachable from
+  its type page and the dashboard.
+- **Favorite is display-only for now** — render the icon/button in both places,
+  but wire no behaviour to it. `Collection.isFavorite` is not written by this
+  feature.
+- On the collection cards at `/collections` and on the dashboard, add a
+  three-dots button opening a dropdown with **Edit**, **Delete** and
+  **Favorite** — the same three actions, sharing the same dialogs.
+- Clicking anywhere else on the card still navigates to that collection's page.
 
 ## Notes
+
+**Deleting is already safe by schema.** `ItemCollection.collection` is
+`onDelete: Cascade` and `Item` carries no foreign key to a collection, so
+deleting the collection row removes only the join rows. Nothing extra is needed
+to keep the items — but a `deleteMany` guarded on its `count` is the house
+pattern (`deleteItem`, `account.ts`, the reset flow), so a double-click reads as
+"already deleted" rather than as a `P2025` 500.
+
+**The card is currently a `<Link>` wrapping its whole body**
+(`src/components/collections/collection-card.tsx`), and a dropdown trigger
+button cannot nest inside an anchor. It needs the pattern
+`src/components/items/item-card.tsx` and `file-row.tsx` already use: the link
+becomes a stretched, invisible hit target that is a *sibling* of the menu
+button, with the button lifted above it (`z-index: 2`). Hover/focus styling then
+states through `:has(...)` on the card, which also means hovering the menu
+button should not tint the card.
+
+**What exists and what is new.** `dropdown-menu`, `dialog`, `alert-dialog` and
+`sonner` are all already in `src/components/ui/` — no new ShadCN primitive and
+no new dependency is expected. `createCollection` exists in
+`src/actions/collections.ts` and `src/lib/db/collections.ts`; **update and
+delete do not** and are the new writes. `createCollectionSchema` in
+`src/lib/validations/collection.ts` already states the name/description rules
+(100 / 500 chars, an emptied description stored as `null`) — an update schema
+should share them rather than restate them.
+
+**Ownership.** Both writes put the session's `userId` in the Prisma `where`
+alongside the id, so another account's collection reads as *missing* rather than
+forbidden — the conflation `getCollection`, `updateItem` and `deleteItem`
+already make.
+
+**Mutations are server actions, not API routes** — the architecture decision
+confirmed on the last two collection features (client-side *reads* get a route,
+writes get an action). Each form needs the `.catch(() => null)` around the
+action call that every other form in the repo carries: a failed *request*
+rejects rather than returning `{ success: false }`, and without the catch the
+submitting state never clears.
+
+**Where the actions live.** `/collections/[id]` is a server component and the
+cards are rendered from server components too, so the dialogs and the dropdown
+are client components taking plain props (an id, a name, a description) — never
+a trigger `ReactNode`, since `DialogTrigger asChild` clones what it is given
+(the trap `profile-account.tsx` records).
+
+**Refresh.** The collection lists, the sidebar and the stat cards are all
+server-rendered, so a successful edit or delete needs `router.refresh()`;
+deleting from the detail page also needs a `router.push("/collections")`.
+
+**Out of scope.** Making favorite actually work; removing a single item from a
+collection; renaming from the sidebar; the free tier's 3-collection cap.
 
 ## History
 

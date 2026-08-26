@@ -1,35 +1,58 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useId, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
-import { createCollection } from "@/actions/collections";
+import { createCollection, updateCollection } from "@/actions/collections";
 import { Button } from "@/components/ui/button";
 import { DialogClose, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { firstIssueMessage } from "@/lib/validations/auth";
-import { createCollectionSchema } from "@/lib/validations/collection";
+import {
+  createCollectionSchema,
+  updateCollectionSchema,
+} from "@/lib/validations/collection";
 
 /** Said when the request never reached the action, so it named no reason. */
 const UNREACHABLE = "Could not reach the server. Try again.";
 
-interface CollectionCreateFormProps {
-  /** Fires once the collection exists, for the dialog to close. */
-  onCreated: () => void;
+/** The metadata both dialogs edit — every column a collection form writes. */
+export interface CollectionFormCollection {
+  id: string;
+  name: string;
+  description: string | null;
 }
 
-/** The "New Collection" dialog's form: a name and an optional description. */
-export function CollectionCreateForm({
-  onCreated,
-}: CollectionCreateFormProps) {
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
+interface CollectionFormProps {
+  /**
+   * The collection being edited, or nothing at all to create a new one.
+   *
+   * One component rather than two: the create and edit dialogs write the same
+   * two fields under the same rules, so a second form would be the first one
+   * copied with a different action at the bottom — and free to drift from it.
+   */
+  collection?: CollectionFormCollection;
+  /** Fires once the write lands, for the dialog to close. */
+  onDone: () => void;
+}
+
+/** The collection dialogs' form: a name and an optional description. */
+export function CollectionForm({ collection, onDone }: CollectionFormProps) {
+  const [name, setName] = useState(collection?.name ?? "");
+  const [description, setDescription] = useState(collection?.description ?? "");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const router = useRouter();
+
+  // Both dialogs can be mounted at once — a card's menu holds its own edit
+  // dialog while the top bar holds the create one — so the field ids have to be
+  // unique per instance rather than per component.
+  const fieldId = useId();
+
+  const editing = collection !== undefined;
 
   // The name is the one field a collection cannot be stored without. The schema
   // says so too, but an obviously dead button beats a round trip that comes
@@ -46,7 +69,8 @@ export function CollectionCreateForm({
     // The same schema the action enforces, run here for the message alone. The
     // server parses the payload again — this copy is a convenience the client
     // controls, so it cannot be the rule.
-    const parsed = createCollectionSchema.safeParse(payload);
+    const schema = editing ? updateCollectionSchema : createCollectionSchema;
+    const parsed = schema.safeParse(payload);
 
     if (!parsed.success) {
       setError(firstIssueMessage(parsed.error));
@@ -59,7 +83,10 @@ export function CollectionCreateForm({
     // The action answers a failed *write* with `{ success: false }`, but a
     // failed *request* rejects instead. Without this the rejection is unhandled
     // and `saving` never clears, leaving the form permanently unsubmittable.
-    const result = await createCollection(payload).catch(() => null);
+    const result = await (collection
+      ? updateCollection(collection.id, payload)
+      : createCollection(payload)
+    ).catch(() => null);
 
     if (!result?.success) {
       const message = result?.error ?? UNREACHABLE;
@@ -70,16 +97,16 @@ export function CollectionCreateForm({
       return;
     }
 
-    toast.success("Collection created");
+    toast.success(editing ? "Collection updated" : "Collection created");
 
-    // The dashboard's grid, the sidebar's two lists and the collection stat
-    // cards are all server-rendered, so they only show the new collection on a
-    // refetch.
+    // The dashboard's grid, the sidebar's two lists, the collection stat cards
+    // and the page heading are all server-rendered, so they only show the write
+    // on a refetch.
     router.refresh();
 
     // No `setSaving(false)`: the dialog closes on this call, and Radix unmounts
     // the form along with its state.
-    onCreated();
+    onDone();
   }
 
   return (
@@ -91,9 +118,9 @@ export function CollectionCreateForm({
       )}
 
       <div className="collection-form-field">
-        <Label htmlFor="create-collection-name">Name</Label>
+        <Label htmlFor={`${fieldId}-name`}>Name</Label>
         <Input
-          id="create-collection-name"
+          id={`${fieldId}-name`}
           name="name"
           value={name}
           onChange={(event) => setName(event.target.value)}
@@ -103,9 +130,9 @@ export function CollectionCreateForm({
       </div>
 
       <div className="collection-form-field">
-        <Label htmlFor="create-collection-description">Description</Label>
+        <Label htmlFor={`${fieldId}-description`}>Description</Label>
         <Textarea
-          id="create-collection-description"
+          id={`${fieldId}-description`}
           name="description"
           value={description}
           onChange={(event) => setDescription(event.target.value)}
@@ -121,7 +148,13 @@ export function CollectionCreateForm({
         </DialogClose>
 
         <Button type="submit" disabled={!canSave}>
-          {saving ? "Creating…" : "Create collection"}
+          {saving
+            ? editing
+              ? "Saving…"
+              : "Creating…"
+            : editing
+              ? "Save changes"
+              : "Create collection"}
         </Button>
       </DialogFooter>
     </form>

@@ -9,14 +9,15 @@ const NAME_MAX_LENGTH = 100;
 const DESCRIPTION_MAX_LENGTH = 500;
 
 /**
- * The payload the "New Collection" dialog submits.
+ * The metadata a collection carries, shared by the create and update payloads
+ * so the two cannot state different rules for the same two fields.
  *
- * `isFavorite` and `defaultTypeId` are columns a collection has and this form
- * does not set: a new collection is not a favorite, and nothing in the app
- * reads a default type yet. Both stay the schema's defaults rather than
- * becoming fields the caller can name.
+ * `isFavorite` and `defaultTypeId` are columns a collection has and neither
+ * form sets: a new collection is not a favorite, and nothing in the app reads a
+ * default type yet. Both stay the schema's defaults rather than becoming fields
+ * the caller can name.
  */
-export const createCollectionSchema = z.object({
+const collectionFields = {
   name: z
     .string()
     .trim()
@@ -32,6 +33,18 @@ export const createCollectionSchema = z.object({
     )
     .transform((value) => value.trim() || null)
     .nullable(),
-});
+};
+
+/** The payload the "New Collection" dialog submits. */
+export const createCollectionSchema = z.object(collectionFields);
 
 export type CreateCollectionInput = z.infer<typeof createCollectionSchema>;
+
+/**
+ * The payload the edit dialog submits. Identical to create's for now — the id
+ * travels as its own argument rather than in the payload, so a request cannot
+ * name one collection and edit another.
+ */
+export const updateCollectionSchema = z.object(collectionFields);
+
+export type UpdateCollectionInput = z.infer<typeof updateCollectionSchema>;

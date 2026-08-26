@@ -23,3 +23,21 @@ export interface CollectionOption {
   id: string;
   name: string;
 }
+
+/**
+ * What `updateCollection` in `src/actions/collections.ts` answers with. The
+ * successful half carries the saved collection so the caller can show the new
+ * name without waiting on a refetch.
+ */
+export type UpdateCollectionResult =
+  | { success: true; data: CollectionSummary }
+  | { success: false; error: string };
+
+/**
+ * What `deleteCollection` in `src/actions/collections.ts` answers with. There
+ * is no `data` half: the collection is gone, so the only thing left to say is
+ * whether it worked.
+ */
+export type DeleteCollectionResult =
+  | { success: true }
+  | { success: false; error: string };
