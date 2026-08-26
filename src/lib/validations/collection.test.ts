@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { createCollectionSchema } from "@/lib/validations/collection";
+import {
+  createCollectionSchema,
+  updateCollectionSchema,
+} from "@/lib/validations/collection";
 
 function parse(input: Record<string, unknown>) {
   return createCollectionSchema.safeParse({
@@ -61,6 +64,36 @@ describe("createCollectionSchema", () => {
   // carried through to the write.
   it("drops anything the caller adds beyond the two fields", () => {
     const result = parse({ userId: "someone-else", isFavorite: true });
+
+    expect(result.success && result.data).toEqual({
+      name: "React Patterns",
+      description: null,
+    });
+  });
+});
+
+/**
+ * The two schemas share one field definition, so the rules above hold for both.
+ * This is the test that fails if they are ever pulled apart without the edit
+ * dialog's rules being restated.
+ */
+describe("updateCollectionSchema", () => {
+  it("holds the same rules as the create schema", () => {
+    expect(updateCollectionSchema.safeParse({ name: "  ", description: "" }).success).toBe(
+      false,
+    );
+    expect(
+      updateCollectionSchema.safeParse({
+        name: "n".repeat(101),
+        description: "",
+      }).success,
+    ).toBe(false);
+
+    const result = updateCollectionSchema.safeParse({
+      name: "  React Patterns  ",
+      description: "   ",
+      isFavorite: true,
+    });
 
     expect(result.success && result.data).toEqual({
       name: "React Patterns",

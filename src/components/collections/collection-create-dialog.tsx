@@ -3,7 +3,7 @@
 import { FolderPlus } from "lucide-react";
 import { useState } from "react";
 
-import { CollectionCreateForm } from "@/components/collections/collection-create-form";
+import { CollectionForm } from "@/components/collections/collection-form";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -53,7 +53,7 @@ export function CollectionCreateDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <CollectionCreateForm onCreated={() => setOpen(false)} />
+        <CollectionForm onDone={() => setOpen(false)} />
       </DialogContent>
     </Dialog>
   );

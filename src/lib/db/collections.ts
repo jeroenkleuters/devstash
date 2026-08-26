@@ -1,9 +1,14 @@
 import { cache } from "react";
 
-import type { Prisma } from "@/generated/prisma/client";
+// A value import, not a type one: `PrismaClientKnownRequestError` is checked
+// with `instanceof` below.
+import { Prisma } from "@/generated/prisma/client";
 import { itemTypeSelect, type ItemTypeSummary } from "@/lib/db/item-types";
 import { prisma } from "@/lib/prisma";
-import type { CreateCollectionInput } from "@/lib/validations/collection";
+import type {
+  CreateCollectionInput,
+  UpdateCollectionInput,
+} from "@/lib/validations/collection";
 import type { CollectionOption } from "@/types/collection";
 
 export interface CollectionSummary {
@@ -190,6 +195,69 @@ export async function createCollection(
   });
 
   return toSummary(collection);
+}
+
+/**
+ * Renames a collection or rewrites its description, from the edit dialog.
+ *
+ * `userId` narrows a `where` that is already unique, so the row cannot be
+ * swapped for another account's, and there is no ownership read to race with.
+ * Answers `null` when nothing matched, so "already gone" and "someone else's"
+ * are indistinguishable — the same conflation `getCollection` makes, for the
+ * same reason.
+ */
+export async function updateCollection(
+  userId: string,
+  collectionId: string,
+  input: UpdateCollectionInput,
+): Promise<CollectionSummary | null> {
+  try {
+    const collection = await prisma.collection.update({
+      where: { id: collectionId, userId },
+      data: {
+        name: input.name,
+        description: input.description,
+      },
+      select: collectionSelect,
+    });
+
+    return toSummary(collection);
+  } catch (error) {
+    // P2025 is "record to update not found", which here means the id names
+    // nothing or names someone else's row. Anything else is a real failure and
+    // belongs to the caller's own catch.
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2025"
+    ) {
+      return null;
+    }
+
+    throw error;
+  }
+}
+
+/**
+ * Deletes one collection. Answers whether a row actually went, so "already
+ * gone" and "someone else's" are the same `false`.
+ *
+ * `deleteMany` rather than `delete`: the latter throws `P2025` when the row is
+ * no longer there, so a double-click or two tabs racing would surface as a
+ * crash instead of as the collection being gone.
+ *
+ * **The items survive.** Only the `ItemCollection` rows cascade — an `Item`
+ * carries no foreign key to a collection, so every item stays exactly where it
+ * was and simply stops being in this one.
+ */
+export async function deleteCollection(
+  userId: string,
+  collectionId: string,
+): Promise<boolean> {
+  const { count } = await prisma.collection.deleteMany({
+    where: { id: collectionId, userId },
+  });
+
+  return count > 0;
 }
 
 type CollectionRow = Prisma.CollectionGetPayload<{

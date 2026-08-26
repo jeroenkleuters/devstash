@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
 import { SIGN_IN_PATH } from "@/auth.config";
+import { CollectionActions } from "@/components/collections/collection-actions";
 import { ItemList } from "@/components/items/item-list";
 import { ItemListSkeleton } from "@/components/items/item-list-skeleton";
 import { TYPE_ICONS } from "@/constants/item-types";
@@ -48,32 +49,42 @@ export default async function CollectionPage({
 
   return (
     <>
-      <div className="dashboard-heading">
-        <h1>{collection.name}</h1>
-        <p>
-          {collection.description ??
-            `${collection.itemCount} ${
-              collection.itemCount === 1 ? "item" : "items"
-            } in this collection`}
-        </p>
-
-        {collection.types.length > 0 && (
-          <p className="collection-heading-types">
-            {collection.types.map((type) => {
-              const Icon = TYPE_ICONS[type.icon];
-
-              return Icon ? (
-                <Icon
-                  key={type.id}
-                  className="collection-card-type-icon"
-                  data-type={type.slug}
-                  size={14}
-                  aria-hidden
-                />
-              ) : null;
-            })}
+      <div className="dashboard-heading dashboard-heading-row">
+        <div>
+          <h1>{collection.name}</h1>
+          <p>
+            {collection.description ??
+              `${collection.itemCount} ${
+                collection.itemCount === 1 ? "item" : "items"
+              } in this collection`}
           </p>
-        )}
+
+          {collection.types.length > 0 && (
+            <p className="collection-heading-types">
+              {collection.types.map((type) => {
+                const Icon = TYPE_ICONS[type.icon];
+
+                return Icon ? (
+                  <Icon
+                    key={type.id}
+                    className="collection-card-type-icon"
+                    data-type={type.slug}
+                    size={14}
+                    aria-hidden
+                  />
+                ) : null;
+              })}
+            </p>
+          )}
+        </div>
+
+        <CollectionActions
+          collection={{
+            id: collection.id,
+            name: collection.name,
+            description: collection.description,
+          }}
+        />
       </div>
 
       <section className="dashboard-section">

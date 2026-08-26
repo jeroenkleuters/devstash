@@ -1,7 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createCollection } from "@/actions/collections";
-import { createCollection as createCollectionRow } from "@/lib/db/collections";
+import {
+  createCollection,
+  deleteCollection,
+  updateCollection,
+} from "@/actions/collections";
+import {
+  createCollection as createCollectionRow,
+  deleteCollection as deleteCollectionRow,
+  updateCollection as updateCollectionRow,
+} from "@/lib/db/collections";
 import { getCurrentUserId } from "@/lib/db/user";
 import type { CollectionSummary } from "@/lib/db/collections";
 
@@ -11,10 +19,16 @@ import type { CollectionSummary } from "@/lib/db/collections";
  * own job — session, validation, and turning a result into a response — as the
  * only thing under test.
  */
-vi.mock("@/lib/db/collections", () => ({ createCollection: vi.fn() }));
+vi.mock("@/lib/db/collections", () => ({
+  createCollection: vi.fn(),
+  updateCollection: vi.fn(),
+  deleteCollection: vi.fn(),
+}));
 vi.mock("@/lib/db/user", () => ({ getCurrentUserId: vi.fn() }));
 
 const createCollectionRowMock = vi.mocked(createCollectionRow);
+const updateCollectionRowMock = vi.mocked(updateCollectionRow);
+const deleteCollectionRowMock = vi.mocked(deleteCollectionRow);
 const getCurrentUserIdMock = vi.mocked(getCurrentUserId);
 
 const SUMMARY = {
@@ -28,6 +42,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   getCurrentUserIdMock.mockResolvedValue("user-1");
   createCollectionRowMock.mockResolvedValue(SUMMARY);
+  updateCollectionRowMock.mockResolvedValue(SUMMARY);
+  deleteCollectionRowMock.mockResolvedValue(true);
 });
 
 describe("createCollection", () => {
@@ -85,6 +101,142 @@ describe("createCollection", () => {
     expect(result).toEqual({
       success: false,
       error: "Could not create this collection. Try again.",
+    });
+  });
+});
+
+describe("updateCollection", () => {
+  it("refuses a session whose account is gone", async () => {
+    getCurrentUserIdMock.mockResolvedValue(null);
+
+    const result = await updateCollection("collection-1", {
+      name: "Renamed",
+      description: "",
+    });
+
+    expect(result).toEqual({
+      success: false,
+      error: "Your session has ended. Sign in again.",
+    });
+    expect(updateCollectionRowMock).not.toHaveBeenCalled();
+  });
+
+  it("reports an invalid payload without touching the database", async () => {
+    const result = await updateCollection("collection-1", {
+      name: "  ",
+      description: "",
+    });
+
+    expect(result).toEqual({ success: false, error: "Name is required." });
+    expect(updateCollectionRowMock).not.toHaveBeenCalled();
+  });
+
+  // The id is an argument of its own and the owner is the session's, so a
+  // payload can name neither the collection it edits nor who owns it.
+  it("edits as the session's user, not one named by the caller", async () => {
+    await updateCollection("collection-1", {
+      name: "Renamed",
+      description: "Hooks",
+      userId: "someone-else",
+      id: "someone-elses-collection",
+    });
+
+    expect(updateCollectionRowMock).toHaveBeenCalledWith(
+      "user-1",
+      "collection-1",
+      { name: "Renamed", description: "Hooks" },
+    );
+  });
+
+  // The query cannot tell "no such collection" from "not yours", so neither
+  // can the message.
+  it("reports a collection that is missing or not the caller's", async () => {
+    updateCollectionRowMock.mockResolvedValue(null);
+
+    const result = await updateCollection("not-mine", {
+      name: "Renamed",
+      description: "",
+    });
+
+    expect(result).toEqual({
+      success: false,
+      error: "That collection no longer exists.",
+    });
+  });
+
+  it("returns the saved collection", async () => {
+    const result = await updateCollection("collection-1", {
+      name: "Renamed",
+      description: "",
+    });
+
+    expect(result).toEqual({ success: true, data: SUMMARY });
+  });
+
+  it("turns a rejected write into a message rather than a throw", async () => {
+    updateCollectionRowMock.mockRejectedValue(new Error("connection lost"));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await updateCollection("collection-1", {
+      name: "Renamed",
+      description: "",
+    });
+
+    expect(result).toEqual({
+      success: false,
+      error: "Could not save this collection. Try again.",
+    });
+  });
+});
+
+describe("deleteCollection", () => {
+  it("refuses a session whose account is gone", async () => {
+    getCurrentUserIdMock.mockResolvedValue(null);
+
+    const result = await deleteCollection("collection-1");
+
+    expect(result).toEqual({
+      success: false,
+      error: "Your session has ended. Sign in again.",
+    });
+    expect(deleteCollectionRowMock).not.toHaveBeenCalled();
+  });
+
+  it("deletes as the session's user", async () => {
+    await deleteCollection("collection-1");
+
+    expect(deleteCollectionRowMock).toHaveBeenCalledWith(
+      "user-1",
+      "collection-1",
+    );
+  });
+
+  it("reports a collection that is missing or not the caller's", async () => {
+    deleteCollectionRowMock.mockResolvedValue(false);
+
+    const result = await deleteCollection("not-mine");
+
+    expect(result).toEqual({
+      success: false,
+      error: "That collection no longer exists.",
+    });
+  });
+
+  it("answers success with no data half", async () => {
+    await expect(deleteCollection("collection-1")).resolves.toEqual({
+      success: true,
+    });
+  });
+
+  it("turns a rejected delete into a message rather than a throw", async () => {
+    deleteCollectionRowMock.mockRejectedValue(new Error("connection lost"));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await deleteCollection("collection-1");
+
+    expect(result).toEqual({
+      success: false,
+      error: "Could not delete this collection. Try again.",
     });
   });
 });
