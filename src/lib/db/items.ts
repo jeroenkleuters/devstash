@@ -276,6 +276,12 @@ export async function createItem(
       fileName: stored?.name ?? null,
       fileSize: stored?.size ?? null,
       language: LANGUAGE_TYPE_SLUGS.has(type.slug) ? input.language : null,
+      // The join is an explicit model, so these are rows rather than a
+      // `connect` — each one carries its own `addedAt`. The action has already
+      // checked every id belongs to this user.
+      collections: {
+        create: input.collectionIds.map((collectionId) => ({ collectionId })),
+      },
       tags: {
         connectOrCreate: input.tags.map((name) => ({
           where: { userId_name: { userId, name } },
@@ -307,12 +313,25 @@ export async function updateItem(
 ): Promise<ItemDetail | null> {
   const existing = await prisma.item.findFirst({
     where: { id: itemId, userId },
-    select: { contentType: true },
+    select: {
+      contentType: true,
+      collections: { select: { collectionId: true } },
+    },
   });
 
   if (!existing) {
     return null;
   }
+
+  // Only what actually changed. Clearing the lot and recreating it would land
+  // the same selection and reset `addedAt` on every collection the item never
+  // left, losing when it was filed there.
+  const current = new Set(
+    existing.collections.map(({ collectionId }) => collectionId),
+  );
+  const next = new Set(input.collectionIds);
+  const removed = [...current].filter((id) => !next.has(id));
+  const added = [...next].filter((id) => !current.has(id));
 
   const item = await prisma.item.update({
     // `userId` narrows a `where` that is already unique, so the row cannot be
@@ -324,6 +343,10 @@ export async function updateItem(
       language: input.language,
       content: existing.contentType === "TEXT" ? input.content : undefined,
       url: existing.contentType === "URL" ? input.url : undefined,
+      collections: {
+        deleteMany: removed.length > 0 ? { collectionId: { in: removed } } : [],
+        create: added.map((collectionId) => ({ collectionId })),
+      },
       tags: {
         // `set: []` drops the item's existing tags before the new ones are
         // attached; the rows themselves stay, since other items may use them.

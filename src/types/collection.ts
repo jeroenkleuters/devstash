@@ -13,3 +13,13 @@ import type { CollectionSummary } from "@/lib/db/collections";
 export type CreateCollectionResult =
   | { success: true; data: CollectionSummary }
   | { success: false; error: string };
+
+/**
+ * One collection as the item forms' picker lists it, shaped as it crosses the
+ * wire from `GET /api/collections`. Just enough to show a row and name an id in
+ * the payload — the picker has no use for counts, types or dates.
+ */
+export interface CollectionOption {
+  id: string;
+  name: string;
+}

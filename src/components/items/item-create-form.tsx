@@ -10,6 +10,7 @@ import {
   EMPTY_ITEM_FORM_VALUES,
   ItemFormFields,
   type ItemFormValues,
+  type TextField,
 } from "@/components/items/item-form-fields";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -65,8 +66,12 @@ export function ItemCreateForm({
   const canSave =
     values.title.trim() !== "" && (!uploadKind || file !== null) && !saving;
 
-  function setField(name: keyof ItemFormValues, value: string) {
+  function setField(name: TextField, value: string) {
     setValues((current) => ({ ...current, [name]: value }));
+  }
+
+  function setCollectionIds(collectionIds: string[]) {
+    setValues((current) => ({ ...current, collectionIds }));
   }
 
   function changeType(slug: string) {
@@ -191,6 +196,7 @@ export function ItemCreateForm({
         <ItemFormFields
           values={values}
           setField={setField}
+          setCollectionIds={setCollectionIds}
           idPrefix="create-item"
           typeSlug={typeSlug}
           contentType={type?.contentType}

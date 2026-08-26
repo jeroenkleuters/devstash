@@ -1,14 +1,32 @@
-# Current Feature
+# Current Feature: Add Items to Collections
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
-<!-- What does success look like? -->
+- The create and edit item forms both carry a collections field, where one, several or no collections can be picked from the ones the signed-in user owns.
+- Creating an item with collections selected writes the `ItemCollection` join rows alongside it.
+- Editing an item's selection adds and removes join rows so the item ends up in exactly the collections chosen.
+- A collection can only ever be one the caller owns — a `collectionId` naming someone else's is refused server-side, the way `ownsObjectKey` guards an upload key.
+- The picker's options reach the client through an API route (`GET /api/collections`), since both forms are client components; server components keep reading through `src/lib/db/collections.ts`.
+- The drawer's existing collection chips and the dashboard/sidebar counts reflect the change on save.
 
 ## Notes
+
+- **Out of scope, stated by the request:** collection *pages*. `/collections` and `/collections/[id]` stay 404. This is only about putting an item into a collection from the item forms.
+- **The join is an explicit model.** `ItemCollection` is `@@id([itemId, collectionId])` with an `addedAt` column and cascade deletes on both sides, so it is **not** the implicit m2m the tags use — `set: []` + `connectOrCreate`, the pattern `updateItem` runs for tags, does not apply here.
+- **Do not clear and recreate on edit.** `deleteMany: {}` followed by `create` would work and would reset `addedAt` for every collection the item never left, losing "when was this added". Diff the selection instead: `deleteMany` the ones dropped, `create` the ones added, leave the rest alone.
+- **`ItemDetail.collections` already exists** — `itemDetailSelect` in `src/lib/db/items.ts` selects `{ id, name }` per collection ordered by name, and the drawer already renders them as chips. The read side is done; this feature is the write side plus the picker.
+- **Ownership is the security rule of this feature.** `Item.userId` scoping is not enough: a crafted payload could name a `collectionId` belonging to another account and file the item into their collection. The check has to be server-side and must live where the caller cannot reach it — the natural shape is a "these ids are all yours" query in `src/lib/db/collections.ts`, called by the action before the write, mirroring how `createItem` checks an upload key with `ownsObjectKey`.
+- **`GET /api/collections` is a new route and the first outside `api/items/` and `api/auth/`.** It stays **outside the proxy's matcher** for the reason `api/items/[id]/route.ts` records: the proxy answers an unauthenticated request with a redirect, which a `fetch` receives as an opaque 200 of HTML. The check lives in the handler and says 401.
+- Writes stay **server actions** (`createItem` / `updateItem`), per the architecture decision confirmed on the previous feature. The new API route is a client-side *read* only.
+- The payload gains a `collectionIds: string[]`, so `createItemSchema` and `updateItemSchema` want it in their shared `itemFields`. An absent field should mean "no collections", not a validation error — the same forgiving shape `file` already has on create.
+- The picker renders inside `ItemFormFields`, which both forms already share — so it is one addition, not two. Note `ItemFormValues` is currently all strings with `setField(name, value: string)`; a multi-select is the first non-string value, so either that signature widens or the selection is held beside it.
+- A brand-new account owns no collections. The picker needs an empty state that is not a dead control, and it must not block creating an item.
+- Markup carries no Tailwind utility classes; new styling is a semantic class in `globals.css`, grouped with the existing `.item-form-*` rules where it shares a box model.
+- **Tests are deferred to a later step** at the user's request — `/feature test` will cover the schema, the ownership check and both actions once the implementation settles.
 
 ## History
 

@@ -1,6 +1,7 @@
 "use server";
 
 import { creatableType } from "@/constants/item-types";
+import { ownsAllCollections } from "@/lib/db/collections";
 import { getItemTypeBySlug } from "@/lib/db/item-types";
 import { getCurrentUserId } from "@/lib/db/user";
 import {
@@ -45,6 +46,10 @@ const UNKNOWN_TYPE = "That item type is not available.";
 
 /** An upload key from outside the caller's own prefix — see `ownsObjectKey`. */
 const FOREIGN_FILE = "That file does not belong to this account.";
+
+/** A collection id naming someone else's — see `ownsAllCollections`. */
+const FOREIGN_COLLECTION =
+  "One of those collections does not belong to this account.";
 
 /** A key with nothing behind it: never uploaded, or already cleaned up. */
 const MISSING_UPLOAD = "That upload is no longer there. Try choosing it again.";
@@ -94,6 +99,12 @@ export async function createItem(input: unknown): Promise<CreateItemResult> {
   }
 
   try {
+    // Scoping the item to its owner says nothing about the collections it names
+    // — those are the other account's rows, so they get their own check.
+    if (!(await ownsAllCollections(userId, parsed.data.collectionIds))) {
+      return { success: false, error: FOREIGN_COLLECTION };
+    }
+
     const type = await getItemTypeBySlug(creatable.slug);
 
     if (!type) {
@@ -178,6 +189,12 @@ export async function updateItem(
   }
 
   try {
+    // Same rule as create: the item is the caller's, the collections it names
+    // are not necessarily.
+    if (!(await ownsAllCollections(userId, parsed.data.collectionIds))) {
+      return { success: false, error: FOREIGN_COLLECTION };
+    }
+
     const detail = await updateItemRow(userId, itemId, parsed.data);
 
     if (!detail) {

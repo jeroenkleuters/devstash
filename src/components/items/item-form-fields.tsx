@@ -1,6 +1,7 @@
 "use client";
 
 import { CodeEditor } from "@/components/items/code-editor";
+import { ItemCollectionsField } from "@/components/items/item-collections-field";
 import { MarkdownEditor } from "@/components/items/markdown-editor";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,6 +28,7 @@ import type { ItemContentType, ItemDetail } from "@/types/item";
 export function ItemFormFields({
   values,
   setField,
+  setCollectionIds,
   idPrefix,
   typeSlug,
   contentType,
@@ -145,6 +147,12 @@ export function ItemFormFields({
         />
         <p className="item-form-hint">Separate tags with commas.</p>
       </div>
+
+      <ItemCollectionsField
+        selected={values.collectionIds}
+        onChange={setCollectionIds}
+        idPrefix={idPrefix}
+      />
     </>
   );
 }
@@ -158,11 +166,18 @@ export interface ItemFormValues {
   language: string;
   /** The comma-separated field, split into the array on submit. */
   tags: string;
+  /**
+   * The collections the item is filed into. The one field that is not a string:
+   * a checkbox list has no single input to hold text, so `setField` — which is
+   * every text field's setter — does not reach it and `setCollectionIds` does.
+   */
+  collectionIds: string[];
 }
 
 interface ItemFormFieldsProps {
   values: ItemFormValues;
-  setField: (name: keyof ItemFormValues, value: string) => void;
+  setField: (name: TextField, value: string) => void;
+  setCollectionIds: (collectionIds: string[]) => void;
   /**
    * Namespaces the field ids, so the two forms cannot collide if they are ever
    * mounted at once.
@@ -184,7 +199,10 @@ interface ItemFormFieldsProps {
   contentRows: number;
 }
 
-/** Inputs have no null, so every field starts as the empty string. */
+/** The fields `setField` writes — every one whose input holds text. */
+export type TextField = Exclude<keyof ItemFormValues, "collectionIds">;
+
+/** Inputs have no null, so every text field starts as the empty string. */
 export const EMPTY_ITEM_FORM_VALUES: ItemFormValues = {
   title: "",
   description: "",
@@ -192,6 +210,7 @@ export const EMPTY_ITEM_FORM_VALUES: ItemFormValues = {
   url: "",
   language: "",
   tags: "",
+  collectionIds: [],
 };
 
 /** The stored item, as the edit form's starting values. */
@@ -203,5 +222,6 @@ export function itemFormValuesFrom(detail: ItemDetail): ItemFormValues {
     url: detail.url ?? "",
     language: detail.language ?? "",
     tags: detail.tags.join(", "),
+    collectionIds: detail.collections.map((collection) => collection.id),
   };
 }
