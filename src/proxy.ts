@@ -26,6 +26,8 @@ export const config = {
     "/dashboard/:path*",
     "/profile",
     "/profile/:path*",
+    "/settings",
+    "/settings/:path*",
     "/items",
     "/items/:path*",
     "/collections",

@@ -2,7 +2,7 @@
 
 import { KeyRound } from "lucide-react";
 
-import { ChangePasswordForm } from "@/components/profile/change-password-form";
+import { ChangePasswordForm } from "@/components/settings/change-password-form";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
