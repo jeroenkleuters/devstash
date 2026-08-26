@@ -1,7 +1,5 @@
 import { CalendarDays, Mail } from "lucide-react";
 
-import { ChangePasswordDialog } from "@/components/profile/change-password-dialog";
-import { DeleteAccountDialog } from "@/components/profile/delete-account-dialog";
 import { UserAvatar } from "@/components/user/user-avatar";
 import type { CurrentUser } from "@/lib/db/user";
 import { formatLongDate } from "@/lib/utils";
@@ -15,8 +13,8 @@ interface ProfileAccountProps {
 
 /**
  * Who is signed in — the GitHub picture where the account has one, initials
- * otherwise, the same fallback the sidebar uses — and the two things that can be
- * done to the account, each behind its own dialog.
+ * otherwise, the same fallback the sidebar uses. Acting on the account is
+ * `/settings`' job; this only says whose it is.
  */
 export function ProfileAccount({ user }: ProfileAccountProps) {
   return (
@@ -63,18 +61,6 @@ export function ProfileAccount({ user }: ProfileAccountProps) {
           </dd>
         </div>
       </dl>
-
-      <div className="profile-actions">
-        {user.hasPassword ? (
-          <ChangePasswordDialog />
-        ) : (
-          <p className="profile-actions-note">
-            This account signs in with GitHub, so there is no password to change.
-          </p>
-        )}
-
-        <DeleteAccountDialog email={user.email} />
-      </div>
     </section>
   );
 }

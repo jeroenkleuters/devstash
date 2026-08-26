@@ -221,7 +221,7 @@ body {
   }
 
   .dashboard-shell[data-sidebar-open="false"]
-    :is(.sidebar-brand, .sidebar-link, .sidebar-user) {
+    :is(.sidebar-brand, .sidebar-link, .sidebar-user, .sidebar-user-trigger) {
     justify-content: center;
     padding-left: 0;
     padding-right: 0;
@@ -425,24 +425,25 @@ body {
   border-top: 1px solid var(--sidebar-border);
 }
 
-/* Wraps the avatar alone — the name beside it is a link to the profile page,
-   and a link cannot live inside this button. */
+/* The whole row: the profile page moved into the menu, so nothing beside the
+   avatar needs a click of its own and the trigger can cover the lot. */
 .sidebar-user-trigger {
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  flex: 1;
+  min-width: 0;
   padding: 0;
   border: 0;
-  border-radius: 9999px;
   background: none;
   color: inherit;
+  text-align: left;
   cursor: pointer;
 }
 
 .sidebar-user-meta {
   display: flex;
   flex-direction: column;
-  flex: 1;
   min-width: 0;
 }
 
@@ -456,13 +457,6 @@ body {
 .sidebar-user-name {
   font-size: 0.875rem;
   font-weight: 500;
-  color: inherit;
-  text-decoration: none;
-}
-
-a.sidebar-user-name:hover {
-  text-decoration: underline;
-  text-underline-offset: 0.2em;
 }
 
 .sidebar-user-email {
@@ -2124,7 +2118,8 @@ a.sidebar-user-name:hover {
 
 /* ---------- Profile ---------- */
 
-.profile-card {
+.profile-card,
+.settings-card {
   margin-top: 2rem;
   padding: 1.5rem;
   border: 1px solid var(--border);
@@ -2132,7 +2127,8 @@ a.sidebar-user-name:hover {
   background: var(--card);
 }
 
-.profile-card-title {
+.profile-card-title,
+.settings-card-title {
   font-size: 1rem;
   font-weight: 600;
 }
@@ -2193,22 +2189,6 @@ a.sidebar-user-name:hover {
 /* Explicit rather than relying on the reset to have zeroed the `dd` indent. */
 .profile-detail-value {
   margin: 0;
-}
-
-.profile-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.75rem;
-  margin-top: 1.5rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid var(--border);
-}
-
-/* Stands in for the change-password button on an account that has no password. */
-.profile-actions-note {
-  font-size: 0.875rem;
-  color: var(--muted-foreground);
 }
 
 /* Two cards rather than the dashboard's four, so they keep a sane width instead
@@ -2276,6 +2256,33 @@ a.sidebar-user-name:hover {
 [data-slot="dialog-content"] .auth-notice,
 [data-slot="alert-dialog-content"] .auth-error {
   margin-top: 0;
+}
+
+/* ---------- Settings ---------- */
+
+.settings-card-description {
+  max-width: 44rem;
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+}
+
+/* A hairline under the description, so the buttons read as the thing the card
+   is for rather than as more of the copy above them. */
+.settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+
+/* Stands in for the change-password button on an account that has no password. */
+.settings-actions-note {
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
 }
 
 /* ---------- Loading skeletons ----------

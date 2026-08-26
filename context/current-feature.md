@@ -1,12 +1,25 @@
-# Current Feature
+# Current Feature: Settings Page
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
+- A `/settings` route exists, rendered inside the shared `AppShell` like every other authenticated page.
+- `/settings` is protected: it joins the proxy matcher, and the page redirects to `SIGN_IN_PATH` when `getCurrentUser()` returns null (covering the token-without-a-row case the proxy cannot see).
+- The sidebar's account dropdown (`SidebarUser`) carries a **Settings** link to `/settings`, above the Sign out item.
+- The account actions move off `/profile` and onto `/settings`: **Change Password** (its dialog) and **Delete Account** (its dialog), including the GitHub-only explanatory note that stands in for the change-password button.
+- `/profile` keeps its identity card (avatar, name, account kind, email, member since) and its usage statistics, and no longer renders the actions row.
+
 ## Notes
+
+- **Resolved:** the spec named "forgot password", but the profile page has no such action — its two are `ChangePasswordDialog` and `DeleteAccountDialog`, while the forgot-password flow is the pre-auth `/forgot-password` page. Confirmed to leave forgot-password alone; only Change Password and Delete Account move.
+- This is a **move, not a rewrite** — `change-password-dialog.tsx`, `change-password-form.tsx` and `delete-account-dialog.tsx` keep their behaviour (the server actions in `src/lib/account.ts`, the 10/15m limiter keyed on the user id, the password fingerprint sign-out, the token cleanup on delete). Prefer `git mv` so history follows if the files move out of `src/components/profile/`.
+- `ProfileAccount` currently owns both the identity block *and* the actions row; splitting it is the main edit. The `.profile-actions` / `.profile-actions-note` rules in `globals.css` follow the actions to wherever they land.
+- `src/app/settings/layout.tsx` will be the **fifth** three-line `AppShell` wrapper (dashboard, items, profile, collections). The `(app)` route group in project overview §7 stays deferred as its own change.
+- No migration, no new dependency, no new ShadCN primitive expected — `dialog`, `alert-dialog` and `dropdown-menu` are all already in `components/ui/`.
+- Nothing new is testable under `vitest.config.mts`'s scope (`src/lib/**`, `src/actions/**`) unless logic moves; a pure move should leave the suite at 237 passing.
 
 ## History
 

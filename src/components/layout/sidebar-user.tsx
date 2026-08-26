@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { LogOut } from "lucide-react";
+import { LogOut, Settings, User } from "lucide-react";
 
 import { signOutAction } from "@/actions/auth";
 import {
@@ -20,10 +20,9 @@ interface SidebarUserProps {
 }
 
 /**
- * The account row at the foot of the sidebar. The avatar opens the account
- * menu and the name links to the profile page — which is why the name sits
- * outside the trigger rather than inside it: a link nested in a button is
- * invalid, and the click would belong to whichever won.
+ * The account row at the foot of the sidebar. The whole row opens the account
+ * menu — the profile page is reached from inside it, so the name beside the
+ * avatar is plain text and has no click of its own to compete with.
  */
 export function SidebarUser({ user }: SidebarUserProps) {
   const name = user?.name ?? user?.email ?? "";
@@ -31,23 +30,42 @@ export function SidebarUser({ user }: SidebarUserProps) {
   return (
     <div className="sidebar-user">
       <DropdownMenu>
-        {/* The avatar is decorative, so the button needs a name of its own. */}
-        <DropdownMenuTrigger
-          className="sidebar-user-trigger"
-          title={name}
-          aria-label="Account menu"
-        >
+        {/* The avatar is decorative, so the name and email inside are what give
+            this button its accessible name. */}
+        <DropdownMenuTrigger className="sidebar-user-trigger" title={name}>
           <UserAvatar
             name={user?.name ?? null}
             email={user?.email ?? null}
             image={user?.image}
           />
+
+          <span className="sidebar-user-meta">
+            <span className="sidebar-user-name">{name}</span>
+            <span className="sidebar-user-email">{user?.email}</span>
+          </span>
         </DropdownMenuTrigger>
 
         {/* Opens upwards: the trigger sits against the bottom of the viewport. */}
         <DropdownMenuContent side="top" align="start">
           <DropdownMenuLabel>{name}</DropdownMenuLabel>
           <DropdownMenuSeparator />
+
+          <DropdownMenuItem asChild>
+            <Link href="/profile">
+              <User size={14} aria-hidden />
+              Profile
+            </Link>
+          </DropdownMenuItem>
+
+          <DropdownMenuItem asChild>
+            <Link href="/settings">
+              <Settings size={14} aria-hidden />
+              Settings
+            </Link>
+          </DropdownMenuItem>
+
+          <DropdownMenuSeparator />
+
           <form action={signOutAction}>
             <DropdownMenuItem asChild>
               <button type="submit" className="sidebar-user-signout">
@@ -58,13 +76,6 @@ export function SidebarUser({ user }: SidebarUserProps) {
           </form>
         </DropdownMenuContent>
       </DropdownMenu>
-
-      <span className="sidebar-user-meta">
-        <Link href="/profile" className="sidebar-user-name" title={name}>
-          {name}
-        </Link>
-        <span className="sidebar-user-email">{user?.email}</span>
-      </span>
     </div>
   );
 }
