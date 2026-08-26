@@ -48,9 +48,10 @@ const collectionSelect = {
  *
  * The sidebar, the dashboard grid and the stat cards all narrow this same list,
  * and `cache` memoizes per request, so one render costs one query. Unbounded on
- * purpose: the sidebar needs every favorite, not the most recent few.
+ * purpose: the sidebar needs every favorite, not the most recent few — which is
+ * also what makes it exactly what `/collections` renders, unsliced.
  */
-const getCollections = cache(
+export const getCollections = cache(
   async (userId: string): Promise<CollectionSummary[]> => {
     const collections = await prisma.collection.findMany({
       where: { userId },
@@ -143,6 +144,29 @@ export async function ownsAllCollections(
   });
 
   return owned === collectionIds.length;
+}
+
+/**
+ * One collection, as its own page's heading reads it.
+ *
+ * `userId` sits in the `where`, so another account's collection comes back
+ * `null` rather than forbidden — the same conflation `getItemDetail` makes, so
+ * an id nobody may see is never confirmed to exist. The page turns that into a
+ * 404, which is also what an id naming nothing at all gets.
+ *
+ * Runs the shared `collectionSelect`, so the heading gets the item count and
+ * the types the collection holds without a second query.
+ */
+export async function getCollection(
+  userId: string,
+  collectionId: string,
+): Promise<CollectionSummary | null> {
+  const collection = await prisma.collection.findFirst({
+    where: { id: collectionId, userId },
+    select: collectionSelect,
+  });
+
+  return collection ? toSummary(collection) : null;
 }
 
 /**

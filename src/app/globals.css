@@ -1261,6 +1261,15 @@ a.sidebar-user-name:hover {
   line-height: 1.6;
 }
 
+/* The type icons under a collection page's heading. Reuses the card's icon
+   rule for the colouring — only the row needs stating. */
+.collection-heading-types {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-top: 0.5rem;
+}
+
 /* The collections checkbox list. Scrolls rather than growing, so a long list
    cannot push the form's buttons out of reach. */
 .item-collections-options {

@@ -1,5 +1,6 @@
 import { Clock, Pin } from "lucide-react";
 
+import { CollectionGridSkeleton } from "@/components/collections/collection-grid-skeleton";
 import { ItemListSkeleton } from "@/components/items/item-list-skeleton";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -43,30 +44,7 @@ export function CollectionsSectionSkeleton() {
   return (
     <section className="dashboard-section">
       <h2 className="dashboard-section-title">Collections</h2>
-      <ul className="collection-grid" aria-busy="true">
-        {placeholders(COLLECTION_CARD_COUNT).map((index) => (
-          <li key={index}>
-            <div className="collection-card">
-              <h3 className="collection-card-name">
-                <Skeleton className="skeleton-line skeleton-collection-name" />
-              </h3>
-              {/* `div`, not the `p` the real card uses: the skeleton primitive
-                  renders a `div`, and a `p` may not contain one. */}
-              <div className="collection-card-count">
-                <Skeleton className="skeleton-line skeleton-collection-count" />
-              </div>
-              <div className="collection-card-description">
-                <Skeleton className="skeleton-line" />
-              </div>
-              <div className="collection-card-types">
-                {placeholders(3).map((iconIndex) => (
-                  <Skeleton key={iconIndex} className="skeleton-type-icon" />
-                ))}
-              </div>
-            </div>
-          </li>
-        ))}
-      </ul>
+      <CollectionGridSkeleton count={COLLECTION_CARD_COUNT} />
     </section>
   );
 }
