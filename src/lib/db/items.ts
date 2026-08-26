@@ -119,6 +119,32 @@ const fileItemSelect = {
  * shows, and sorting on a column the list does not display puts the visible
  * dates out of order. Pinned still comes first, as it does everywhere.
  */
+/**
+ * The items in one collection, for its page.
+ *
+ * Lives here rather than in `lib/db/collections.ts` because the shape it
+ * returns is an item's: `itemSelect` and the mapping that narrows it both
+ * belong to this module.
+ *
+ * `userId` scopes it independently of the collection, so this can never read
+ * another account's items even if it is handed a collection id that is not the
+ * caller's. Ordered like every other item list — pinned first, then by the date
+ * the card itself prints. `ItemCollection.addedAt` records when an item was
+ * filed here, but nothing displays it, so sorting on it would look arbitrary.
+ */
+export async function getCollectionItems(
+  userId: string,
+  collectionId: string,
+): Promise<ItemSummary[]> {
+  const items = await prisma.item.findMany({
+    where: { userId, collections: { some: { collectionId } } },
+    orderBy: [{ isPinned: "desc" }, { updatedAt: "desc" }],
+    select: itemSelect,
+  });
+
+  return items.map(toSummary);
+}
+
 export async function getFileItemsByType(
   userId: string,
   itemTypeId: string,

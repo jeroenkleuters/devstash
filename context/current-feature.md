@@ -1,14 +1,32 @@
-# Current Feature
+# Current Feature: Collection Pages
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
-<!-- What does success look like? -->
+- `/collections` lists every collection the signed-in user owns, as the existing `CollectionCard` grid.
+- `/collections/[id]` shows one collection — its name, description and the items it holds — using the existing item cards.
+- An id that names no collection, or one belonging to another account, is a 404 rather than an empty page.
+- The sidebar's "View all collections" link and every collection card reach these pages instead of 404ing.
+- Both routes are protected: added to the proxy matcher, and redirecting when `getCurrentUser()` comes back null.
 
 ## Notes
+
+- **The links already exist — this is only the pages.** `CollectionCard` already renders `href={/collections/${collection.id}}`, both sidebar collection lists already link to the same, and "View all collections" already points at `/collections`. Every one of them 404s today because the routes are missing. So the "link the cards / link the sidebar" half of the request needs **no code**; verify rather than rewrite, and only change a link if one is actually wrong.
+- **A collection holds items of any type, so the mixed list can only be `ItemList`.** `/items/[type]` picks between list, gallery and file layouts via `itemsLayoutFor`, but that switch is per *type* and a collection mixes them — the same reason the dashboard's Recent list renders file items as ordinary cards. Use `ItemList` and leave `TypeItems` alone.
+- **`getCollections` in `src/lib/db/collections.ts` is private.** It is the `cache()`d unbounded read every other function narrows; `/collections` wants all of it, so it needs exporting (or a thin `getAllCollections` beside the others). It already returns `CollectionSummary[]` ordered by `updatedAt` desc, which is what the grid takes.
+- **`/collections/[id]` needs a new read**, returning the collection plus its items in `ItemSummary` shape so `ItemList` renders them unchanged. Put `userId` in the `where` so a collection that is not the caller's reads as *missing* — the conflation `getItemDetail` and `updateItem` already make, so an id nobody may see is never confirmed to exist. The page turns that null into `notFound()`.
+- **Item ordering inside a collection is by date — `isPinned desc, updatedAt desc`**, decided. That is the item's *own* date, which is the one the card actually prints, so the visible dates read in order; it is also exactly what `getItemsByType` uses, so a collection page and a type page sort the same way. Pinned still floats to the top, as it does in every other item list. `ItemCollection.addedAt` is left unused for now — it records when an item was filed into the collection, which nothing displays, so ordering by it would look arbitrary on screen. Revisit if an "added" column or a sort control ever lands.
+- **`src/app/collections/layout.tsx` will be the fourth three-line `AppShell` wrapper** (after dashboard, items, profile), which strengthens the case for the `(app)` route group project overview §7 targets — still deferred, still its own change.
+- Cards are clickable for free: `AppShell` wraps its children in `ItemDrawerProvider`, so an item card on a collection page opens the drawer like anywhere else.
+- Follow the page shape every other route uses: `export const dynamic = "force-dynamic"`, `getCurrentUser()` null-check redirect to `SIGN_IN_PATH` (covers what the proxy cannot — a token that still verifies against a deleted account), a `<Suspense>` boundary around the data with a skeleton, and `generateMetadata` on the detail page.
+- Skeletons already exist and should be reused rather than rewritten: `CollectionsSectionSkeleton` in `src/components/dashboard/dashboard-skeletons.tsx` (may want extracting, as `ItemListSkeleton` was when it got a second consumer) and `ItemListSkeleton`.
+- Add `/collections` and `/collections/:path*` to the matcher in `src/proxy.ts`.
+- **Out of scope unless asked:** editing, renaming, deleting or favoriting a collection; removing an item from a collection; a per-collection create button. This is the read side.
+- Markup carries no Tailwind utility classes; new styling is a semantic class in `globals.css`.
+- Tests: the testable surface here is the new `lib/db` read, which is a Prisma query — `vitest.config.mts` collects `src/lib/**`, so it is reachable, but assert behaviour we own (the ownership scoping, the shape returned) rather than Prisma's.
 
 ## History
 
