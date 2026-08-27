@@ -1,12 +1,40 @@
-# Current Feature
+# Current Feature: Editor Preferences Settings
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
+- Add an **Editor Preferences** section to `/settings`, alongside the existing account card.
+- Five preferences: **font size**, **tab size** (dropdowns), **word wrap** (toggle, default on), **minimap** (toggle, default off), **theme** (dropdown: `vs-dark`, `monokai`, `github-dark`, default `vs-dark`).
+- Store them in a JSON column **`editorPreferences`** on `User`, via a real migration (`npm run db:migrate` — never `db push`).
+- A server action updates the preferences; the payload is validated with Zod.
+- **Auto-save on change** — no save button — with a success toast.
+- An **`EditorPreferencesContext`** makes the values available to client components.
+- `CodeEditor` reads the context and applies all five to Monaco.
+
 ## Notes
+
+### Decisions
+
+1. **Keep the Monaco built-ins.** `monokai` and `github-dark` are defined by hand with `editor.defineTheme`, as `devstash-dark` already is — hand-written token maps, not names Monaco resolves on its own.
+2. **`vs-dark` replaces `devstash-dark`** as the default. The existing hand-tuned theme is dropped rather than kept as a fourth option, so the editor background becomes `#1e1e1e` against the `--card` (`#171717`) window frame. Accepted knowingly.
+3. **Preferences apply to read-only editors too**, not only edit mode — so the drawer's view of a snippet or command follows them, minimap included.
+4. **Read on the server, in the app shell.** `getCurrentUser()` is already `cache()`d and already runs every request for the sidebar, so adding `editorPreferences` to its `select` adds no query — only an `await` in `AppShell`, which hands the value straight to the client provider. This trades a little of the shell's parallel paint (the skeleton feature deliberately made the layouts synchronous) for correct settings on the very first render, with no flash of the defaults. `CurrentUser` gains the field, and the five `AppShell` wrappers need no change.
+### Constraints and existing patterns
+
+- **JSON columns are untyped at the boundary.** `Json?` on `User` means whatever is stored comes back as `unknown` — the Zod schema is what makes reading it safe, not just writing it. Decide what a `null` column means (defaults) and parse defensively on read.
+- **The action is a server action, not an API route** — an authenticated form mutation, per coding-standards and the precedent of `changePassword` in `src/actions/profile.ts`.
+- **The `select` primitive is not installed.** `src/components/ui/` has no `select` or `switch`; adding them makes the 16th/17th generated files. A native `<select>` and a checkbox are the alternative — the item type picker and the collections field both already use real inputs styled through `globals.css`.
+- **No Tailwind utility classes in the markup** — the new rows go in `globals.css`, and the existing `.settings-row` shape (title + sub-line left, control right) is what they should reuse.
+- **Monaco measures the font it is told about**, so `fontSize` must go through the editor's options, never CSS — the same reason `fontFamily` is set there today.
+- **`updateItem`-style ownership rules do not apply here**, but the session is still the only source of the user id — nothing about the account may come from the payload.
+- The app is dark-only (`.dark` is hardcoded on `<html>`), so no light Monaco theme is being offered.
+
+### Testable surface
+
+`vitest.config.mts` collects `src/lib/**` and `src/actions/**` only, so the schema (defaults, unknown-key stripping, out-of-range values, a `null`/garbage column parsing back to defaults) and the server action (session, validation, rejected write) are testable; the context provider, the dropdowns and Monaco's own behaviour are not.
 
 ## History
 

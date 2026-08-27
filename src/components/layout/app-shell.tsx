@@ -2,6 +2,7 @@ import { Suspense, type ReactNode } from "react";
 import { redirect } from "next/navigation";
 
 import { SIGN_IN_PATH } from "@/auth.config";
+import { EditorPreferencesProvider } from "@/components/editor/editor-preferences-provider";
 import { ItemDrawerProvider } from "@/components/items/item-drawer-provider";
 import { Sidebar } from "@/components/layout/sidebar";
 import { SidebarProvider } from "@/components/layout/sidebar-provider";
@@ -20,27 +21,38 @@ const RECENT_LIMIT = 5;
  * every authenticated route's layout, which is why it lives here rather than in
  * one of them — `/dashboard` and `/profile` render the same frame.
  *
- * Needs no data of its own, so it renders while the sidebar's queries and the
- * page inside it resolve in parallel.
+ * It awaits the account for one reason: the editors read their settings from a
+ * context, and reading them in the browser instead would open every editor on
+ * the defaults and then jump. That costs some of the parallel paint the sidebar
+ * boundary below exists to protect, but no query — `getCurrentUser` is
+ * memoized per request, so `SidebarWithData` shares this one.
  */
-export function AppShell({ children }: { children: ReactNode }) {
+export async function AppShell({ children }: { children: ReactNode }) {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    redirect(SIGN_IN_PATH);
+  }
+
   return (
     <SidebarProvider>
       <Suspense fallback={<SidebarSkeleton />}>
         <SidebarWithData />
       </Suspense>
-      {/* Both providers wrap the page rather than living in one, because the
+      {/* These providers wrap the page rather than living in one, because the
           item cards and the top bar are server components and cannot hold state
           of their own. The drawer wraps the top bar too, not just `main`: the
           command palette lives up there and opens items with it. */}
-      <ItemDrawerProvider>
-        <SearchProvider>
-          <div className="dashboard-body">
-            <TopBar />
-            <main className="dashboard-main">{children}</main>
-          </div>
-        </SearchProvider>
-      </ItemDrawerProvider>
+      <EditorPreferencesProvider initialPreferences={user.editorPreferences}>
+        <ItemDrawerProvider>
+          <SearchProvider>
+            <div className="dashboard-body">
+              <TopBar />
+              <main className="dashboard-main">{children}</main>
+            </div>
+          </SearchProvider>
+        </ItemDrawerProvider>
+      </EditorPreferencesProvider>
     </SidebarProvider>
   );
 }
@@ -48,9 +60,10 @@ export function AppShell({ children }: { children: ReactNode }) {
 async function SidebarWithData() {
   const user = await getCurrentUser();
 
-  // The proxy only checks that the JWT verifies, which is not the same as the
-  // session still being good: the account may be gone, or the password it was
-  // opened with may have been changed. Either way there is nothing to render.
+  // Belt and braces since `AppShell` now turns the same case away above: the
+  // proxy only checks that the JWT verifies, which is not the same as the
+  // session still being good — the account may be gone, or the password it was
+  // opened with may have been changed.
   if (!user) {
     redirect(SIGN_IN_PATH);
   }
