@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { SIGN_IN_PATH } from "@/auth.config";
 import { SettingsAccount } from "@/components/settings/settings-account";
+import { SettingsEditor } from "@/components/settings/settings-editor";
 import { getCurrentUser } from "@/lib/db/user";
 
 export const metadata: Metadata = {
@@ -31,6 +32,7 @@ export default async function SettingsPage() {
       </div>
 
       <SettingsAccount user={user} />
+      <SettingsEditor />
     </>
   );
 }

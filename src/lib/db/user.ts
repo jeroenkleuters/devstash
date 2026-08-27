@@ -3,6 +3,10 @@ import { cache } from "react";
 import { auth } from "@/auth";
 import { passwordFingerprint } from "@/lib/password-fingerprint";
 import { prisma } from "@/lib/prisma";
+import {
+  parseEditorPreferences,
+  type EditorPreferences,
+} from "@/lib/validations/editor-preferences";
 
 /** The account details the sidebar and the profile page show. */
 export interface CurrentUser {
@@ -17,6 +21,12 @@ export interface CurrentUser {
    * question anything asks is whether changing it is an option at all.
    */
   hasPassword: boolean;
+  /**
+   * The account's Monaco settings, already read out of the JSON column. Carried
+   * here because the shell needs them on the first render and this query is
+   * already being made — see `AppShell`.
+   */
+  editorPreferences: EditorPreferences;
 }
 
 /**
@@ -51,6 +61,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
       image: true,
       createdAt: true,
       passwordHash: true,
+      editorPreferences: true,
     },
   });
 
@@ -58,7 +69,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     return null;
   }
 
-  const { passwordHash, ...rest } = user;
+  const { passwordHash, editorPreferences, ...rest } = user;
 
   // Both null for an account that signs in with GitHub, so it always matches.
   // A token minted before fingerprints existed carries none and is rejected,
@@ -68,7 +79,11 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     return null;
   }
 
-  return { ...rest, hasPassword: passwordHash !== null };
+  return {
+    ...rest,
+    hasPassword: passwordHash !== null,
+    editorPreferences: parseEditorPreferences(editorPreferences),
+  };
 });
 
 /** The id alone, for call sites that don't render the account details. */
@@ -76,4 +91,24 @@ export async function getCurrentUserId(): Promise<string | null> {
   const user = await getCurrentUser();
 
   return user?.id ?? null;
+}
+
+/**
+ * Replaces the account's editor settings.
+ *
+ * Takes the whole set rather than a patch: it is five values the client always
+ * holds in full, and merging a partial one into whatever the column happens to
+ * contain would make the result depend on what was stored rather than on what
+ * was sent.
+ */
+export async function updateEditorPreferences(
+  userId: string,
+  preferences: EditorPreferences,
+): Promise<boolean> {
+  const { count } = await prisma.user.updateMany({
+    where: { id: userId },
+    data: { editorPreferences: preferences },
+  });
+
+  return count > 0;
 }

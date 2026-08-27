@@ -71,6 +71,11 @@ model User {
   stripeCustomerId     String? @unique
   stripeSubscriptionId String? @unique
 
+  // Monaco settings, shaped by `editorPreferencesSchema`. Json rather than
+  // columns: it is one blob the app reads whole and never queries into, and a
+  // new preference is then a schema change rather than a migration.
+  editorPreferences Json?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

@@ -3,14 +3,15 @@
 import Editor, {
   type BeforeMount,
   type EditorProps,
-  type Monaco,
   type OnMount,
 } from "@monaco-editor/react";
 import { Check, Copy } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
+import { useEditorPreferences } from "@/components/editor/editor-preferences-provider";
 import { languageLabel, monacoLanguageId } from "@/lib/code-language";
+import { defineEditorThemes } from "@/lib/monaco-themes";
 
 /** Tallest the editor grows before it starts scrolling instead. */
 const MAX_HEIGHT = 400;
@@ -19,43 +20,16 @@ const READ_ONLY_MIN_HEIGHT = 72;
 /** An edit box opens with room to type into, even for an empty item. */
 const EDIT_MIN_HEIGHT = 220;
 
-const LINE_HEIGHT = 21;
 const VERTICAL_PADDING = 24;
 
-const THEME = "devstash-dark";
-
 /**
- * The app's dark tokens as literal hex — Monaco parses these itself, so it can
- * read neither the `oklch()` values nor the custom properties they sit in.
- * Kept in step with the `.dark` block in `globals.css` by hand.
+ * Monaco derives a line height from the font size when it is not told one, but
+ * the opening-height estimate below needs the number before the editor exists.
+ * 1.6 is the ratio the editor was built at (21px against a 13px font).
  */
-const DEVSTASH_DARK: Parameters<Monaco["editor"]["defineTheme"]>[1] = {
-  base: "vs-dark",
-  inherit: true,
-  rules: [],
-  colors: {
-    "editor.background": "#171717", // --card
-    "editor.foreground": "#fafafa", // --foreground
-    "editorLineNumber.foreground": "#525252",
-    "editorLineNumber.activeForeground": "#a1a1a1", // --muted-foreground
-    "editorGutter.background": "#171717",
-    "editor.lineHighlightBorder": "#00000000",
-    "editor.lineHighlightBackground": "#ffffff08",
-    "editor.selectionBackground": "#ffffff26",
-    "editor.inactiveSelectionBackground": "#ffffff14",
-    "editorCursor.foreground": "#fafafa",
-    "editorIndentGuide.background1": "#ffffff14",
-    "editorIndentGuide.activeBackground1": "#ffffff2e",
-    "editorWidget.background": "#262626", // --muted
-    "editorWidget.border": "#ffffff1a", // --border
-    // The scrollbar is Monaco's own DOM; these colour it, and `globals.css`
-    // rounds the slider into a pill.
-    "scrollbar.shadow": "#00000000",
-    "scrollbarSlider.background": "#ffffff1f",
-    "scrollbarSlider.hoverBackground": "#ffffff33",
-    "scrollbarSlider.activeBackground": "#ffffff4d",
-  },
-};
+function lineHeightFor(fontSize: number) {
+  return Math.round(fontSize * 1.6);
+}
 
 interface CodeEditorProps {
   value: string;
@@ -88,9 +62,14 @@ export function CodeEditor({
   onChange,
   ariaLabel,
 }: CodeEditorProps) {
+  const { preferences } = useEditorPreferences();
+  const lineHeight = lineHeightFor(preferences.fontSize);
+
   const minHeight = readOnly ? READ_ONLY_MIN_HEIGHT : EDIT_MIN_HEIGHT;
 
-  const [height, setHeight] = useState(() => estimateHeight(value, minHeight));
+  const [height, setHeight] = useState(() =>
+    estimateHeight(value, minHeight, lineHeight),
+  );
   const [copied, setCopied] = useState(false);
   const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -103,7 +82,7 @@ export function CodeEditor({
   }, []);
 
   const handleBeforeMount = useCallback<BeforeMount>((monaco) => {
-    monaco.editor.defineTheme(THEME, DEVSTASH_DARK);
+    defineEditorThemes(monaco);
 
     // A stashed snippet is usually a fragment, so every validator would mark it
     // up with errors that say nothing about whether the snippet is any good.
@@ -146,10 +125,10 @@ export function CodeEditor({
       // Monaco measures the font it is told about; setting the family in CSS
       // instead would drift the cursor away from the text it sits in.
       fontFamily: "var(--font-mono), ui-monospace, monospace",
-      fontSize: 13,
-      lineHeight: LINE_HEIGHT,
+      fontSize: preferences.fontSize,
+      lineHeight,
       padding: { top: 12, bottom: 12 },
-      minimap: { enabled: false },
+      minimap: { enabled: preferences.minimap },
       scrollBeyondLastLine: false,
       folding: false,
       glyphMargin: false,
@@ -164,8 +143,8 @@ export function CodeEditor({
       stickyScroll: { enabled: false },
       contextmenu: !readOnly,
       cursorBlinking: readOnly ? "solid" : "blink",
-      wordWrap: "off",
-      tabSize: 2,
+      wordWrap: preferences.wordWrap ? "on" : "off",
+      tabSize: preferences.tabSize,
       // Autocomplete in a snippet stash is noise, and its popups would be
       // clipped by the window frame's `overflow: hidden` anyway.
       quickSuggestions: false,
@@ -184,7 +163,15 @@ export function CodeEditor({
         alwaysConsumeMouseWheel: false,
       },
     }),
-    [readOnly, ariaLabel],
+    [
+      readOnly,
+      ariaLabel,
+      lineHeight,
+      preferences.fontSize,
+      preferences.minimap,
+      preferences.tabSize,
+      preferences.wordWrap,
+    ],
   );
 
   async function copy() {
@@ -237,7 +224,7 @@ export function CodeEditor({
         height={height}
         language={languageId}
         value={value}
-        theme={THEME}
+        theme={preferences.theme}
         beforeMount={handleBeforeMount}
         onMount={handleMount}
         onChange={(next) => onChange?.(next ?? "")}
@@ -262,11 +249,11 @@ export function CodeEditor({
  * keeps the block from visibly growing on mount, and sizes the read-only
  * fallback correctly for the load that never finishes.
  */
-function estimateHeight(value: string, minHeight: number) {
+function estimateHeight(value: string, minHeight: number, lineHeight: number) {
   const lines = value ? value.split("\n").length : 1;
 
   return Math.min(
     MAX_HEIGHT,
-    Math.max(minHeight, lines * LINE_HEIGHT + VERTICAL_PADDING),
+    Math.max(minHeight, lines * lineHeight + VERTICAL_PADDING),
   );
 }
