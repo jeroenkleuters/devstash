@@ -2330,27 +2330,60 @@ a.pagination-page:hover {
 
 /* ---------- Settings ---------- */
 
-.settings-card-description {
+/* One shape for every row in the account card: the title and its sub-line on
+   the left, whatever acts on them on the right. The action drops under the text
+   when there is no room for both. */
+.settings-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.settings-row + .settings-row {
+  margin-top: 2rem;
+}
+
+/* The card's own heading row carries no action, so it gets a little more air
+   beneath it than the action rows give each other. */
+.settings-row:first-child {
+  margin-bottom: 0.5rem;
+}
+
+/* A hairline setting the destructive action apart from the ordinary ones above
+   it — not a divider between every row, which is why it hangs off the row that
+   is being set apart rather than off `+`. */
+.settings-row[data-danger] {
+  padding-top: 2rem;
+  border-top: 1px solid var(--border);
+}
+
+/* Grows into the space the action leaves, and `min-width` lets it do the
+   shrinking so a long sub-line wraps instead of pushing the button out. */
+.settings-row-text {
+  flex: 1 1 20rem;
+  min-width: 0;
+}
+
+.settings-row-title {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.settings-row[data-danger] .settings-row-title {
+  color: var(--destructive);
+}
+
+.settings-row-description {
   max-width: 44rem;
-  margin-top: 0.5rem;
+  margin-top: 0.25rem;
   font-size: 0.875rem;
   color: var(--muted-foreground);
 }
 
-/* A hairline under the description, so the buttons read as the thing the card
-   is for rather than as more of the copy above them. */
-.settings-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.75rem;
-  margin-top: 1.5rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid var(--border);
-}
-
 /* Stands in for the change-password button on an account that has no password. */
-.settings-actions-note {
+.settings-row-note {
   font-size: 0.875rem;
   color: var(--muted-foreground);
 }
