@@ -10,6 +10,7 @@ import type {
   UpdateCollectionInput,
 } from "@/lib/validations/collection";
 import type { CollectionOption } from "@/types/collection";
+import type { SearchCollection } from "@/types/search";
 
 export interface CollectionSummary {
   id: string;
@@ -290,4 +291,36 @@ function rankTypes(types: ItemTypeSummary[]): ItemTypeSummary[] {
   return [...counts.values()]
     .sort((a, b) => b.count - a.count || a.type.name.localeCompare(b.type.name))
     .map((entry) => entry.type);
+}
+
+/**
+ * Collections matching a search query, most recently updated first.
+ *
+ * Its own narrow select rather than `collectionSelect`, which pulls every item
+ * row of every collection just to rank the types it holds — a result row shows
+ * a name and a count, so `_count` is the whole of it.
+ */
+export async function searchCollections(
+  userId: string,
+  query: string,
+  limit: number,
+): Promise<SearchCollection[]> {
+  const match = { contains: query, mode: "insensitive" } as const;
+
+  const collections = await prisma.collection.findMany({
+    where: { userId, OR: [{ name: match }, { description: match }] },
+    orderBy: { updatedAt: "desc" },
+    take: limit,
+    select: {
+      id: true,
+      name: true,
+      description: true,
+      _count: { select: { items: true } },
+    },
+  });
+
+  return collections.map(({ _count, ...collection }) => ({
+    ...collection,
+    itemCount: _count.items,
+  }));
 }

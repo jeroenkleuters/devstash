@@ -8,6 +8,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import type { CreateItemInput, UpdateItemInput } from "@/lib/validations/item";
 import type { ItemContentType, ItemDetail } from "@/types/item";
+import type { SearchItem } from "@/types/search";
 
 export interface ItemSummary {
   id: string;
@@ -473,4 +474,87 @@ function toSummary({
   tags: { name: string }[];
 } & Omit<ItemSummary, "type" | "tags">): ItemSummary {
   return { ...item, type: itemType, tags: tags.map((tag) => tag.name) };
+}
+
+/** How much of an item's payload a search result row carries. */
+const PREVIEW_LENGTH = 160;
+
+/**
+ * What a search matches on top of the shared card fields. Its own select rather
+ * than three more columns on `itemSelect`, which the dashboard's lists share and
+ * which display none of these.
+ */
+const searchItemSelect = {
+  ...itemSelect,
+  content: true,
+  url: true,
+  fileName: true,
+} as const;
+
+/**
+ * Items matching a search query, pinned first and then most recently updated.
+ *
+ * Matching is case-insensitive substring across every field that carries
+ * meaning: the title and description, the payload — whichever of `content`,
+ * `url` or `fileName` the item's type uses — its tags, and its type's name, so
+ * "command" finds the user's commands. Ordering is the app's usual one rather
+ * than by relevance: Postgres `ILIKE` yields no score to sort on, and ranking
+ * would mean `pg_trgm` and a migration.
+ *
+ * Note Prisma does not escape `%` or `_` inside `contains`, so a query carrying
+ * one broadens the match. It is parameterized either way — this widens results,
+ * it does not inject.
+ */
+export async function searchItems(
+  userId: string,
+  query: string,
+  limit: number,
+): Promise<SearchItem[]> {
+  const match = { contains: query, mode: "insensitive" } as const;
+
+  const items = await prisma.item.findMany({
+    where: {
+      userId,
+      OR: [
+        { title: match },
+        { description: match },
+        { content: match },
+        { url: match },
+        { fileName: match },
+        { tags: { some: { name: match } } },
+        { itemType: { name: match } },
+      ],
+    },
+    orderBy: [{ isPinned: "desc" }, { updatedAt: "desc" }],
+    take: limit,
+    select: searchItemSelect,
+  });
+
+  return items.map(({ content, url, fileName, ...item }) => ({
+    ...toSummary(item),
+    updatedAt: item.updatedAt.toISOString(),
+    preview: toPreview(content ?? url ?? fileName),
+  }));
+}
+
+/**
+ * One line of an item's payload for a result row.
+ *
+ * Whitespace is collapsed because a snippet's newlines and indentation would
+ * otherwise render as a long gap in a single-line row.
+ */
+function toPreview(source: string | null): string | null {
+  if (!source) {
+    return null;
+  }
+
+  const collapsed = source.replace(/\s+/g, " ").trim();
+
+  if (!collapsed) {
+    return null;
+  }
+
+  return collapsed.length > PREVIEW_LENGTH
+    ? `${collapsed.slice(0, PREVIEW_LENGTH)}…`
+    : collapsed;
 }

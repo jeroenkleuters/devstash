@@ -7,6 +7,7 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { SidebarProvider } from "@/components/layout/sidebar-provider";
 import { SidebarSkeleton } from "@/components/layout/sidebar-skeleton";
 import { TopBar } from "@/components/layout/top-bar";
+import { SearchProvider } from "@/components/search/search-provider";
 import { getSidebarCollections } from "@/lib/db/collections";
 import { getItemTypesWithCounts } from "@/lib/db/items";
 import { getCurrentUser } from "@/lib/db/user";
@@ -28,15 +29,18 @@ export function AppShell({ children }: { children: ReactNode }) {
       <Suspense fallback={<SidebarSkeleton />}>
         <SidebarWithData />
       </Suspense>
-      <div className="dashboard-body">
-        <TopBar />
-        {/* Wraps the page rather than living in one, because item cards appear
-            on the dashboard and on `/items/[type]` and both are server
-            components. `/profile` renders no cards and simply never opens it. */}
-        <ItemDrawerProvider>
-          <main className="dashboard-main">{children}</main>
-        </ItemDrawerProvider>
-      </div>
+      {/* Both providers wrap the page rather than living in one, because the
+          item cards and the top bar are server components and cannot hold state
+          of their own. The drawer wraps the top bar too, not just `main`: the
+          command palette lives up there and opens items with it. */}
+      <ItemDrawerProvider>
+        <SearchProvider>
+          <div className="dashboard-body">
+            <TopBar />
+            <main className="dashboard-main">{children}</main>
+          </div>
+        </SearchProvider>
+      </ItemDrawerProvider>
     </SidebarProvider>
   );
 }

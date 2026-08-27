@@ -1,12 +1,61 @@
-# Current Feature
+# Current Feature: Global Search / Command Palette
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
+- A command palette opens on **Cmd+K / Ctrl+K** from anywhere in the signed-in shell, and closes on Escape.
+- Clicking the top bar's search field opens the same palette; the placeholder keeps its `⌘ K` hint.
+- Typing fuzzy-matches across **all** of the signed-in user's items and collections — no server round-trip per keystroke.
+- Results are grouped: an **Items** section and a **Collections** section.
+- Arrow keys move the selection, Enter activates it.
+- An item row shows its type icon; a collection row shows its item count.
+- Selecting an item opens the existing item drawer; selecting a collection navigates to `/collections/[id]`.
+- Searchable data is fetched once when the shell loads, not on every open.
+
 ## Notes
+
+Spec: @context/features/global-search-spec.md
+
+### What already exists
+
+- `src/components/layout/top-bar.tsx` already renders the search `Input` and the `⌘ K` `<kbd>` — display-only. The hint requirement is visually done; the field needs to become a trigger.
+- `getCollections(userId)` in `src/lib/db/collections.ts` is already the `cache()`d, unbounded read returning `CollectionSummary` **with `itemCount`** — the collections half of the search data needs no new query.
+- `ItemDrawerProvider` already exposes `openItem(summary)`, so "navigate to item drawer" is a call, not a new drawer.
+
+### Decisions
+
+- **Use `cmdk`.** `shadcn add command` — the first `components/ui/` primitive to add a real dependency (dialog / sheet / tabs / dropdown-menu all ride the unified `radix-ui` the nova preset installed). Its built-in `command-score` is the fuzzy matcher; no second library.
+- **The search payload carries a full `ItemSummary` plus a preview**, not the spec's narrower `(id, title, type, content preview)`. The drawer only actually reads `id`, `title`, `type`, `isFavorite`, `isPinned` off the summary — `description`, `tags` and `updatedAt` are in the type because that is what a *card* carries — so passing the whole summary means `openItem(item)` works verbatim with **no drawer changes**, and costs nothing extra since `itemSelect` already returns those fields.
+  - `content` is the only addition, **sliced to a preview server-side** in the mapper so the full `@db.Text` never reaches the browser.
+  - **`updatedAt` arrives from a JSON route as a string, not a `Date`.** Revive it before calling `openItem` — `{ ...item, updatedAt: new Date(item.updatedAt) }`, the same conversion `handleSaved` already does.
+  - Matching is against title + type + tags + preview. Content past the preview cut-off is not findable; deeper content search would need a real server-side search and is out of scope.
+- **`ItemDrawerProvider` moves up one level in `app-shell.tsx`** to wrap `dashboard-body` (both `TopBar` and `main`), so the palette can call `useItemDrawer()`. The `Sheet` portals to `body`, so tree position affects only who can reach the context, not rendering.
+- **`GET /api/search`, fetched by the palette on mount** — the shape `ItemCollectionsField` already uses for `/api/collections`. `TopBar` stays a server component, `AppShell` stays synchronous (the skeleton feature made it so deliberately), and nothing blocks the shell. Fits the house rule: client-side reads are API routes, mutations are server actions. Route sits outside the proxy matcher and answers 401 itself, for the reason `api/items/[id]/route.ts` records.
+- **Staleness: refetch when the palette opens**, rendering the cached list instantly so there is no perceived delay. Always fresh, and still no round trip per keystroke.
+
+### Deviation from the spec: server-side search
+
+Asked for at `/feature start`, and it overrides two of the spec's Technical lines
+("Client-side fuzzy search (no server round-trips)" and "Pre-fetch searchable
+data on app load"). Consequences:
+
+- **Matching is case-insensitive substring, not fuzzy.** Postgres `ILIKE` is what
+  Prisma's `contains` compiles to; real fuzzy ranking would mean the `pg_trgm`
+  extension and a migration. There is also no relevance score to order by, so
+  results keep the app's usual ordering — pinned first, then most recent.
+- **Nothing is pre-fetched.** The palette queries `GET /api/search?q=` on a
+  200 ms debounce, so `AppShell` stays synchronous and no snapshot can go stale.
+  Content is searched in full rather than only to the preview cut-off, which is
+  what the client-side version could not have done.
+- `cmdk` gets `shouldFilter={false}` — the server decides the result set, and
+  cmdk's own scoring would drop rows that matched on content it cannot see.
+
+### To verify in the browser
+
+- Selecting a result closes a Radix Dialog and opens a Radix Sheet in the same tick. Radix reference-counts the `body` `pointer-events` lock (the item-delete pass confirmed that), so it should be clean — but this is the interaction to actually watch.
 
 ## History
 
