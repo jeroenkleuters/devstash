@@ -1,12 +1,42 @@
-# Current Feature
+# Current Feature: Settings Page Layout
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
+- Restructure the settings Account card into **three rows**, matching @context/screenshots/Settings-example.png
+- Page subtitle reads "Manage your account settings"
+- **Row 1 — Account.** Title "Account", sub-line "Manage your account security and preferences". No button.
+- **Row 2 — Password.** Title "Password", sub-line "Update your password to keep your account secure", the existing `Change Password` button aligned right.
+- **Row 3 — Delete Account.** Title "Delete Account" in the destructive colour, sub-line "Permanently delete your account and all associated data", the existing `Delete Account` button aligned right.
+- A hairline sits between rows 2 and 3, exactly where the screenshot has it; rows 1 and 2 are separated by spacing alone.
+- All three rows share one structure (title / sub-line on the left, action slot on the right), so row 1 is the same row with an empty action slot.
+- Both dialogs keep their current behaviour: the change-password form, its action, the 10-per-15-minutes limiter, the confirmation dialog and the delete cascade are untouched
+- The GitHub-only account (`hasPassword === false`) still gets its explanatory note where the Change Password button would be
+- Rows stack sensibly on a narrow viewport
+
 ## Notes
+
+Presentation only — `src/components/settings/settings-account.tsx` and `src/app/globals.css`,
+plus one line in `src/app/settings/page.tsx` for the subtitle. No server action, validation,
+schema or route changes, so the suite should stay at 257 and no new tests are earned.
+
+**The buttons are unchanged, confirmed.** The screenshot's Delete Account button is solid red;
+ours keeps the nova preset's `destructive` variant (translucent, red text) and Change Password
+keeps `outline` — both with their existing icons and labels. Only their placement moves, into
+the right-hand slot of their row. This matches the call already recorded during the
+profile-page improvements.
+
+**Existing CSS to reshape rather than add beside.** `.settings-actions` is currently a wrapping
+flex row holding both buttons under one hairline, and `.settings-card-description` is the single
+paragraph the rows now replace. Both want reworking rather than leaving in place with new rules
+layered over them, or `grep` will find dead selectors afterwards.
+
+`.settings-card-title` is grouped with `.profile-card-title` in `globals.css`, and `/profile` is
+not in scope — so if row 1's "Account" heading needs different sizing from that shared rule, it
+takes its own selector rather than editing the pair.
 
 ## History
 

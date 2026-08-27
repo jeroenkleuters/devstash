@@ -27,7 +27,7 @@ export default async function SettingsPage() {
     <>
       <div className="dashboard-heading">
         <h1>Settings</h1>
-        <p>Manage your account</p>
+        <p>Manage your account settings</p>
       </div>
 
       <SettingsAccount user={user} />
