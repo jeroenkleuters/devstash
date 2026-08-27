@@ -30,7 +30,7 @@ describe("getCollectionItems", () => {
    * caller's still cannot read another account's items.
    */
   it("filters on the owner as well as the collection", async () => {
-    await getCollectionItems("user-1", "collection-1");
+    await getCollectionItems("user-1", "collection-1", 1);
 
     expect(findManyMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -45,7 +45,7 @@ describe("getCollectionItems", () => {
   // Pinned first, then the date the card itself prints — the same order every
   // other item list uses, so a collection page and a type page agree.
   it("orders pinned first, then by the item's own date", async () => {
-    await getCollectionItems("user-1", "collection-1");
+    await getCollectionItems("user-1", "collection-1", 1);
 
     expect(findManyMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -54,9 +54,18 @@ describe("getCollectionItems", () => {
     );
   });
 
+  // One page of rows, never the whole collection.
+  it("skips to the requested page and takes one page of rows", async () => {
+    await getCollectionItems("user-1", "collection-1", 3);
+
+    expect(findManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({ skip: 42, take: 21 }),
+    );
+  });
+
   it("returns an empty list for a collection holding nothing", async () => {
     await expect(
-      getCollectionItems("user-1", "collection-1"),
+      getCollectionItems("user-1", "collection-1", 1),
     ).resolves.toEqual([]);
   });
 });

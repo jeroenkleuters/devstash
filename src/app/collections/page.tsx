@@ -1,28 +1,46 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { SIGN_IN_PATH } from "@/auth.config";
 import { CollectionGrid } from "@/components/collections/collection-grid";
 import { CollectionGridSkeleton } from "@/components/collections/collection-grid-skeleton";
-import { getCollections } from "@/lib/db/collections";
+import { Pagination } from "@/components/layout/pagination";
+import { COLLECTIONS_PER_PAGE } from "@/constants/pagination";
+import { countCollections, getCollectionsPage } from "@/lib/db/collections";
 import { getCurrentUser } from "@/lib/db/user";
+import { pageCount, parsePageParam, rowsOnPage } from "@/lib/pagination";
 
 // Reads the session and the user's collections on every request.
 export const dynamic = "force-dynamic";
 
-/** A guess — the real count isn't known until the query returns. */
-const COLLECTION_SKELETON_COUNT = 6;
-
 export const metadata: Metadata = { title: "Collections · DevStash" };
 
-export default async function CollectionsPage() {
-  const user = await getCurrentUser();
+export default async function CollectionsPage({
+  searchParams,
+}: PageProps<"/collections">) {
+  const [query, user] = await Promise.all([searchParams, getCurrentUser()]);
 
   // The proxy already turns an anonymous request away, so this covers what it
   // cannot: a token that still verifies against an account that is gone.
   if (!user) {
     redirect(SIGN_IN_PATH);
+  }
+
+  const page = parsePageParam(query.page);
+
+  // `?page=` names no page.
+  if (page === null) {
+    notFound();
+  }
+
+  // Counted here rather than inside the boundary, so a page past the end is a
+  // 404 before anything has flushed. `cache` keeps it to one query per request.
+  const totalCount = await countCollections(user.id);
+  const totalPages = pageCount(totalCount, COLLECTIONS_PER_PAGE);
+
+  if (page > totalPages) {
+    notFound();
   }
 
   return (
@@ -34,20 +52,41 @@ export default async function CollectionsPage() {
 
       <section className="dashboard-section">
         {/* Its own boundary: the heading needs no data, so it paints while the
-            collections resolve. */}
+            collections resolve. Keyed on the page so stepping to another one
+            suspends again rather than holding the old cards. */}
         <Suspense
-          fallback={<CollectionGridSkeleton count={COLLECTION_SKELETON_COUNT} />}
+          key={page}
+          fallback={
+            <CollectionGridSkeleton
+              count={rowsOnPage(totalCount, page, COLLECTIONS_PER_PAGE)}
+            />
+          }
         >
-          <AllCollections userId={user.id} />
+          <CollectionsOnPage userId={user.id} page={page} />
         </Suspense>
+
+        {/* Outside the boundary — the count is already known, so the controls
+            paint with the heading rather than waiting on the cards. */}
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          basePath="/collections"
+        />
       </section>
     </>
   );
 }
 
-async function AllCollections({ userId }: { userId: string }) {
-  // Unsliced, unlike the dashboard's grid — this is the page that shows them all.
-  const collections = await getCollections(userId);
+async function CollectionsOnPage({
+  userId,
+  page,
+}: {
+  userId: string;
+  page: number;
+}) {
+  // Its own bounded query, not a slice of the cached `getCollections` the
+  // sidebar and the dashboard share — that one reads every row the user owns.
+  const collections = await getCollectionsPage(userId, page);
 
   return <CollectionGrid collections={collections} />;
 }

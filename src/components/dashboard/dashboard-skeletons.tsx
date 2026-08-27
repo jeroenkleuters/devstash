@@ -3,6 +3,10 @@ import { Clock, Pin } from "lucide-react";
 import { CollectionGridSkeleton } from "@/components/collections/collection-grid-skeleton";
 import { ItemListSkeleton } from "@/components/items/item-list-skeleton";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  DASHBOARD_COLLECTIONS_LIMIT,
+  DASHBOARD_RECENT_ITEMS_LIMIT,
+} from "@/constants/pagination";
 
 /**
  * Suspense fallbacks for the four dashboard sections. Each one reuses the real
@@ -11,12 +15,12 @@ import { Skeleton } from "@/components/ui/skeleton";
  */
 
 const STAT_CARD_COUNT = 4;
-/** Matches RECENT_COLLECTION_LIMIT in `collections-section.tsx`. */
-const COLLECTION_CARD_COUNT = 6;
+/** The same limit the section fetches, so the fallback is the right size. */
+const COLLECTION_CARD_COUNT = DASHBOARD_COLLECTIONS_LIMIT;
 /** A guess — the pinned count isn't known until the query returns. */
 const PINNED_ITEM_COUNT = 2;
-/** Matches RECENT_ITEM_LIMIT in `recent-items-section.tsx`. */
-const RECENT_ITEM_COUNT = 10;
+/** The same limit the section fetches, so the fallback is the right size. */
+const RECENT_ITEM_COUNT = DASHBOARD_RECENT_ITEMS_LIMIT;
 
 function placeholders(count: number) {
   return Array.from({ length: count }, (_, index) => index);

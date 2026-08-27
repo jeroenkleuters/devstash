@@ -6,16 +6,16 @@ import { SIGN_IN_PATH } from "@/auth.config";
 import { CollectionActions } from "@/components/collections/collection-actions";
 import { ItemList } from "@/components/items/item-list";
 import { ItemListSkeleton } from "@/components/items/item-list-skeleton";
+import { Pagination } from "@/components/layout/pagination";
 import { TYPE_ICONS } from "@/constants/item-types";
+import { ITEMS_PER_PAGE } from "@/constants/pagination";
 import { getCollection } from "@/lib/db/collections";
-import { getCollectionItems } from "@/lib/db/items";
+import { countCollectionItems, getCollectionItems } from "@/lib/db/items";
 import { getCurrentUser } from "@/lib/db/user";
+import { pageCount, parsePageParam, rowsOnPage } from "@/lib/pagination";
 
 // Reads the session and one user's rows on every request.
 export const dynamic = "force-dynamic";
-
-/** A guess — the real count isn't known until the query returns. */
-const ITEM_SKELETON_COUNT = 6;
 
 export async function generateMetadata({
   params,
@@ -30,8 +30,13 @@ export async function generateMetadata({
 
 export default async function CollectionPage({
   params,
+  searchParams,
 }: PageProps<"/collections/[id]">) {
-  const [{ id }, user] = await Promise.all([params, getCurrentUser()]);
+  const [{ id }, query, user] = await Promise.all([
+    params,
+    searchParams,
+    getCurrentUser(),
+  ]);
 
   // The proxy already turns an anonymous request away, so this covers what it
   // cannot: a token that still verifies against an account that is gone.
@@ -39,11 +44,27 @@ export default async function CollectionPage({
     redirect(SIGN_IN_PATH);
   }
 
+  const page = parsePageParam(query.page);
+
+  // `?page=` names no page — a wrong URL, like an id naming no collection.
+  if (page === null) {
+    notFound();
+  }
+
   const collection = await getCollection(user.id, id);
 
   // Covers both "no such collection" and "not yours" — the query does not tell
   // them apart, so an id nobody may see is never confirmed to exist.
   if (!collection) {
+    notFound();
+  }
+
+  // Counted here rather than inside the boundary, so a page past the end is a
+  // 404 before anything has flushed. `cache` keeps it to one query per request.
+  const totalCount = await countCollectionItems(user.id, collection.id);
+  const totalPages = pageCount(totalCount, ITEMS_PER_PAGE);
+
+  if (page > totalPages) {
     notFound();
   }
 
@@ -89,10 +110,30 @@ export default async function CollectionPage({
 
       <section className="dashboard-section">
         {/* Its own boundary: the heading above needs only the collection query,
-            so it paints while the items resolve. */}
-        <Suspense fallback={<ItemListSkeleton count={ITEM_SKELETON_COUNT} />}>
-          <CollectionItems userId={user.id} collectionId={collection.id} />
+            so it paints while the items resolve. Keyed on the page so stepping
+            to another one suspends again rather than holding the old rows. */}
+        <Suspense
+          key={page}
+          fallback={
+            <ItemListSkeleton
+              count={rowsOnPage(totalCount, page, ITEMS_PER_PAGE)}
+            />
+          }
+        >
+          <CollectionItems
+            userId={user.id}
+            collectionId={collection.id}
+            page={page}
+          />
         </Suspense>
+
+        {/* Outside the boundary — the count is already known, so the controls
+            paint with the heading rather than waiting on the rows. */}
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          basePath={`/collections/${collection.id}`}
+        />
       </section>
     </>
   );
@@ -101,14 +142,16 @@ export default async function CollectionPage({
 async function CollectionItems({
   userId,
   collectionId,
+  page,
 }: {
   userId: string;
   collectionId: string;
+  page: number;
 }) {
   // A collection mixes item types, so the gallery and file-row layouts
   // `/items/[type]` picks between cannot apply — one list has to render them
   // all, which is the same reason the dashboard's Recent list does.
-  const items = await getCollectionItems(userId, collectionId);
+  const items = await getCollectionItems(userId, collectionId, page);
 
   return <ItemList items={items} emptyMessage="No items in this collection." />;
 }

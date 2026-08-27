@@ -2,8 +2,10 @@ import { cache } from "react";
 
 // A value import, not a type one: `PrismaClientKnownRequestError` is checked
 // with `instanceof` below.
+import { COLLECTIONS_PER_PAGE } from "@/constants/pagination";
 import { Prisma } from "@/generated/prisma/client";
 import { itemTypeSelect, type ItemTypeSummary } from "@/lib/db/item-types";
+import { pageOffset } from "@/lib/pagination";
 import { prisma } from "@/lib/prisma";
 import type {
   CreateCollectionInput,
@@ -77,6 +79,44 @@ export async function getRecentCollections(
   const collections = await getCollections(userId);
 
   return collections.slice(0, limit);
+}
+
+/**
+ * How many collections the user owns — what the numbered links are counted
+ * from. Cached, so the page can validate the page number before the boundary
+ * and the controls can size themselves without a second query.
+ *
+ * Deliberately not `getCollections(...).length`: that read is unbounded, and a
+ * paginated page fetching everything to count it is the thing pagination is
+ * for.
+ */
+export const countCollections = cache(
+  async (userId: string): Promise<number> =>
+    prisma.collection.count({ where: { userId } }),
+);
+
+/**
+ * One page of the user's collections, most recently updated first — what
+ * `/collections` renders.
+ *
+ * Its own bounded query rather than a slice of the cached `getCollections`.
+ * That one stays unbounded for the sidebar, which needs *every* favorite, so a
+ * request rendering this page runs both — the alternative is loading a whole
+ * stash to show 21 of it.
+ */
+export async function getCollectionsPage(
+  userId: string,
+  page: number,
+): Promise<CollectionSummary[]> {
+  const collections = await prisma.collection.findMany({
+    where: { userId },
+    orderBy: { updatedAt: "desc" },
+    skip: pageOffset(page, COLLECTIONS_PER_PAGE),
+    take: COLLECTIONS_PER_PAGE,
+    select: collectionSelect,
+  });
+
+  return collections.map(toSummary);
 }
 
 /**

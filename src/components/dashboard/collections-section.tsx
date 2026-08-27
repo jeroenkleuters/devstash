@@ -1,13 +1,12 @@
 import { CollectionGrid } from "@/components/collections/collection-grid";
+import { DASHBOARD_COLLECTIONS_LIMIT } from "@/constants/pagination";
 import { getRecentCollections } from "@/lib/db/collections";
 import { getCurrentUserId } from "@/lib/db/user";
-
-const RECENT_COLLECTION_LIMIT = 6;
 
 export async function CollectionsSection() {
   const userId = await getCurrentUserId();
   const recentCollections = userId
-    ? await getRecentCollections(userId, RECENT_COLLECTION_LIMIT)
+    ? await getRecentCollections(userId, DASHBOARD_COLLECTIONS_LIMIT)
     : [];
 
   return (
