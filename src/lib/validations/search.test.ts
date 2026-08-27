@@ -8,29 +8,31 @@ describe("searchQuerySchema", () => {
   });
 
   /**
-   * The rule the trim exists for: a query of nothing but whitespace is too
-   * short, not a search for a space. Without the trim running first it would be
-   * long enough and every row would match.
+   * The rule the trim exists for: a query of nothing but whitespace comes out
+   * empty, so the route browses rather than searching for a space.
    */
-  it("rejects a whitespace-only query", () => {
-    expect(searchQuerySchema.safeParse("     ").success).toBe(false);
+  it("reduces a whitespace-only query to nothing", () => {
+    expect(searchQuerySchema.parse("     ")).toBe("");
   });
 
-  it("rejects a query shorter than the minimum", () => {
-    expect(searchQuerySchema.safeParse("a".repeat(MIN_QUERY_LENGTH - 1)).success)
-      .toBe(false);
-    expect(
-      searchQuerySchema.safeParse("a".repeat(MIN_QUERY_LENGTH)).success,
-    ).toBe(true);
+  /**
+   * Deliberately has no minimum. A short query is a request to browse, not a
+   * bad request — the route compares against `MIN_QUERY_LENGTH` to decide
+   * which, and the schema rejecting one here would make that a 400 instead.
+   */
+  it("accepts a query shorter than the search floor", () => {
+    for (let length = 0; length < MIN_QUERY_LENGTH; length++) {
+      expect(searchQuerySchema.safeParse("a".repeat(length)).success).toBe(true);
+    }
   });
 
-  // Trimmed before the length check on this side too, so trailing spaces cannot
-  // push a legitimate query over the cap.
+  // Trimmed before the length check, so trailing spaces cannot push a
+  // legitimate query over the cap.
   it("caps the query length, counting after the trim", () => {
     expect(searchQuerySchema.safeParse("a".repeat(100)).success).toBe(true);
     expect(searchQuerySchema.safeParse("a".repeat(101)).success).toBe(false);
-    expect(
-      searchQuerySchema.safeParse(`${"a".repeat(100)}    `).success,
-    ).toBe(true);
+    expect(searchQuerySchema.safeParse(`${"a".repeat(100)}    `).success).toBe(
+      true,
+    );
   });
 });

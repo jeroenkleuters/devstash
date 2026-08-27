@@ -9,9 +9,14 @@ import type { SearchResults } from "@/types/search";
 // Reads the session and one user's rows, so there is nothing here to cache.
 export const dynamic = "force-dynamic";
 
-/** How many of each the palette shows. Small on purpose: the list is scanned. */
-const ITEM_LIMIT = 10;
-const COLLECTION_LIMIT = 5;
+/**
+ * How many of each the palette shows, browsing or searching.
+ *
+ * One number for both, so typing does not appear to *shrink* a list that was
+ * already showing everything — and a cap rather than no cap at all, because the
+ * palette is a list to scan rather than a page to page through.
+ */
+const RESULT_LIMIT = 30;
 
 /**
  * The command palette's results.
@@ -34,15 +39,20 @@ export async function GET(request: NextRequest) {
   );
 
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: `Type at least ${MIN_QUERY_LENGTH} characters to search.` },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: "That query is too long." }, {
+      status: 400,
+    });
   }
 
+  // Anything shorter than the floor browses rather than searching, which is
+  // what the palette shows on opening and while the first letter is typed. A
+  // short query is a request for the list, not a bad request.
+  const query =
+    parsed.data.length >= MIN_QUERY_LENGTH ? parsed.data : null;
+
   const [items, collections] = await Promise.all([
-    searchItems(userId, parsed.data, ITEM_LIMIT),
-    searchCollections(userId, parsed.data, COLLECTION_LIMIT),
+    searchItems(userId, query, RESULT_LIMIT),
+    searchCollections(userId, query, RESULT_LIMIT),
   ]);
 
   return NextResponse.json({ items, collections } satisfies SearchResults);

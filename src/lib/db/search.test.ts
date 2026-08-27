@@ -83,6 +83,33 @@ describe("searchItems", () => {
     ]);
   });
 
+  /**
+   * A null query browses. The filter has to be *absent* rather than an empty
+   * OR: Prisma reads `OR: []` as matching nothing, so the palette would open
+   * on a blank list instead of the whole stash.
+   */
+  it("drops the filter entirely when there is no query", async () => {
+    await searchItems("user-1", null, 30);
+
+    const where = itemFindMany.mock.calls[0]![0]!.where;
+
+    expect(where).toEqual({ userId: "user-1" });
+    expect("OR" in where!).toBe(false);
+    expect(itemFindMany).toHaveBeenCalledWith(expect.objectContaining({ take: 30 }));
+  });
+
+  // Browsing keeps the ordering a search uses, so the list does not reshuffle
+  // as the query crosses the floor.
+  it("orders a browse the same way as a search", async () => {
+    await searchItems("user-1", null, 30);
+
+    expect(itemFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderBy: [{ isPinned: "desc" }, { updatedAt: "desc" }],
+      }),
+    );
+  });
+
   it("takes the caller's limit, pinned first then most recently updated", async () => {
     await searchItems("user-1", "react", 4);
 
@@ -188,6 +215,16 @@ describe("searchCollections", () => {
         take: 5,
       }),
     );
+  });
+
+  it("drops the filter entirely when there is no query", async () => {
+    await searchCollections("user-1", null, 30);
+
+    const where = collectionFindMany.mock.calls[0]![0]!.where;
+
+    expect(where).toEqual({ userId: "user-1" });
+    expect("OR" in where!).toBe(false);
+    expect(collectionFindMany).toHaveBeenCalledWith(expect.objectContaining({ take: 30 }));
   });
 
   /**

@@ -494,6 +494,11 @@ const searchItemSelect = {
 /**
  * Items matching a search query, pinned first and then most recently updated.
  *
+ * A `null` query browses instead of searching: the filter is dropped and the
+ * user's most recent items come back, which is what the palette lists when it
+ * opens. That is one function rather than two because everything else — the
+ * ordering, the select and the preview mapping — is the same either way.
+ *
  * Matching is case-insensitive substring across every field that carries
  * meaning: the title and description, the payload — whichever of `content`,
  * `url` or `fileName` the item's type uses — its tags, and its type's name, so
@@ -507,24 +512,11 @@ const searchItemSelect = {
  */
 export async function searchItems(
   userId: string,
-  query: string,
+  query: string | null,
   limit: number,
 ): Promise<SearchItem[]> {
-  const match = { contains: query, mode: "insensitive" } as const;
-
   const items = await prisma.item.findMany({
-    where: {
-      userId,
-      OR: [
-        { title: match },
-        { description: match },
-        { content: match },
-        { url: match },
-        { fileName: match },
-        { tags: { some: { name: match } } },
-        { itemType: { name: match } },
-      ],
-    },
+    where: { userId, ...itemMatch(query) },
     orderBy: [{ isPinned: "desc" }, { updatedAt: "desc" }],
     take: limit,
     select: searchItemSelect,
@@ -535,6 +527,31 @@ export async function searchItems(
     updatedAt: item.updatedAt.toISOString(),
     preview: toPreview(content ?? url ?? fileName),
   }));
+}
+
+/**
+ * The `OR` a query contributes to the `where`, or nothing at all when there is
+ * no query — spread rather than returned as a value so browsing omits the key
+ * instead of passing an empty `OR`, which Prisma reads as "match nothing".
+ */
+function itemMatch(query: string | null) {
+  if (!query) {
+    return {};
+  }
+
+  const match = { contains: query, mode: "insensitive" } as const;
+
+  return {
+    OR: [
+      { title: match },
+      { description: match },
+      { content: match },
+      { url: match },
+      { fileName: match },
+      { tags: { some: { name: match } } },
+      { itemType: { name: match } },
+    ],
+  };
 }
 
 /**

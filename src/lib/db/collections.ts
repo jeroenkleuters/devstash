@@ -296,19 +296,28 @@ function rankTypes(types: ItemTypeSummary[]): ItemTypeSummary[] {
 /**
  * Collections matching a search query, most recently updated first.
  *
+ * A `null` query browses instead of searching, as `searchItems` does: the
+ * filter is dropped and the user's most recent collections come back, which is
+ * what the palette lists underneath the items when it opens.
+ *
  * Its own narrow select rather than `collectionSelect`, which pulls every item
  * row of every collection just to rank the types it holds — a result row shows
  * a name and a count, so `_count` is the whole of it.
  */
 export async function searchCollections(
   userId: string,
-  query: string,
+  query: string | null,
   limit: number,
 ): Promise<SearchCollection[]> {
-  const match = { contains: query, mode: "insensitive" } as const;
+  const match = { contains: query ?? "", mode: "insensitive" } as const;
 
   const collections = await prisma.collection.findMany({
-    where: { userId, OR: [{ name: match }, { description: match }] },
+    // Spread rather than a value, so browsing omits the key instead of passing
+    // an empty `OR`, which Prisma reads as "match nothing".
+    where: {
+      userId,
+      ...(query ? { OR: [{ name: match }, { description: match }] } : {}),
+    },
     orderBy: { updatedAt: "desc" },
     take: limit,
     select: {

@@ -1,12 +1,51 @@
-# Current Feature
+# Current Feature: Search Palette Browse & Live Results
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
+- Opening the palette with an empty query shows content instead of a prompt: **all items first, then all collections underneath**.
+- Typing narrows the list **live, from the first character** — no two-character threshold before anything happens.
+- The two groups keep their current order, headings, icons, previews and counts; selecting a row behaves exactly as it does now.
+
 ## Notes
+
+Loaded inline, not from a spec file. Read as two changes to the palette shipped on 2026-08-27, not a rewrite: the empty state becomes a browse list, and the typing threshold goes.
+
+### What stands in the way today
+
+Three constants encode the current behaviour, and each has to move:
+
+- `MIN_QUERY_LENGTH = 2` in `src/lib/validations/search.ts` — the schema **rejects** a shorter query, so the route 400s and the palette shows "Type at least 2 characters to search."
+- `ITEM_LIMIT = 10` / `COLLECTION_LIMIT = 5` in `src/app/api/search/route.ts` — fine for a result list, wrong for "all".
+- `DEBOUNCE_MS = 200` in `search-palette.tsx` — what makes a typed word cost one request rather than one per letter.
+
+`searchItems` / `searchCollections` both take a required query and build an `OR` from it, so an empty query needs a path that skips the filter rather than searching for `""` (which `contains` would match against every row anyway, but by accident rather than intent).
+
+### Decisions (answered at `/feature start`)
+
+- **Browse cap is 30**, and **the search cap rises to match** — one `RESULT_LIMIT = 30` in the route, applied to items and to collections. One number for both modes, so typing cannot appear to *shrink* a list that was already showing everything.
+- **The debounce stays** at 200 ms, but only for a real query: the browse fetch runs with no delay, since the palette opens on it and there is no keystroke still coming.
+- **A two-character floor stays**, read as: searching begins at 2 characters, and below that the palette shows the browse list. So the "Type at least 2 characters to search." prompt is **gone entirely** rather than turned into an error — typing one letter shows the full list, not a dead end. Type-name matching is therefore unchanged, since it was only ever reachable at 2+ characters anyway.
+- **Hybrid**, as recommended: browse list on open, server search on type. Full-content matching is what that keeps.
+
+### How it was done
+
+- `searchQuerySchema` **lost its minimum** and keeps only the 100-character cap. A short query is a request to browse, not a bad request, so the route — not the schema — decides which it is by comparing against `MIN_QUERY_LENGTH`. The route's only 400 is now "that query is too long".
+- `searchItems` and `searchCollections` take `string | null`. A null query **omits the `OR` key entirely** rather than passing an empty one: Prisma reads `OR: []` as matching nothing, so an empty array would have opened the palette on a blank list. Ordering, select and preview mapping are shared, which is why this is one function per entity rather than two.
+- The palette keys its state on an **effective** query (`""` below the floor) rather than the raw one, so typing a first letter does not refetch the list it is already showing.
+- `.search-palette [data-slot="command-list"]` raises the list from the primitive's `max-h-72` (~6 rows) to `min(24rem, 50vh)` — bounded by the viewport because the dialog is anchored a third of the way down.
+- The empty state now has four cases rather than two, since browsing and searching fail differently: loading-browse, loading-search, a search that matched nothing, and an empty stash.
+
+### Verified
+
+`npm test` **256 passed** (253 → 256), `tsc --noEmit`, `eslint src` and `npm run build` all clean; both new CSS rules confirmed present after Lightning CSS, which drops the quotes around the attribute value. Not checked in a browser — per standing preference the workflow stops at a green build and tests.
+
+### Out of scope unless asked
+
+Recent searches, a "see all results" row, running commands from the palette, and relevance ranking — all still open from the previous entry.
 
 ## History
 

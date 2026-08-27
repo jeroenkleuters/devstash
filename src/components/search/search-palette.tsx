@@ -36,13 +36,14 @@ const ERRORS: Record<number, string> = {
 const GENERIC_ERROR = "Could not search right now. Try again.";
 
 /**
- * The last request that finished, and the query it answers.
+ * The last request that finished, and the query it answers — the empty string
+ * for the browse list.
  *
  * Carrying the query is what makes the results self-describing: comparing it
- * against what is in the box says whether they are current, so nothing has to
- * be cleared as the query changes — and the previous results can stay on screen
- * while the next ones are in flight rather than flickering through an empty
- * list on every keystroke.
+ * against what is being asked for says whether they are current, so nothing has
+ * to be cleared as the query changes — and the previous results can stay on
+ * screen while the next ones are in flight rather than flickering through an
+ * empty list on every keystroke.
  */
 type SearchResponse =
   | { query: string; status: "ready"; results: SearchResults }
@@ -53,7 +54,12 @@ interface SearchPaletteProps {
   onOpenChange: (open: boolean) => void;
 }
 
-/** The ⌘K command palette: one search across the user's items and collections. */
+/**
+ * The ⌘K command palette: one search across the user's items and collections.
+ *
+ * Opens on the browse list — every item, then every collection — and narrows to
+ * matches once there is enough of a query to be one.
+ */
 export function SearchPalette({ open, onOpenChange }: SearchPaletteProps) {
   const [query, setQuery] = useState("");
   const [response, setResponse] = useState<SearchResponse | null>(null);
@@ -62,29 +68,38 @@ export function SearchPalette({ open, onOpenChange }: SearchPaletteProps) {
   const { openItem } = useItemDrawer();
 
   const trimmed = query.trim();
-  const tooShort = trimmed.length < MIN_QUERY_LENGTH;
+
+  // What is actually asked of the server: below the floor this is the empty
+  // string, which browses. Keying on it rather than on the raw query means a
+  // first letter does not refetch the list it is already showing.
+  const effective = trimmed.length >= MIN_QUERY_LENGTH ? trimmed : "";
+  const searching = effective.length > 0;
 
   useEffect(() => {
-    if (!open || trimmed.length < MIN_QUERY_LENGTH) {
+    if (!open) {
       return;
     }
 
     // Aborting on cleanup is what keeps a slower earlier response from landing
-    // on top of a later one: every keystroke re-runs this effect, which cancels
+    // on top of a later one: every change re-runs this effect, which cancels
     // whatever the previous one started.
     const controller = new AbortController();
+
+    // The browse list is what the palette opens on, so it waits for nothing —
+    // there is no keystroke still coming. Only a real query is debounced.
+    const delay = effective ? DEBOUNCE_MS : 0;
 
     const timer = setTimeout(() => {
       void (async () => {
         try {
           const result = await fetch(
-            `/api/search?q=${encodeURIComponent(trimmed)}`,
+            `/api/search?q=${encodeURIComponent(effective)}`,
             { signal: controller.signal },
           );
 
           if (!result.ok) {
             setResponse({
-              query: trimmed,
+              query: effective,
               status: "error",
               message: ERRORS[result.status] ?? GENERIC_ERROR,
             });
@@ -92,7 +107,7 @@ export function SearchPalette({ open, onOpenChange }: SearchPaletteProps) {
           }
 
           setResponse({
-            query: trimmed,
+            query: effective,
             status: "ready",
             results: (await result.json()) as SearchResults,
           });
@@ -102,23 +117,23 @@ export function SearchPalette({ open, onOpenChange }: SearchPaletteProps) {
           }
 
           setResponse({
-            query: trimmed,
+            query: effective,
             status: "error",
             message: GENERIC_ERROR,
           });
         }
       })();
-    }, DEBOUNCE_MS);
+    }, delay);
 
     return () => {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [open, trimmed]);
+  }, [open, effective]);
 
   function handleOpenChange(next: boolean) {
-    // Closing throws the query away, so the palette always opens empty rather
-    // than on whatever was last searched for.
+    // Closing throws the query away, so the palette always opens on the browse
+    // list rather than on whatever was last searched for.
     if (!next) {
       setQuery("");
       setResponse(null);
@@ -140,8 +155,8 @@ export function SearchPalette({ open, onOpenChange }: SearchPaletteProps) {
     router.push(`/collections/${collection.id}`);
   }
 
-  const current = response?.query === trimmed ? response : null;
-  const loading = !tooShort && current === null;
+  const current = response?.query === effective ? response : null;
+  const loading = current === null;
   const failure = current?.status === "error" ? current.message : null;
 
   // Deliberately the last *ready* response rather than the current one, so the
@@ -150,8 +165,6 @@ export function SearchPalette({ open, onOpenChange }: SearchPaletteProps) {
   const items = results?.items ?? [];
   const collections = results?.collections ?? [];
   const hasResults = items.length > 0 || collections.length > 0;
-
-  const showResults = !tooShort && !failure;
 
   return (
     <CommandDialog
@@ -171,23 +184,19 @@ export function SearchPalette({ open, onOpenChange }: SearchPaletteProps) {
         />
 
         <CommandList>
-          {tooShort && (
+          {failure && <p className="search-status">{failure}</p>}
+
+          {!failure && !hasResults && (
             <p className="search-status">
-              Type at least {MIN_QUERY_LENGTH} characters to search.
+              <EmptyMessage
+                loading={loading}
+                searching={searching}
+                query={effective}
+              />
             </p>
           )}
 
-          {!tooShort && failure && <p className="search-status">{failure}</p>}
-
-          {showResults && !hasResults && (
-            <p className="search-status">
-              {loading
-                ? "Searching…"
-                : `No items or collections match “${trimmed}”.`}
-            </p>
-          )}
-
-          {showResults && items.length > 0 && (
+          {!failure && items.length > 0 && (
             <CommandGroup heading="Items">
               {items.map((item) => (
                 <ItemResult
@@ -199,7 +208,7 @@ export function SearchPalette({ open, onOpenChange }: SearchPaletteProps) {
             </CommandGroup>
           )}
 
-          {showResults && collections.length > 0 && (
+          {!failure && collections.length > 0 && (
             <CommandGroup heading="Collections">
               {collections.map((collection) => (
                 <CommandItem
@@ -235,6 +244,30 @@ export function SearchPalette({ open, onOpenChange }: SearchPaletteProps) {
       </Command>
     </CommandDialog>
   );
+}
+
+/**
+ * What stands in for the list when there is none: four cases, since browsing
+ * and searching fail differently — an empty stash is not a search that missed.
+ */
+function EmptyMessage({
+  loading,
+  searching,
+  query,
+}: {
+  loading: boolean;
+  searching: boolean;
+  query: string;
+}) {
+  if (loading) {
+    return <>{searching ? "Searching…" : "Loading…"}</>;
+  }
+
+  if (searching) {
+    return <>No items or collections match “{query}”.</>;
+  }
+
+  return <>Nothing saved yet. Create an item or a collection to find it here.</>;
 }
 
 function ItemResult({

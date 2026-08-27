@@ -2714,6 +2714,14 @@ body {
   max-width: min(40rem, calc(100% - 2rem));
 }
 
+/* The primitive caps its list at 18rem, which is about six rows — right for a
+   handful of results, too short for the browse list the palette now opens on.
+   Bounded by the viewport as well, since the dialog is anchored a third of the
+   way down and a fixed height would run off a short screen. */
+.search-palette [data-slot="command-list"] {
+  max-height: min(24rem, 50vh);
+}
+
 /* What the palette says when it has no results to show: too short a query, a
    failed request, or a search that matched nothing. */
 .search-status {
