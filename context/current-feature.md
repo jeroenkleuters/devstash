@@ -1,12 +1,72 @@
-# Current Feature
+# Current Feature: Pagination
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
+- Paginate `/items/[type]` with numbered page links, at `ITEMS_PER_PAGE = 21`
+- Paginate the collections listing with numbered page links, at `COLLECTIONS_PER_PAGE = 21`
+- Pagination controls sit at the bottom: page numbers plus prev/next
+- Prev/next render disabled (greyed out) when there is no page to go to
+- Dashboard limits become named constants: `DASHBOARD_COLLECTIONS_LIMIT = 6`, `DASHBOARD_RECENT_ITEMS_LIMIT = 10`
+- Every paginated query fetches only the rows one page shows — no fetch-everything-then-slice
+
 ## Notes
+
+Spec: @context/features/pagination-spec.md
+
+**Two things in the spec need a decision before implementing.**
+
+1. The requirements name `/items/[type]` and `/collections/[id]` as the pages to
+   paginate, but then define `COLLECTIONS_PER_PAGE`. `/collections/[id]` lists
+   *items*, not collections — the page that lists collections is `/collections`.
+   Reading it as: items pagination covers both `/items/[type]` and
+   `/collections/[id]` at `ITEMS_PER_PAGE`, and `COLLECTIONS_PER_PAGE` applies to
+   `/collections`. Worth confirming at `/feature start`.
+2. "Do not fetch all resources at once" collides with `getCollections` in
+   `src/lib/db/collections.ts`, which is deliberately unbounded and `cache()`d so
+   the sidebar, the dashboard grid, the stat cards and `/collections` all narrow
+   one query per request. Paginating `/collections` means it can no longer be a
+   slice of that read, so either a second bounded query appears alongside it, or
+   the shared read is broken up (the sidebar still needs *every* favorite, and
+   the stat cards need counts, so both would then need their own queries).
+
+**What is already in place.**
+
+- `getItemsByType` / `getFileItemsByType` (`src/lib/db/items.ts`) and
+  `getCollectionItems` fetch unbounded with no `skip` / `take`. `getRecentItems`
+  and the two search reads already pass `take`, so the bounded-query shape
+  exists to copy — none of them uses `skip` yet.
+- `/items/[type]` forks on layout *before* the query (`TypeItems` in
+  `src/components/items/type-items.tsx`) — list, gallery and file rows run
+  different queries, so pagination has to reach all three branches and the total
+  count has to come back from each.
+- The dashboard limits already exist as the right values, but as local consts:
+  `RECENT_COLLECTION_LIMIT = 6` in `collections-section.tsx` and
+  `RECENT_ITEM_LIMIT = 10` in `recent-items-section.tsx`, with
+  `dashboard-skeletons.tsx` carrying comments saying it mirrors them. Renaming
+  them into a shared constants module is what the spec asks for, and the
+  skeleton counts should then read the same constants instead of duplicating the
+  numbers.
+- Every one of these pages streams its list behind its own `<Suspense>` with a
+  skeleton, and is `force-dynamic`. Page state should live in the URL
+  (`?page=n`), so the server component can read `searchParams` and the boundary
+  keeps working.
+- No pagination component exists yet; `components/ui/` has no `pagination`
+  primitive, so it is either a shadcn add or hand-written with `globals.css`
+  classes per the no-utility-classes rule.
+
+**Constraints worth stating.**
+
+- Ordering must not change: items are `isPinned desc, updatedAt desc` on
+  `/items/[type]` and `isPinned desc, updatedAt desc` (the item's own date) on a
+  collection page; collections are `updatedAt desc`.
+- A `page` out of range needs a defined behaviour — 404, clamp, or an empty page.
+- Counts: rendering numbered links needs a total, so each paginated read needs a
+  `count` alongside its `findMany`, both scoped to the session's `userId` the
+  way every other read in `lib/db/` is.
 
 ## History
 

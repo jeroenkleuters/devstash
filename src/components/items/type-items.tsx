@@ -32,6 +32,8 @@ interface TypeItemsProps {
   /** Plural, lower case — "snippets" — for the empty message. */
   label: string;
   layout: ItemsLayout;
+  /** Already validated against the count, so the rows exist. */
+  page: number;
 }
 
 /**
@@ -46,15 +48,16 @@ export async function TypeItems({
   typeId,
   label,
   layout,
+  page,
 }: TypeItemsProps) {
   const emptyMessage = `No ${label} yet.`;
 
   if (layout === "files") {
-    const items = await getFileItemsByType(userId, typeId);
+    const items = await getFileItemsByType(userId, typeId, page);
     return <FileList items={items} emptyMessage={emptyMessage} />;
   }
 
-  const items = await getItemsByType(userId, typeId);
+  const items = await getItemsByType(userId, typeId, page);
 
   if (layout === "gallery") {
     return <ImageGallery items={items} emptyMessage={emptyMessage} />;

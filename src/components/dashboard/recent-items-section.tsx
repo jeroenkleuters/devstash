@@ -1,15 +1,14 @@
 import { Clock } from "lucide-react";
 
 import { ItemList } from "@/components/items/item-list";
+import { DASHBOARD_RECENT_ITEMS_LIMIT } from "@/constants/pagination";
 import { getRecentItems } from "@/lib/db/items";
 import { getCurrentUserId } from "@/lib/db/user";
-
-const RECENT_ITEM_LIMIT = 10;
 
 export async function RecentItemsSection() {
   const userId = await getCurrentUserId();
   const recentItems = userId
-    ? await getRecentItems(userId, RECENT_ITEM_LIMIT)
+    ? await getRecentItems(userId, DASHBOARD_RECENT_ITEMS_LIMIT)
     : [];
 
   return (

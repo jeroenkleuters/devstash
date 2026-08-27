@@ -1151,6 +1151,76 @@ body {
   }
 }
 
+/* ---------- Pagination ----------
+   Under a paginated listing. A step with nowhere to go is a `span` rather than
+   a link, which is what `[data-disabled]` styles — greying an anchor would
+   leave it clickable. */
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+}
+
+.pagination-pages {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pagination-step,
+.pagination-page {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 0.625rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--card);
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+  text-decoration: none;
+  transition:
+    border-color 0.15s,
+    background 0.15s,
+    color 0.15s;
+}
+
+a.pagination-step:hover,
+a.pagination-page:hover {
+  border-color: var(--ring);
+  background: var(--muted);
+  color: var(--foreground);
+}
+
+/* The page being shown is a `span`, so it neither hovers nor takes focus. */
+.pagination-page[data-current] {
+  border-color: var(--ring);
+  background: var(--muted);
+  color: var(--foreground);
+  font-weight: 500;
+}
+
+.pagination-step[data-disabled] {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.pagination-gap {
+  padding: 0 0.25rem;
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+  user-select: none;
+}
+
 /* ---------- Item drawer ----------
    The sheet primitive caps itself at `sm:max-w-sm`. These rules are unlayered
    while Tailwind's utilities sit in the `utilities` layer, so they win without

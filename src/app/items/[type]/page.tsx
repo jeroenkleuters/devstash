@@ -12,14 +12,15 @@ import {
   TypeItems,
   type ItemsLayout,
 } from "@/components/items/type-items";
+import { Pagination } from "@/components/layout/pagination";
+import { ITEMS_PER_PAGE } from "@/constants/pagination";
 import { getItemTypeBySlug } from "@/lib/db/item-types";
+import { countItemsByType } from "@/lib/db/items";
 import { getCurrentUser } from "@/lib/db/user";
+import { pageCount, parsePageParam, rowsOnPage } from "@/lib/pagination";
 
 // Reads the session and the user's items on every request.
 export const dynamic = "force-dynamic";
-
-/** A guess — the real count isn't known until the query returns. */
-const ITEM_SKELETON_COUNT = 6;
 
 export async function generateMetadata({
   params,
@@ -34,8 +35,13 @@ export async function generateMetadata({
 
 export default async function ItemsByTypePage({
   params,
+  searchParams,
 }: PageProps<"/items/[type]">) {
-  const [{ type }, user] = await Promise.all([params, getCurrentUser()]);
+  const [{ type }, query, user] = await Promise.all([
+    params,
+    searchParams,
+    getCurrentUser(),
+  ]);
 
   // The proxy already turns an anonymous request away, so this covers what it
   // cannot: a token that still verifies against an account that is gone.
@@ -43,10 +49,28 @@ export default async function ItemsByTypePage({
     redirect(SIGN_IN_PATH);
   }
 
+  const page = parsePageParam(query.page);
+
+  // `?page=` names no page — a wrong URL, like a slug naming no type.
+  if (page === null) {
+    notFound();
+  }
+
   const itemType = await getItemTypeBySlug(type);
 
   // The segment is whatever was typed, and it names no type.
   if (!itemType) {
+    notFound();
+  }
+
+  // Counted here rather than inside the boundary: the page number has to be
+  // checked before anything renders, or a 404 would arrive after the heading
+  // has already flushed. `cache` keeps it to one query per request.
+  const totalCount = await countItemsByType(user.id, itemType.id);
+  const totalPages = pageCount(totalCount, ITEMS_PER_PAGE);
+
+  // A page past the end of the list.
+  if (page > totalPages) {
     notFound();
   }
 
@@ -73,29 +97,53 @@ export default async function ItemsByTypePage({
 
       <section className="dashboard-section">
         {/* Its own boundary: the heading above needs only the type query, so it
-            paints while the items resolve. */}
-        <Suspense fallback={<ItemsSkeleton layout={layout} />}>
+            paints while the items resolve. Keyed on the page so stepping to
+            another one suspends again rather than holding the old rows. */}
+        <Suspense
+          key={page}
+          fallback={
+            <ItemsSkeleton
+              layout={layout}
+              count={rowsOnPage(totalCount, page, ITEMS_PER_PAGE)}
+            />
+          }
+        >
           <TypeItems
             userId={user.id}
             typeId={itemType.id}
             label={label.toLowerCase()}
             layout={layout}
+            page={page}
           />
         </Suspense>
+
+        {/* Outside the boundary — the count is already known, so the controls
+            paint with the heading rather than waiting on the rows. */}
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          basePath={`/items/${itemType.slug}`}
+        />
       </section>
     </>
   );
 }
 
 /** The fallback that matches the layout the items will arrive in. */
-function ItemsSkeleton({ layout }: { layout: ItemsLayout }) {
+function ItemsSkeleton({
+  layout,
+  count,
+}: {
+  layout: ItemsLayout;
+  count: number;
+}) {
   switch (layout) {
     case "gallery":
-      return <ImageGallerySkeleton count={ITEM_SKELETON_COUNT} />;
+      return <ImageGallerySkeleton count={count} />;
     case "files":
-      return <FileListSkeleton count={ITEM_SKELETON_COUNT} />;
+      return <FileListSkeleton count={count} />;
     default:
-      return <ItemListSkeleton count={ITEM_SKELETON_COUNT} />;
+      return <ItemListSkeleton count={count} />;
   }
 }
 

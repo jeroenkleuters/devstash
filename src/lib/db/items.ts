@@ -1,10 +1,14 @@
+import { cache } from "react";
+
 import { LANGUAGE_TYPE_SLUGS } from "@/constants/item-types";
+import { ITEMS_PER_PAGE } from "@/constants/pagination";
 import type { Prisma } from "@/generated/prisma/client";
 import {
   compareItemTypes,
   itemTypeSelect,
   type ItemTypeSummary,
 } from "@/lib/db/item-types";
+import { pageOffset } from "@/lib/pagination";
 import { prisma } from "@/lib/prisma";
 import type { CreateItemInput, UpdateItemInput } from "@/lib/validations/item";
 import type { ItemContentType, ItemDetail } from "@/types/item";
@@ -83,16 +87,33 @@ export async function getRecentItems(
 }
 
 /**
- * Every item of one type, for `/items/[type]`. Pinned first, then most recently
- * updated — the same ordering the dashboard splits across its two sections.
+ * How many items of one type the user owns — what `/items/[type]`'s numbered
+ * links are counted from. Cached, so validating the page number before the
+ * Suspense boundary costs the same request nothing twice.
+ *
+ * Serves both layouts: the card list and the file rows differ in what they
+ * select, not in which rows they match.
+ */
+export const countItemsByType = cache(
+  async (userId: string, itemTypeId: string): Promise<number> =>
+    prisma.item.count({ where: { userId, itemTypeId } }),
+);
+
+/**
+ * One page of a type's items, for `/items/[type]`. Pinned first, then most
+ * recently updated — the same ordering the dashboard splits across its two
+ * sections.
  */
 export async function getItemsByType(
   userId: string,
   itemTypeId: string,
+  page: number,
 ): Promise<ItemSummary[]> {
   const items = await prisma.item.findMany({
     where: { userId, itemTypeId },
     orderBy: [{ isPinned: "desc" }, { updatedAt: "desc" }],
+    skip: pageOffset(page, ITEMS_PER_PAGE),
+    take: ITEMS_PER_PAGE,
     select: itemSelect,
   });
 
@@ -136,23 +157,47 @@ const fileItemSelect = {
 export async function getCollectionItems(
   userId: string,
   collectionId: string,
+  page: number,
 ): Promise<ItemSummary[]> {
   const items = await prisma.item.findMany({
-    where: { userId, collections: { some: { collectionId } } },
+    where: collectionItemsWhere(userId, collectionId),
     orderBy: [{ isPinned: "desc" }, { updatedAt: "desc" }],
+    skip: pageOffset(page, ITEMS_PER_PAGE),
+    take: ITEMS_PER_PAGE,
     select: itemSelect,
   });
 
   return items.map(toSummary);
 }
 
+/**
+ * How many items a collection holds *for this user* — the count behind its
+ * numbered links, cached for the same reason `countItemsByType` is.
+ *
+ * `CollectionSummary.itemCount` is the collection's own total and is not this:
+ * it comes from the unbounded read the sidebar shares, and this page must not
+ * depend on that read having run.
+ */
+export const countCollectionItems = cache(
+  async (userId: string, collectionId: string): Promise<number> =>
+    prisma.item.count({ where: collectionItemsWhere(userId, collectionId) }),
+);
+
+/** Shared so the page's count and its rows can never match different items. */
+function collectionItemsWhere(userId: string, collectionId: string) {
+  return { userId, collections: { some: { collectionId } } };
+}
+
 export async function getFileItemsByType(
   userId: string,
   itemTypeId: string,
+  page: number,
 ): Promise<FileItemSummary[]> {
   const items = await prisma.item.findMany({
     where: { userId, itemTypeId },
     orderBy: [{ isPinned: "desc" }, { createdAt: "desc" }],
+    skip: pageOffset(page, ITEMS_PER_PAGE),
+    take: ITEMS_PER_PAGE,
     select: fileItemSelect,
   });
 
