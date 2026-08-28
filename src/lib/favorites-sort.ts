@@ -1,6 +1,9 @@
 /**
  * Client-side ordering for the favorites page.
  *
+ * Pinned items lead every item ordering, whichever sort is chosen; the sort
+ * then decides the order within the pinned block and within the rest.
+ *
  * The two panels offer different options because a collection has no item type
  * of its own, only the types of what it holds — so the sort keys are separate
  * unions rather than one shared with a member the collection side must ignore.
@@ -39,6 +42,7 @@ export const DEFAULT_SORT_KEY = "date";
 interface SortableItem {
   title: string;
   type: { name: string };
+  isPinned: boolean;
   updatedAt: Date;
 }
 
@@ -65,26 +69,44 @@ function byDate(a: Date, b: Date): number {
   return b.getTime() - a.getTime();
 }
 
+/**
+ * Pinned above unpinned.
+ *
+ * Every item comparator leads with this, so a pin outranks whichever sort is
+ * chosen: an item pinned to the top of one ordering and buried in another reads
+ * as a bug rather than as a sort. The chosen key then orders within each block.
+ */
+function byPinned(a: boolean, b: boolean): number {
+  return Number(b) - Number(a);
+}
+
 export function sortFavoriteItems<T extends SortableItem>(
   items: readonly T[],
   key: ItemSortKey,
 ): T[] {
   const sorted = [...items];
 
+  const pinned = (a: SortableItem, b: SortableItem) =>
+    byPinned(a.isPinned, b.isPinned);
+
   switch (key) {
     case "name-asc":
-      return sorted.sort((a, b) => byName(a.title, b.title));
+      return sorted.sort((a, b) => pinned(a, b) || byName(a.title, b.title));
     case "name-desc":
-      return sorted.sort((a, b) => byName(b.title, a.title));
+      return sorted.sort((a, b) => pinned(a, b) || byName(b.title, a.title));
     case "type":
       // Grouped by type name, and newest first inside each group — a type on
       // its own says nothing about the order of the items carrying it.
       return sorted.sort(
         (a, b) =>
-          byName(a.type.name, b.type.name) || byDate(a.updatedAt, b.updatedAt),
+          pinned(a, b) ||
+          byName(a.type.name, b.type.name) ||
+          byDate(a.updatedAt, b.updatedAt),
       );
     case "date":
-      return sorted.sort((a, b) => byDate(a.updatedAt, b.updatedAt));
+      return sorted.sort(
+        (a, b) => pinned(a, b) || byDate(a.updatedAt, b.updatedAt),
+      );
   }
 }
 

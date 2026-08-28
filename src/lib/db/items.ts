@@ -73,7 +73,8 @@ export async function getPinnedItems(userId: string): Promise<ItemSummary[]> {
 }
 
 /**
- * Every favorited item, most recently updated first — the `/favorites` list.
+ * Every favorited item, pinned first and then most recently updated — the
+ * `/favorites` list.
  *
  * `updatedAt` is not when the item was favorited: there is no such column, so
  * this is last-modified order, which is what the page asks for. Unbounded, like
@@ -83,20 +84,27 @@ export async function getPinnedItems(userId: string): Promise<ItemSummary[]> {
 export async function getFavoriteItems(userId: string): Promise<ItemSummary[]> {
   const items = await prisma.item.findMany({
     where: { userId, isFavorite: true },
-    orderBy: { updatedAt: "desc" },
+    orderBy: [{ isPinned: "desc" }, { updatedAt: "desc" }],
     select: itemSelect,
   });
 
   return items.map(toSummary);
 }
 
+/**
+ * The dashboard's Recent list — pinned first, then most recently updated.
+ *
+ * A pinned item therefore heads this list as well as appearing in the Pinned
+ * section above it. That is deliberate: the section is a shortcut, this is the
+ * full list, and hiding a pinned item from "recent" would be the stranger read.
+ */
 export async function getRecentItems(
   userId: string,
   limit: number,
 ): Promise<ItemSummary[]> {
   const items = await prisma.item.findMany({
     where: { userId },
-    orderBy: { updatedAt: "desc" },
+    orderBy: [{ isPinned: "desc" }, { updatedAt: "desc" }],
     take: limit,
     select: itemSelect,
   });
