@@ -1,12 +1,33 @@
-# Current Feature
+# Current Feature: Marketing Homepage
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
+- Replace the `<h1>Devstash</h1>` placeholder with the real marketing homepage at `/`, ported from `prototypes/homepage/` — same sections and visual language, rebuilt as React.
+- Put it in a `(marketing)` route group with its own layout for the nav and footer; the URL stays `/` and the page stays public.
+- Server components by default, with `"use client"` on only the four pieces that need it: `ChaosField`, `MarketingNav`, `Reveal`, `PricingCards`.
+- Style with ShadCN primitives plus semantic classes in `globals.css`, reusing the app's existing tokens rather than the prototype's re-declared copies.
+- Keep it DRY: one `Reveal`, one data array per grid, lucide icons, one component per section with the page only composing.
+- Every button and link lands somewhere real, with an auth-aware nav and no links to pages that do not exist.
+
 ## Notes
+
+- Spec: @context/features/homepage-spec.md
+- The prototype stays where it is — it is the reference, not something to delete.
+- **Tailwind/ShadCN "like the rest of the project" means primitives plus semantic classes**, not utility strings in JSX; CLAUDE.md forbids those and no page in the repo carries them. Port the prototype's CSS under a Marketing section of `globals.css`.
+- The prototype re-declares the seven `--type-*` values and the `[data-type]` → `--type-color` map because it is standalone. The real page must reuse what `globals.css` already has; only `--accent` / `--accent-light` are genuinely new.
+- No `switch` primitive is installed. The billing toggle follows the settings page's precedent — a real checkbox drawn with `appearance: none`, so the browser keeps its keyboard and touch behaviour.
+- `lucide-react` v1 dropped its brand icons, so GitHub / Notion / Slack / VS Code stay as local inline SVG the way `src/components/auth/github-mark.tsx` does. Everything else becomes a lucide import.
+- The footer names seven pages that do not exist (Changelog, Documentation, Keyboard shortcuts, Export your data, About, Privacy, Terms). Render them as muted text or drop the column — do not link to 404s, which is the mistake "View all collections" already made once.
+- Do **not** add anything to the proxy matcher in `src/proxy.ts`; the page is public.
+- The dashboard preview is presentational — grey bars and labels, no database query.
+- The footer year is computed on the server, so no effect and no hydration mismatch.
+- Port the tuned chaos-field constants from `script.js` rather than re-deriving them: `ICON_SIZE = 60`, `REPEL_RADIUS = 115`, `REPEL_FORCE = 800`, squared falloff, `MAX_SPEED = SPEED * 3`, the clamped frame delta and the off-screen/hidden pause.
+- Anchors need `scroll-margin-top` so the fixed nav does not cover `#features` / `#pricing`.
+- This is the first of the three route groups project overview §7 targets. It is a smaller move than the deferred `(app)` group — a new group over a placeholder, not a route move touching six `AppShell` wrappers and typed-route generics.
 
 ## History
 
