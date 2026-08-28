@@ -4,6 +4,7 @@ import {
   cn,
   formatFileSize,
   formatLongDate,
+  formatRelativeDate,
   formatShortDate,
 } from "@/lib/utils";
 
@@ -47,6 +48,52 @@ describe("formatLongDate", () => {
 
   it("pins UTC the way the short formatter does", () => {
     expect(formatLongDate("2026-12-31T23:59:00Z")).toBe("December 31, 2026");
+  });
+});
+
+describe("formatRelativeDate", () => {
+  const now = new Date("2026-08-20T12:00:00Z");
+
+  it("names today and yesterday rather than counting", () => {
+    expect(formatRelativeDate("2026-08-20T09:00:00Z", now)).toBe("Today");
+    expect(formatRelativeDate("2026-08-19T23:00:00Z", now)).toBe("Yesterday");
+  });
+
+  it("counts days up to the point a date reads better", () => {
+    expect(formatRelativeDate("2026-08-18T12:00:00Z", now)).toBe("2 days ago");
+    expect(formatRelativeDate("2026-08-14T12:00:00Z", now)).toBe("6 days ago");
+  });
+
+  /** Seven days is where the count stops saying more than the date does. */
+  it("falls back to the short date from a week back", () => {
+    expect(formatRelativeDate("2026-08-13T12:00:00Z", now)).toBe("Aug 13");
+    expect(formatRelativeDate("2026-01-15T12:00:00Z", now)).toBe("Jan 15");
+  });
+
+  /**
+   * Days are counted between UTC calendar dates, not by dividing an elapsed
+   * duration: 23 hours spanning midnight is yesterday, and 1 hour spanning it
+   * is too — a duration would call both of them today.
+   */
+  it("counts calendar days rather than elapsed hours", () => {
+    const midnight = new Date("2026-08-20T00:30:00Z");
+
+    expect(formatRelativeDate("2026-08-19T01:00:00Z", midnight)).toBe(
+      "Yesterday",
+    );
+    expect(formatRelativeDate("2026-08-19T23:30:00Z", midnight)).toBe(
+      "Yesterday",
+    );
+  });
+
+  it("reads a future date as today rather than counting backwards", () => {
+    expect(formatRelativeDate("2026-08-25T12:00:00Z", now)).toBe("Today");
+  });
+
+  it("accepts a Date as well as an ISO string", () => {
+    expect(formatRelativeDate(new Date("2026-08-19T12:00:00Z"), now)).toBe(
+      "Yesterday",
+    );
   });
 });
 

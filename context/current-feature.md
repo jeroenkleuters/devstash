@@ -1,12 +1,36 @@
-# Current Feature
+# Current Feature: Favorites Page
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
+- A `/favorites` page listing everything the signed-in user has favorited — items and collections — protected like every other authenticated route (proxy matcher + the `getCurrentUser()` null redirect).
+- A star icon button in the top bar linking to `/favorites`.
+- A page heading of a filled star, "Favorites", and the combined count in parentheses.
+- Two sections under uppercase muted labels carrying their own counts — `ITEMS (8)`, then `COLLECTIONS (2)` — each rendering as one panel of hairline-separated rows.
+- Item row: type icon in the type colour, title, an outlined type badge in the type colour, and a relative date.
+- Collection row: folder icon, name, a neutral `N items` badge, and a relative date.
+- Clicking an item row opens the existing `ItemDrawer`; clicking a collection row navigates to `/collections/[id]`.
+- An empty state when nothing is favorited.
+- Sorted most recent first on `updatedAt`.
+
 ## Notes
+
+**Reference: @context/screenshots/Favorites-example.png — match it, with one deliberate deviation.** The screenshot sets the row titles in monospace; the app's own font settings win instead, so titles are the normal sans stack. Everything else follows the reference: the filled yellow star beside the heading, the total in muted parentheses, the two uppercase section labels with per-section counts, and each section as a single panel (subtle border, slightly raised background, rounded) whose rows are divided by hairlines rather than being separate cards. This reads as the spec's "clean lines, no heavy borders" — a divided list, not a card grid.
+
+That means the spec's UI Style section is followed except for the monospace line, which is overridden above. Density stays: minimal row padding, one line per record, subtle hover.
+
+**Dates are relative in the reference** — "Yesterday", "6 days ago" — where `formatShortDate` gives "Aug 20". A new `formatRelativeDate` in `src/lib/utils.ts` is therefore part of this, and it is the one piece of genuinely testable logic the feature adds (today / yesterday / N days / the hand-off to an absolute date, plus the UTC pinning `formatShortDate` already does so one row does not read as two different days to two readers).
+
+**Nothing in the app can favorite anything yet, and that stays true.** `Item.isFavorite` and `Collection.isFavorite` have been in the schema since the init migration and are read in five components, but every control that would set them is inert — the drawer's Favorite button and the collection actions row are both `disabled` with a `Coming soon` title. Confirmed: the toggle is its own later feature, so this is the read side only. Consequence to expect: against the seeded demo data the page renders whatever was set by hand in the database, and a fresh account always sees the empty state.
+
+**`updatedAt` is the sort key as specified.** There is no `favoritedAt` column, so this is *last modified* rather than "most recently favorited" — an old favorite edited yesterday sorts above one starred this morning. Confirmed as intended; a true ordering would need a migration.
+
+Existing pieces this should use rather than duplicate: `ItemDrawerProvider` / `openItem` (already mounted in `AppShell`, and takes a whole `ItemSummary`, which the shared `itemSelect` returns), `TYPE_ICONS` in `src/constants/item-types.ts`, the `data-type` → `--type-color` mechanism for both the icon and the badge, `CollectionSummary.itemCount` for the `N items` badge, and the `<Suspense>` + skeleton + `force-dynamic` page shape every other route follows. The row hit target should copy `file-row.tsx` — a stretched invisible sibling at `z-index: 1`, so anything interactive inside the row still works without `stopPropagation`. The two reads belong in `src/lib/db/items.ts` and `src/lib/db/collections.ts` beside their siblings, with `userId` in the `where` rather than a check on the result; both `@@index([userId, isFavorite])` indexes already exist.
+
+Out of scope unless raised: pagination (a favorites list is small by nature), and any sort or filter control.
 
 ## History
 
