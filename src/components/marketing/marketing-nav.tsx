@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { MarketingBrand } from "@/components/marketing/brand";
@@ -13,6 +14,10 @@ interface MarketingNavProps {
 
 export function MarketingNav({ signedIn }: MarketingNavProps) {
   const [scrolled, setScrolled] = useState(false);
+  // The nav also sits on the auth pages, where one of its two actions would
+  // link to the page you are already on. Drop that one; the other reads as the
+  // cross-link each form already offers underneath it.
+  const pathname = usePathname();
 
   useEffect(() => {
     const sync = () => setScrolled(window.scrollY > 16);
@@ -26,8 +31,10 @@ export function MarketingNav({ signedIn }: MarketingNavProps) {
       <div className="shell nav-inner">
         <MarketingBrand />
         <nav className="nav-links" aria-label="Primary">
-          <Link href="#features">Features</Link>
-          <Link href="#pricing">Pricing</Link>
+          {/* Rooted, not bare fragments: off the homepage there is no section
+              to jump to, so these have to be cross-page links. */}
+          <Link href="/#features">Features</Link>
+          <Link href="/#pricing">Pricing</Link>
         </nav>
         <div className="nav-actions">
           {signedIn ? (
@@ -36,12 +43,16 @@ export function MarketingNav({ signedIn }: MarketingNavProps) {
             </Button>
           ) : (
             <>
-              <Button asChild variant="ghost">
-                <Link href="/sign-in">Sign In</Link>
-              </Button>
-              <Button asChild className="cta-accent">
-                <Link href="/register">Get Started</Link>
-              </Button>
+              {pathname !== "/sign-in" && (
+                <Button asChild variant="ghost">
+                  <Link href="/sign-in">Sign In</Link>
+                </Button>
+              )}
+              {pathname !== "/register" && (
+                <Button asChild className="cta-accent">
+                  <Link href="/register">Get Started</Link>
+                </Button>
+              )}
             </>
           )}
         </div>

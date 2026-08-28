@@ -1,12 +1,64 @@
-# Current Feature
+# Current Feature: Homepage top nav on the auth pages
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
+- `/sign-in` and `/register` render the same fixed top nav the homepage uses (brand, Features, Pricing, the action buttons).
+- The standalone brand block above the auth card is gone — the nav carries it.
+- Nothing about the two forms changes: same actions, same validation, same rate limits, same redirects.
+- No dead CSS left behind: `.auth-brand` / `.auth-brand-mark` go with the markup they styled.
+
 ## Notes
+
+Scope is `src/app/(auth)/layout.tsx`, `src/app/globals.css`, and possibly
+`src/components/marketing/marketing-nav.tsx`. The `(auth)` group also holds
+`/verify`, `/forgot-password` and `/reset-password`, which share that layout —
+so this changes five pages, not two.
+
+### Decisions to settle at `/feature start`
+
+1. **The nav's CSS is scoped to `.marketing`.** Every `.nav*` rule is nested
+   inside that block (`globals.css` ~3499), so the nav renders unstyled unless
+   the auth shell is wrapped in a `.marketing` element too. Wrapping is the
+   cheap option and looks safe — `.marketing` itself only defines
+   `--marketing-accent`, `--marketing-accent-light`, `--shell` and a
+   `scroll-margin-top` — but it does mean the auth pages inherit any future
+   rule added to that block. The alternative is lifting the `.nav*` rules out
+   into their own unscoped section. **Recommend: wrap**, and rename nothing.
+
+2. **`#features` and `#pricing` do nothing off the homepage.** They must become
+   `/#features` and `/#pricing`, which makes them cross-page links. Note
+   `html:has(.marketing) { scroll-behavior: smooth }` and the `scroll-margin-top`
+   that clears the fixed bar are both keyed on `.marketing`, so wrapping (1)
+   keeps the landing behaviour correct.
+
+3. **The action buttons point at the page you are on.** A signed-out visitor on
+   `/sign-in` sees a "Sign In" button linking to `/sign-in`. Options: leave it,
+   or have the nav drop the button matching the current route. **Recommend:
+   drop the matching one**, so `/sign-in` offers only "Get Started" and
+   `/register` only "Sign In" — which also reads as the cross-link each page
+   already carries under its form.
+
+4. **`signedIn` is dead weight here.** All five `(auth)` pages already bounce a
+   signed-in visitor to `/dashboard`, so the nav's Dashboard branch is
+   unreachable from them. Passing `signedIn={false}` keeps the layout
+   synchronous; `getCurrentUser` is `cache()`d per request so either way costs
+   no extra query. **Recommend: pass `false`.**
+
+### Layout consequence
+
+`.auth-shell` is `min-height: 100dvh` with `justify-content: center`, and the
+nav is `position: fixed` at `4rem` tall — so the card will slide under the bar
+on a short viewport. The shell needs top padding of at least `4rem`, and the
+existing `gap: 1.5rem` that separated brand from card is now unused.
+
+### Out of scope
+
+No change to the forms, the server actions, `src/proxy.ts` (these pages are
+already public), or the marketing footer — the auth pages get the nav only.
 
 ## History
 
