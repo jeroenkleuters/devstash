@@ -1,12 +1,55 @@
-# Current Feature
+# Current Feature: Bulk drag & drop on the file and image pages
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
+- Dropping one or more files anywhere on `/items/files` creates a File item per
+  file; the same on `/items/images` creates an Image item per file.
+- The whole page is the drop target, not a small zone — a drag over it shows an
+  overlay saying what will happen, and dragging out again clears it.
+- Each dropped file is validated against the existing rules for that page's kind
+  (`validateUpload` — extension, MIME, 100 MB cap) before anything is uploaded,
+  and a file that fails is reported by name rather than failing the whole drop.
+- Uploads run through the existing two-step path: `POST /api/upload` to
+  authorise, then a direct PUT to R2. Progress is shown per file.
+- Each successful upload creates its item through the existing `createItem`
+  action, titled from the filename via `titleFromFileName`.
+- Partial success is a real outcome: files that stored are created, files that
+  failed are named, and one failure never discards the rest.
+- The list refreshes once when the batch finishes, so the new items appear.
+- Nothing changes for the other five type pages, and the existing single-file
+  create dialog keeps working exactly as it does now.
+
 ## Notes
+
+- Scope is `/items/files` and `/items/images` only. The page's kind is already
+  derivable from `uploadKindFor(slug)`, which is what `itemsLayoutFor` uses.
+- `FileUpload` (`src/components/items/file-upload.tsx`) already holds the
+  authorise → PUT → progress logic for one file, but it is a form field: it
+  owns a single `value` and hands it back to the create form. The batch path
+  needs the same two requests without that shape, so the transfer logic is
+  worth extracting rather than duplicating or contorting.
+- A bulk drop cannot ask for a description, tags, a language or collections —
+  it has no form. Description is already gated off for File and Image, and the
+  rest simply go unset. Anything more is the drawer's job afterwards.
+- `createItem` takes one item per call, so a batch is N actions. Whether they
+  run in sequence or with a small concurrency cap is an implementation choice;
+  sequential is the simpler and safer default given the upload rate limit
+  (30 uploads / 15 min, keyed on the user id) — a large batch can hit it, and
+  the 429 must read as "too many at once", not as a broken drop.
+- Abandoned objects: a file that stores in R2 but whose `createItem` then fails
+  leaves an orphan, the same accepted cost the create dialog already carries.
+- The page is a server component; the drop surface and its state have to be a
+  client component wrapping (or sitting over) the listing.
+- Decided: the drop overlay covers the section holding the list, not the whole
+  `main` area.
+- Decided: the upload rate limit stays at 30 / 15 min (`UPLOAD_LIMIT` in
+  `src/app/api/upload/route.ts`, ours rather than a platform cap). A batch that
+  hits it must stop with a message that reads as "too many at once"; raising the
+  number is a one-line follow-up if it proves annoying in practice.
 
 ## History
 

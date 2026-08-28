@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+import { Suspense, type ReactNode } from "react";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
@@ -6,6 +6,7 @@ import { SIGN_IN_PATH } from "@/auth.config";
 import { FileListSkeleton } from "@/components/items/file-list-skeleton";
 import { ImageGallerySkeleton } from "@/components/items/image-gallery-skeleton";
 import { ItemCreateDialog } from "@/components/items/item-create-dialog";
+import { ItemDropZone } from "@/components/items/item-drop-zone";
 import { ItemListSkeleton } from "@/components/items/item-list-skeleton";
 import {
   itemsLayoutFor,
@@ -13,10 +14,12 @@ import {
   type ItemsLayout,
 } from "@/components/items/type-items";
 import { Pagination } from "@/components/layout/pagination";
+import { uploadKindFor } from "@/constants/item-types";
 import { ITEMS_PER_PAGE } from "@/constants/pagination";
 import { getItemTypeBySlug } from "@/lib/db/item-types";
 import { countItemsByType } from "@/lib/db/items";
 import { getCurrentUser } from "@/lib/db/user";
+import type { UploadKind } from "@/lib/file-constraints";
 import { pageCount, parsePageParam, rowsOnPage } from "@/lib/pagination";
 
 // Reads the session and the user's items on every request.
@@ -79,6 +82,10 @@ export default async function ItemsByTypePage({
   // Resolved once here so the fallback and the items agree on the shape.
   const layout = itemsLayoutFor(itemType.slug);
 
+  // Set only for the two types a file can be dropped on, which is what decides
+  // whether the listing is wrapped in a drop target at all.
+  const uploadKind = uploadKindFor(itemType.slug);
+
   return (
     <>
       <div className="dashboard-heading dashboard-heading-row">
@@ -99,23 +106,25 @@ export default async function ItemsByTypePage({
         {/* Its own boundary: the heading above needs only the type query, so it
             paints while the items resolve. Keyed on the page so stepping to
             another one suspends again rather than holding the old rows. */}
-        <Suspense
-          key={page}
-          fallback={
-            <ItemsSkeleton
+        <DropTarget kind={uploadKind} typeSlug={itemType.slug}>
+          <Suspense
+            key={page}
+            fallback={
+              <ItemsSkeleton
+                layout={layout}
+                count={rowsOnPage(totalCount, page, ITEMS_PER_PAGE)}
+              />
+            }
+          >
+            <TypeItems
+              userId={user.id}
+              typeId={itemType.id}
+              label={label.toLowerCase()}
               layout={layout}
-              count={rowsOnPage(totalCount, page, ITEMS_PER_PAGE)}
+              page={page}
             />
-          }
-        >
-          <TypeItems
-            userId={user.id}
-            typeId={itemType.id}
-            label={label.toLowerCase()}
-            layout={layout}
-            page={page}
-          />
-        </Suspense>
+          </Suspense>
+        </DropTarget>
 
         {/* Outside the boundary — the count is already known, so the controls
             paint with the heading rather than waiting on the rows. */}
@@ -126,6 +135,30 @@ export default async function ItemsByTypePage({
         />
       </section>
     </>
+  );
+}
+
+/**
+ * Wraps the listing in a drop target on the two types that take uploads, and
+ * leaves the other five exactly as they were.
+ */
+function DropTarget({
+  kind,
+  typeSlug,
+  children,
+}: {
+  kind: UploadKind | undefined;
+  typeSlug: string;
+  children: ReactNode;
+}) {
+  if (!kind) {
+    return children;
+  }
+
+  return (
+    <ItemDropZone kind={kind} typeSlug={typeSlug}>
+      {children}
+    </ItemDropZone>
   );
 }
 
