@@ -11,6 +11,7 @@ import {
   codeTypeLanguage,
   isCodeType,
   isMarkdownType,
+  uploadKindFor,
 } from "@/constants/item-types";
 import type { ItemContentType, ItemDetail } from "@/types/item";
 
@@ -18,12 +19,12 @@ import type { ItemContentType, ItemDetail } from "@/types/item";
  * The fields an item is written through, shared by the create dialog and the
  * drawer's edit mode.
  *
- * Which of them render follows the content type: every item takes a title, a
- * description and tags, a TEXT item adds a content box — a code editor, a
- * markdown editor or a plain textarea, depending on the type slug — a URL item
- * takes a URL instead, and only the types in `LANGUAGE_TYPE_SLUGS` carry a
- * language. A FILE item shows none of the three, since its payload is the
- * upload its own form renders.
+ * Which of them render follows the content type: every item takes a title and
+ * tags, a TEXT item adds a content box — a code editor, a markdown editor or a
+ * plain textarea, depending on the type slug — a URL item takes a URL instead,
+ * and only the types in `LANGUAGE_TYPE_SLUGS` carry a language. A FILE item
+ * shows none of the three, since its payload is the upload its own form
+ * renders, and it carries no description either.
  */
 export function ItemFormFields({
   values,
@@ -36,6 +37,9 @@ export function ItemFormFields({
   contentRows,
 }: ItemFormFieldsProps) {
   const showContent = contentType === "TEXT";
+  // A file item is its file: the name, the size and the preview say everything
+  // the description used to, so the two upload types do not carry one.
+  const showDescription = uploadKindFor(typeSlug) === undefined;
   const showUrl = contentType === "URL";
   const showLanguage = LANGUAGE_TYPE_SLUGS.has(typeSlug);
   const showCode = showContent && isCodeType(typeSlug);
@@ -55,16 +59,18 @@ export function ItemFormFields({
         />
       </div>
 
-      <div className="item-form-field">
-        <Label htmlFor={`${idPrefix}-description`}>Description</Label>
-        <Textarea
-          id={`${idPrefix}-description`}
-          name="description"
-          value={values.description}
-          onChange={(event) => setField("description", event.target.value)}
-          rows={2}
-        />
-      </div>
+      {showDescription && (
+        <div className="item-form-field">
+          <Label htmlFor={`${idPrefix}-description`}>Description</Label>
+          <Textarea
+            id={`${idPrefix}-description`}
+            name="description"
+            value={values.description}
+            onChange={(event) => setField("description", event.target.value)}
+            rows={2}
+          />
+        </div>
+      )}
 
       {showContent && (
         <div className="item-form-field">
