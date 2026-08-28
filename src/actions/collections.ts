@@ -3,6 +3,7 @@
 import {
   createCollection as createCollectionRow,
   deleteCollection as deleteCollectionRow,
+  setCollectionFavorite as setCollectionFavoriteRow,
   updateCollection as updateCollectionRow,
 } from "@/lib/db/collections";
 import { getCurrentUserId } from "@/lib/db/user";
@@ -14,6 +15,7 @@ import {
 import type {
   CreateCollectionResult,
   DeleteCollectionResult,
+  SetCollectionFavoriteResult,
   UpdateCollectionResult,
 } from "@/types/collection";
 
@@ -26,6 +28,8 @@ const SIGNED_OUT = "Your session has ended. Sign in again.";
 const CREATE_FAILED = "Could not create this collection. Try again.";
 const UPDATE_FAILED = "Could not save this collection. Try again.";
 const DELETE_FAILED = "Could not delete this collection. Try again.";
+const FAVORITE_FAILED =
+  "Could not change this collection's favorite. Try again.";
 
 /**
  * Said for both "no such collection" and "not yours" — the queries do not tell
@@ -132,5 +136,40 @@ export async function deleteCollection(
   } catch (error) {
     console.error("deleteCollection failed", error);
     return { success: false, error: DELETE_FAILED };
+  }
+}
+
+/**
+ * Stars or unstars a collection, from its page or its card's menu.
+ *
+ * Takes the value asked for rather than flipping the stored one, and the owner
+ * comes from the session — the id is the only thing a request names, and it can
+ * only ever reach the caller's own row.
+ */
+export async function setCollectionFavorite(
+  collectionId: string,
+  isFavorite: boolean,
+): Promise<SetCollectionFavoriteResult> {
+  const userId = await getCurrentUserId();
+
+  if (!userId) {
+    return { success: false, error: SIGNED_OUT };
+  }
+
+  try {
+    const written = await setCollectionFavoriteRow(
+      userId,
+      collectionId,
+      isFavorite,
+    );
+
+    if (!written) {
+      return { success: false, error: MISSING };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error("setCollectionFavorite failed", error);
+    return { success: false, error: FAVORITE_FAILED };
   }
 }

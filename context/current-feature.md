@@ -1,12 +1,44 @@
-# Current Feature
+# Current Feature: Favorite Toggle
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
+- Favoriting actually writes: two server actions behind `Item.isFavorite` and `Collection.isFavorite`, which nothing has ever set.
+- The item drawer's Favorite button works, **in view mode** — it is available the moment the drawer opens and never requires entering edit mode.
+- The collection page's Favorite button works, replacing the state-reflecting-but-inert button the favorites page added.
+- A collection card's three-dots menu can favorite it, replacing the `Coming soon` item already sitting there.
+- An item card can be favorited without opening it — the star stops being a read-only indicator and becomes a control.
+- Every surface that reads the flag updates after a change: the star itself, the sidebar's Favorites list, the dashboard's two favorite stat cards, and `/favorites`.
+- A failed write reports itself and leaves the control usable.
+
 ## Notes
+
+**This is the write side the favorites page was explicitly the read side of.** Until it lands, `/favorites` can only show rows set by hand in the database — so this is what makes that page reachable through the UI at all.
+
+**Four inert surfaces become live**, and they are all that is left of the `Coming soon` placeholders: `item-drawer-actions.tsx`, `collection-actions.tsx`, `collection-card-menu.tsx`, and the star indicators on the item cards.
+
+**Set, not toggle.** The actions should take the value being asked for — `setItemFavorite(itemId, isFavorite)` — rather than flipping whatever is stored. A double-click, or two tabs on the same item, then converge on one answer instead of racing to opposite ones, and the caller already knows what it wants. Ownership goes in the `where` like every other mutation here, and the write should be `updateMany` guarded on its `count` rather than `update`, which throws `P2025` when the row is gone — the same reasoning `deleteItem` and `deleteCollection` carry, and it avoids the `try`/`catch` `updateCollection` needs.
+
+**A round trip before the star moves would feel broken**, so the control should paint the new state immediately and reconcile on the response, putting it back if the write failed. That is a deviation worth naming: every other mutation in this app awaits, toasts and calls `router.refresh()`. The refresh is still needed here — the sidebar, the stat cards and `/favorites` are all server-rendered — but it should follow an instant local change rather than gate it.
+
+**No toast on success.** Every other mutation announces itself, but a toast on every star click is noise when the star itself is the confirmation; failures still need one. Assumed rather than asked — say if the app should stay uniform instead.
+
+**The `.catch(() => null)` rule applies again.** A server action answers a failed *write* with `{ success: false }` but a failed *request* **rejects**, and without the catch the pending flag never clears and the control strands. That has bitten this project three times (the delete dialog, then the edit form, then the create form), and every item mutation now shares the same `UNREACHABLE` wording.
+
+**Three questions to settle at `/feature start`:**
+
+1. **Which item cards.** Three shapes render the star: `item-card.tsx` (the list), `image-card.tsx` (the gallery) and `file-row.tsx` (the file list). Consistency says all three, and each already has the sibling-of-the-stretched-hit-target pattern the copy button and the download link use. Assuming all three unless told otherwise.
+2. **How the card's star behaves at rest.** Today it renders *only* when the item is favorited. As a control it has to be reachable when it is not — the copy button's answer is `opacity: 0` until the card is hovered or the button is focused, staying visible once active, and that is what is assumed here.
+3. **Pin is in.** Asked at `/feature start` and confirmed: it is the same action shape as Favorite, and shipping a drawer with one live and one dead button beside each other is worse than the extra action. Pinned items already sort first on every listing, so the effect is visible straight away. Pin lives in the drawer only — the cards get a favorite control, not a pin one.
+
+**Not in scope:** rate limiting (matching the item and collection actions, which have none — the profile ones are throttled only because each attempt costs bcrypt), and any favoriting from the search palette.
+
+**Cleanup this makes possible:** `.collection-favorite[data-active="true"]` lifts the primitive's disabled opacity back to 1, which exists only because that button is `disabled`. Once it works, that declaration should go.
+
+**Testable surface:** the two actions are real logic — the signed-out path, the missing/not-yours result, that the owner comes from the session and never the payload, and a rejected write becoming a message rather than a throw. That is the shape `deleteItem` and `deleteCollection` are already tested in.
 
 ## History
 

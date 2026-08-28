@@ -1,12 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createItem, deleteItem, updateItem } from "@/actions/items";
+import {
+  createItem,
+  deleteItem,
+  setItemFavorite,
+  setItemPinned,
+  updateItem,
+} from "@/actions/items";
 import { ownsAllCollections } from "@/lib/db/collections";
 import { getItemTypeBySlug } from "@/lib/db/item-types";
 import {
   createItem as createItemRow,
   deleteItem as deleteItemRow,
   getItemFile,
+  setItemFavorite as setItemFavoriteRow,
+  setItemPinned as setItemPinnedRow,
   updateItem as updateItemRow,
 } from "@/lib/db/items";
 import { getCurrentUserId } from "@/lib/db/user";
@@ -24,6 +32,8 @@ vi.mock("@/lib/db/items", () => ({
   updateItem: vi.fn(),
   deleteItem: vi.fn(),
   getItemFile: vi.fn(),
+  setItemFavorite: vi.fn(),
+  setItemPinned: vi.fn(),
 }));
 vi.mock("@/lib/db/item-types", () => ({ getItemTypeBySlug: vi.fn() }));
 vi.mock("@/lib/db/collections", () => ({ ownsAllCollections: vi.fn() }));
@@ -48,6 +58,8 @@ const createItemRowMock = vi.mocked(createItemRow);
 const updateItemRowMock = vi.mocked(updateItemRow);
 const deleteItemRowMock = vi.mocked(deleteItemRow);
 const getItemFileMock = vi.mocked(getItemFile);
+const setItemFavoriteRowMock = vi.mocked(setItemFavoriteRow);
+const setItemPinnedRowMock = vi.mocked(setItemPinnedRow);
 const deleteFileMock = vi.mocked(deleteFile);
 const headFileMock = vi.mocked(headFile);
 const getItemTypeBySlugMock = vi.mocked(getItemTypeBySlug);
@@ -91,6 +103,8 @@ beforeEach(() => {
   createItemRowMock.mockResolvedValue(DETAIL);
   updateItemRowMock.mockResolvedValue(DETAIL);
   deleteItemRowMock.mockResolvedValue(true);
+  setItemFavoriteRowMock.mockResolvedValue(true);
+  setItemPinnedRowMock.mockResolvedValue(true);
   // Most items carry no file at all.
   getItemFileMock.mockResolvedValue(null);
   deleteFileMock.mockResolvedValue(undefined);
@@ -465,5 +479,118 @@ describe("deleteItem", () => {
 
     expect(result).toEqual({ success: true });
     expect(deleteFileMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("setItemFavorite", () => {
+  it("refuses a session whose account is gone", async () => {
+    getCurrentUserIdMock.mockResolvedValue(null);
+
+    const result = await setItemFavorite("item-1", true);
+
+    expect(result).toEqual({
+      success: false,
+      error: "Your session has ended. Sign in again.",
+    });
+    expect(setItemFavoriteRowMock).not.toHaveBeenCalled();
+  });
+
+  it("writes as the session's user, never one the caller could name", async () => {
+    await setItemFavorite("item-1", true);
+
+    expect(setItemFavoriteRowMock).toHaveBeenCalledWith("user-1", "item-1", true);
+  });
+
+  /**
+   * The value asked for is passed through rather than a flip of what is stored,
+   * so two clicks racing settle on one answer instead of opposite ones.
+   */
+  it("passes the requested value through, both ways", async () => {
+    await setItemFavorite("item-1", false);
+
+    expect(setItemFavoriteRowMock).toHaveBeenCalledWith(
+      "user-1",
+      "item-1",
+      false,
+    );
+  });
+
+  it("reports an item that is missing or not the caller's", async () => {
+    setItemFavoriteRowMock.mockResolvedValue(false);
+
+    const result = await setItemFavorite("not-mine", true);
+
+    expect(result).toEqual({
+      success: false,
+      error: "That item no longer exists.",
+    });
+  });
+
+  it("answers success with no data half", async () => {
+    await expect(setItemFavorite("item-1", true)).resolves.toEqual({
+      success: true,
+    });
+  });
+
+  it("turns a rejected write into a message rather than a throw", async () => {
+    setItemFavoriteRowMock.mockRejectedValue(new Error("connection lost"));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await setItemFavorite("item-1", true);
+
+    expect(result).toEqual({
+      success: false,
+      error: "Could not change this item's favorite. Try again.",
+    });
+  });
+
+  /** The two flags share one helper, so this is what keeps them separate. */
+  it("does not touch the pin", async () => {
+    await setItemFavorite("item-1", true);
+
+    expect(setItemPinnedRowMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("setItemPinned", () => {
+  it("refuses a session whose account is gone", async () => {
+    getCurrentUserIdMock.mockResolvedValue(null);
+
+    const result = await setItemPinned("item-1", true);
+
+    expect(result).toEqual({
+      success: false,
+      error: "Your session has ended. Sign in again.",
+    });
+    expect(setItemPinnedRowMock).not.toHaveBeenCalled();
+  });
+
+  it("writes as the session's user", async () => {
+    await setItemPinned("item-1", false);
+
+    expect(setItemPinnedRowMock).toHaveBeenCalledWith("user-1", "item-1", false);
+    expect(setItemFavoriteRowMock).not.toHaveBeenCalled();
+  });
+
+  it("reports an item that is missing or not the caller's", async () => {
+    setItemPinnedRowMock.mockResolvedValue(false);
+
+    await expect(setItemPinned("not-mine", true)).resolves.toEqual({
+      success: false,
+      error: "That item no longer exists.",
+    });
+  });
+
+  /** Its own message, so a failure names the flag that did not change. */
+  it("turns a rejected write into its own message", async () => {
+    setItemPinnedRowMock.mockRejectedValue(new Error("connection lost"));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await setItemPinned("item-1", true);
+
+    expect(result).toEqual({
+      success: false,
+      error: "Could not change this item's pin. Try again.",
+    });
   });
 });

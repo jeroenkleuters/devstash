@@ -3,6 +3,7 @@
 import { MoreHorizontal, Pencil, Star, Trash2 } from "lucide-react";
 import { useRef, useState } from "react";
 
+import { setCollectionFavorite } from "@/actions/collections";
 import { CollectionDeleteDialog } from "@/components/collections/collection-delete-dialog";
 import { CollectionEditDialog } from "@/components/collections/collection-edit-dialog";
 import type { CollectionFormCollection } from "@/components/collections/collection-form";
@@ -12,23 +13,29 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
-/** Favorite renders for the layout and says why it is inert, as the drawer's does. */
-const SOON = "Coming soon";
+import { useFlagToggle } from "@/hooks/use-flag-toggle";
 
 interface CollectionCardMenuProps {
   collection: CollectionFormCollection;
+  isFavorite: boolean;
 }
 
 /**
- * A collection card's three-dots menu: Edit, Delete and (not yet) Favorite.
+ * A collection card's three-dots menu: Favorite, Edit and Delete.
  *
  * A sibling of the card's stretched link rather than a child of it — a button
  * cannot nest in an anchor, and the `z-index` on it is what puts this one on
  * top. The menu itself is portaled to `body`, so nothing inside it can reach
  * the link underneath and no `stopPropagation` is involved.
  */
-export function CollectionCardMenu({ collection }: CollectionCardMenuProps) {
+export function CollectionCardMenu({
+  collection,
+  isFavorite,
+}: CollectionCardMenuProps) {
+  const favorite = useFlagToggle(isFavorite, (next) =>
+    setCollectionFavorite(collection.id, next),
+  );
+
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -61,9 +68,11 @@ export function CollectionCardMenu({ collection }: CollectionCardMenuProps) {
             }
           }}
         >
-          <DropdownMenuItem disabled title={SOON}>
-            <Star aria-hidden />
-            Favorite
+          {/* A menu names an action rather than showing a pressed state, so
+              this reads as the thing it will do. */}
+          <DropdownMenuItem onSelect={favorite.toggle}>
+            <Star aria-hidden fill={favorite.active ? "currentColor" : "none"} />
+            {favorite.active ? "Remove from favorites" : "Add to favorites"}
           </DropdownMenuItem>
 
           <DropdownMenuItem onSelect={() => open(setEditing)}>

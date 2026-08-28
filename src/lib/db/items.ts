@@ -454,6 +454,58 @@ export async function updateItem(
 }
 
 /**
+ * Stars or unstars one item. Answers whether a row was actually written, so
+ * "already gone" and "someone else's" are the same `false` — the conflation
+ * every mutation here makes.
+ *
+ * Takes the value being asked for rather than flipping what is stored: a
+ * double-click, or two tabs on the same item, then converge on one answer
+ * instead of racing to opposite ones.
+ */
+export async function setItemFavorite(
+  userId: string,
+  itemId: string,
+  isFavorite: boolean,
+): Promise<boolean> {
+  return writeFlags(userId, itemId, { isFavorite });
+}
+
+/** Pins or unpins one item — `setItemFavorite`'s twin, and the same rules. */
+export async function setItemPinned(
+  userId: string,
+  itemId: string,
+  isPinned: boolean,
+): Promise<boolean> {
+  return writeFlags(userId, itemId, { isPinned });
+}
+
+/**
+ * `updateMany` rather than `update`, for the reason `deleteItem` gives: the
+ * latter throws `P2025` when the row is gone, so a second click or another tab
+ * getting there first would surface as a crash instead of as a `false`. The
+ * `count` is what makes this safe to call twice.
+ *
+ * Note this moves `updatedAt`, since Prisma maintains it on every write — so
+ * starring an item lifts it up the lists that sort on it, `/favorites`
+ * included. That is closer to "most recently favorited" than those lists could
+ * otherwise get, there being no column recording it.
+ */
+async function writeFlags(
+  userId: string,
+  itemId: string,
+  data: { isFavorite?: boolean; isPinned?: boolean },
+): Promise<boolean> {
+  // `userId` is in the `where` rather than checked against a prior read, so
+  // there is no window in which the row could be swapped for another account's.
+  const { count } = await prisma.item.updateMany({
+    where: { id: itemId, userId },
+    data,
+  });
+
+  return count > 0;
+}
+
+/**
  * Deletes one item. Answers whether a row actually went, so "already gone" and
  * "someone else's" are the same `false` — the conflation `getItemDetail` and
  * `updateItem` both make, for the same reason.

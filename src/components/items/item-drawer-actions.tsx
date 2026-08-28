@@ -3,7 +3,9 @@
 import { Copy, Pencil, Pin, Star } from "lucide-react";
 import { toast } from "sonner";
 
+import { setItemFavorite, setItemPinned } from "@/actions/items";
 import { ItemDeleteDialog } from "@/components/items/item-delete-dialog";
+import { useFlagToggle } from "@/hooks/use-flag-toggle";
 import { copyText } from "@/lib/item-copy";
 import type { ItemDetail } from "@/types/item";
 
@@ -17,16 +19,17 @@ interface ItemDrawerActionsProps {
   detail: ItemDetail | null;
   /** Switches the drawer into edit mode. */
   onEdit: () => void;
+  /** Reports a favorite or pin up, so the summary the header reads stays current. */
+  onFlagsChanged: (patch: { isFavorite?: boolean; isPinned?: boolean }) => void;
   /** Fires once the item is deleted. */
   onDeleted: () => void;
 }
 
 /**
- * The drawer's action bar.
+ * The drawer's action bar. Every button in it works.
  *
- * Copy, Edit and Delete work; Favorite and Pin each still need a server action
- * and a revalidation story, so they render for the layout and say why they are
- * inert rather than promising something.
+ * Favorite and Pin are live in view mode and never need edit mode — they act on
+ * the flags the card already carried, so neither waits on the detail fetch.
  */
 export function ItemDrawerActions({
   itemId,
@@ -35,8 +38,23 @@ export function ItemDrawerActions({
   isPinned,
   detail,
   onEdit,
+  onFlagsChanged,
   onDeleted,
 }: ItemDrawerActionsProps) {
+  // Live from the moment the drawer opens: both flags come off the card, so
+  // neither waits on the detail fetch and neither needs edit mode.
+  const favorite = useFlagToggle(isFavorite, async (next) => {
+    const result = await setItemFavorite(itemId, next);
+    if (result.success) onFlagsChanged({ isFavorite: next });
+    return result;
+  });
+
+  const pin = useFlagToggle(isPinned, async (next) => {
+    const result = await setItemPinned(itemId, next);
+    if (result.success) onFlagsChanged({ isPinned: next });
+    return result;
+  });
+
   const copyable = detail ? copyText(detail) : null;
 
   async function copy() {
@@ -57,13 +75,13 @@ export function ItemDrawerActions({
       <button
         type="button"
         className="item-drawer-action item-drawer-action-favorite"
-        data-active={isFavorite}
-        disabled
-        title={SOON}
+        data-active={favorite.active}
+        aria-pressed={favorite.active}
+        onClick={favorite.toggle}
       >
         <Star
           size={16}
-          fill={isFavorite ? "currentColor" : "none"}
+          fill={favorite.active ? "currentColor" : "none"}
           aria-hidden
         />
         Favorite
@@ -72,11 +90,15 @@ export function ItemDrawerActions({
       <button
         type="button"
         className="item-drawer-action"
-        data-active={isPinned}
-        disabled
-        title={SOON}
+        data-active={pin.active}
+        aria-pressed={pin.active}
+        onClick={pin.toggle}
       >
-        <Pin size={16} fill={isPinned ? "currentColor" : "none"} aria-hidden />
+        <Pin
+          size={16}
+          fill={pin.active ? "currentColor" : "none"}
+          aria-hidden
+        />
         Pin
       </button>
 
@@ -114,4 +136,3 @@ export function ItemDrawerActions({
   );
 }
 
-const SOON = "Coming soon";

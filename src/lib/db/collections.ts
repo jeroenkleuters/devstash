@@ -296,6 +296,28 @@ export async function updateCollection(
 }
 
 /**
+ * Stars or unstars one collection. Answers whether a row was actually written,
+ * so "already gone" and "someone else's" are the same `false`.
+ *
+ * Takes the value being asked for rather than flipping what is stored, and uses
+ * `updateMany` rather than `update` — the same two reasons `setItemFavorite`
+ * spells out, and the second is why this needs none of the `P2025` handling
+ * `updateCollection` above carries.
+ */
+export async function setCollectionFavorite(
+  userId: string,
+  collectionId: string,
+  isFavorite: boolean,
+): Promise<boolean> {
+  const { count } = await prisma.collection.updateMany({
+    where: { id: collectionId, userId },
+    data: { isFavorite },
+  });
+
+  return count > 0;
+}
+
+/**
  * Deletes one collection. Answers whether a row actually went, so "already
  * gone" and "someone else's" are the same `false`.
  *

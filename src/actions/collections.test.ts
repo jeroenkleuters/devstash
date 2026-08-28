@@ -3,11 +3,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createCollection,
   deleteCollection,
+  setCollectionFavorite,
   updateCollection,
 } from "@/actions/collections";
 import {
   createCollection as createCollectionRow,
   deleteCollection as deleteCollectionRow,
+  setCollectionFavorite as setCollectionFavoriteRow,
   updateCollection as updateCollectionRow,
 } from "@/lib/db/collections";
 import { getCurrentUserId } from "@/lib/db/user";
@@ -23,12 +25,14 @@ vi.mock("@/lib/db/collections", () => ({
   createCollection: vi.fn(),
   updateCollection: vi.fn(),
   deleteCollection: vi.fn(),
+  setCollectionFavorite: vi.fn(),
 }));
 vi.mock("@/lib/db/user", () => ({ getCurrentUserId: vi.fn() }));
 
 const createCollectionRowMock = vi.mocked(createCollectionRow);
 const updateCollectionRowMock = vi.mocked(updateCollectionRow);
 const deleteCollectionRowMock = vi.mocked(deleteCollectionRow);
+const setCollectionFavoriteRowMock = vi.mocked(setCollectionFavoriteRow);
 const getCurrentUserIdMock = vi.mocked(getCurrentUserId);
 
 const SUMMARY = {
@@ -44,6 +48,7 @@ beforeEach(() => {
   createCollectionRowMock.mockResolvedValue(SUMMARY);
   updateCollectionRowMock.mockResolvedValue(SUMMARY);
   deleteCollectionRowMock.mockResolvedValue(true);
+  setCollectionFavoriteRowMock.mockResolvedValue(true);
 });
 
 describe("createCollection", () => {
@@ -237,6 +242,73 @@ describe("deleteCollection", () => {
     expect(result).toEqual({
       success: false,
       error: "Could not delete this collection. Try again.",
+    });
+  });
+});
+
+describe("setCollectionFavorite", () => {
+  it("refuses a session whose account is gone", async () => {
+    getCurrentUserIdMock.mockResolvedValue(null);
+
+    const result = await setCollectionFavorite("collection-1", true);
+
+    expect(result).toEqual({
+      success: false,
+      error: "Your session has ended. Sign in again.",
+    });
+    expect(setCollectionFavoriteRowMock).not.toHaveBeenCalled();
+  });
+
+  it("writes as the session's user, never one the caller could name", async () => {
+    await setCollectionFavorite("collection-1", true);
+
+    expect(setCollectionFavoriteRowMock).toHaveBeenCalledWith(
+      "user-1",
+      "collection-1",
+      true,
+    );
+  });
+
+  /**
+   * The value asked for is passed through rather than a flip of what is stored,
+   * so two clicks racing settle on one answer instead of opposite ones.
+   */
+  it("passes the requested value through, both ways", async () => {
+    await setCollectionFavorite("collection-1", false);
+
+    expect(setCollectionFavoriteRowMock).toHaveBeenCalledWith(
+      "user-1",
+      "collection-1",
+      false,
+    );
+  });
+
+  it("reports a collection that is missing or not the caller's", async () => {
+    setCollectionFavoriteRowMock.mockResolvedValue(false);
+
+    const result = await setCollectionFavorite("not-mine", true);
+
+    expect(result).toEqual({
+      success: false,
+      error: "That collection no longer exists.",
+    });
+  });
+
+  it("answers success with no data half", async () => {
+    await expect(setCollectionFavorite("collection-1", true)).resolves.toEqual({
+      success: true,
+    });
+  });
+
+  it("turns a rejected write into a message rather than a throw", async () => {
+    setCollectionFavoriteRowMock.mockRejectedValue(new Error("connection lost"));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await setCollectionFavorite("collection-1", true);
+
+    expect(result).toEqual({
+      success: false,
+      error: "Could not change this collection's favorite. Try again.",
     });
   });
 });

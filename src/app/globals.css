@@ -817,18 +817,62 @@ body {
 
 .item-card-title {
   display: flex;
-  align-items: center;
+  /* Not `center`: the title can wrap, and the pin and star belong beside
+     its first line rather than centred against the whole block. */
+  align-items: flex-start;
   gap: 0.375rem;
   font-size: 0.9375rem;
   font-weight: 600;
 }
 
-.item-card-flag {
+/* The pin and star on a card — controls, not the indicators they used to be, so
+   both have to be reachable when the item carries neither. Hidden at rest like
+   the copy button, shown on hover or focus, and held visible once set, which is
+   the state the old read-only icons were the whole of. They sit above the
+   card's stretched hit target, so a click here never opens the drawer.
+
+   `height: 1lh` is what keeps them on the *first* line of a title that wraps:
+   the row is `align-items: flex-start`, so a box one line tall centers its icon
+   against that line instead of against the whole block. */
+.item-flag {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 1.125rem;
+  height: 1lh;
   color: var(--muted-foreground);
+  opacity: 0;
+  cursor: pointer;
+  transition:
+    opacity 0.15s,
+    color 0.15s;
 }
 
-.item-card-star {
+.item-card:hover .item-flag,
+.file-row:hover .item-flag,
+.image-card:hover .item-flag,
+.item-flag:focus-visible {
+  opacity: 1;
+}
+
+/* Set means visible whatever the pointer is doing — that is the whole of what
+   the indicators used to say. */
+.item-flag[data-active="true"] {
+  opacity: 1;
+  color: var(--foreground);
+}
+
+/* Only the star goes yellow, as in the drawer: if the pin took the favorite
+   color too, a pinned item would read as a favorited one. */
+.item-flag-favorite:hover,
+.item-flag-favorite[data-active="true"] {
   color: var(--type-favorite);
+}
+
+.item-flag-pin:hover {
+  color: var(--foreground);
 }
 
 .item-card-description {
@@ -1002,7 +1046,9 @@ body {
 
 .image-card-title {
   display: flex;
-  align-items: center;
+  /* Not `center`: the title can wrap, and the pin and star belong beside
+     its first line rather than centred against the whole block. */
+  align-items: flex-start;
   gap: 0.375rem;
   flex: 1;
   min-width: 0;
@@ -1546,16 +1592,12 @@ a.pagination-page:hover {
   gap: 0.5rem;
 }
 
-/* A favorited collection shows the button selected even though it is still
-   inert. The opacity is lifted back because the primitive dims a disabled
-   button to half, which would leave the state barely readable — `disabled` and
-   the "Coming soon" title are what say it does nothing. Unlayered, so it beats
-   the utilities without `!important`. */
+/* A toggle button: pressed means the collection is a favorite. Unlayered, so it
+   beats the primitive's own utilities without `!important`. */
 .collection-favorite[data-active="true"] {
   border-color: color-mix(in oklch, var(--type-favorite) 40%, var(--border));
   background: color-mix(in oklch, var(--type-favorite) 10%, transparent);
   color: var(--type-favorite);
-  opacity: 1;
 }
 
 /* The type icons under a collection page's heading. Reuses the card's icon

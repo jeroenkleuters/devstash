@@ -8,6 +8,8 @@ import {
   createItem as createItemRow,
   deleteItem as deleteItemRow,
   getItemFile,
+  setItemFavorite as setItemFavoriteRow,
+  setItemPinned as setItemPinnedRow,
   updateItem as updateItemRow,
   type NewItemFile,
 } from "@/lib/db/items";
@@ -19,6 +21,7 @@ import { createItemSchema, updateItemSchema } from "@/lib/validations/item";
 import type {
   CreateItemResult,
   DeleteItemResult,
+  SetItemFlagResult,
   UpdateItemResult,
 } from "@/types/item";
 
@@ -34,6 +37,10 @@ const MISSING = "That item no longer exists.";
 const FAILED = "Could not save this item. Try again.";
 
 const DELETE_FAILED = "Could not delete this item. Try again.";
+
+const FAVORITE_FAILED = "Could not change this item's favorite. Try again.";
+
+const PIN_FAILED = "Could not change this item's pin. Try again.";
 
 /** The item is kept when its file cannot go — see `deleteItem`. */
 const FILE_DELETE_FAILED =
@@ -262,5 +269,66 @@ export async function deleteItem(itemId: string): Promise<DeleteItemResult> {
   } catch (error) {
     console.error("deleteItem failed", error);
     return { success: false, error: DELETE_FAILED };
+  }
+}
+
+/**
+ * Stars or unstars an item, from the drawer or straight from its card.
+ *
+ * The value is what the caller asked for rather than a flip of what is stored,
+ * so two clicks racing settle on one answer. `userId` comes from the session,
+ * so the id is the only thing a request names and it can only ever reach the
+ * caller's own row.
+ */
+export async function setItemFavorite(
+  itemId: string,
+  isFavorite: boolean,
+): Promise<SetItemFlagResult> {
+  return writeItemFlag(
+    (userId) => setItemFavoriteRow(userId, itemId, isFavorite),
+    "setItemFavorite",
+    FAVORITE_FAILED,
+  );
+}
+
+/** Pins or unpins an item, from the drawer. Same rules as the favorite above. */
+export async function setItemPinned(
+  itemId: string,
+  isPinned: boolean,
+): Promise<SetItemFlagResult> {
+  return writeItemFlag(
+    (userId) => setItemPinnedRow(userId, itemId, isPinned),
+    "setItemPinned",
+    PIN_FAILED,
+  );
+}
+
+/**
+ * The session check, the missing-row answer and the catch, shared by the two
+ * flags — they differ only in which column they write and what a failure is
+ * called.
+ */
+async function writeItemFlag(
+  write: (userId: string) => Promise<boolean>,
+  label: string,
+  failed: string,
+): Promise<SetItemFlagResult> {
+  const userId = await getCurrentUserId();
+
+  if (!userId) {
+    return { success: false, error: SIGNED_OUT };
+  }
+
+  try {
+    const written = await write(userId);
+
+    if (!written) {
+      return { success: false, error: MISSING };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error(`${label} failed`, error);
+    return { success: false, error: failed };
   }
 }
