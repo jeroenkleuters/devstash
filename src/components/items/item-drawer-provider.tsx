@@ -145,6 +145,27 @@ export function ItemDrawerProvider({ children }: { children: ReactNode }) {
     router.refresh();
   }, [router]);
 
+  /**
+   * Takes a favorite or pin the drawer just wrote.
+   *
+   * Only `summary` is patched, and the drawer reads both flags from it for
+   * exactly that reason: the buttons are live the moment the drawer opens, so a
+   * toggle can happen while the detail fetch is still in flight, and a response
+   * carrying the old value would otherwise land on top of the new one.
+   * `requestRef` is deliberately *not* bumped — dropping that fetch would leave
+   * the body loading forever over a change that does not touch it.
+   */
+  const handleFlagsChanged = useCallback(
+    (patch: { isFavorite?: boolean; isPinned?: boolean }) => {
+      setSummary((current) => (current ? { ...current, ...patch } : current));
+    },
+    [],
+  );
+
+  // No `router.refresh()` here, unlike the save and delete paths: the toggle's
+  // own hook already runs one, inside the transition that holds its optimistic
+  // value up until the fresh data lands.
+
   const handleOpenChange = useCallback((next: boolean) => {
     setOpen(next);
 
@@ -167,6 +188,7 @@ export function ItemDrawerProvider({ children }: { children: ReactNode }) {
           open={open}
           onOpenChange={handleOpenChange}
           onSaved={handleSaved}
+          onFlagsChanged={handleFlagsChanged}
           onDeleted={handleDeleted}
         />
       )}

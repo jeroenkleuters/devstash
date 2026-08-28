@@ -36,6 +36,8 @@ interface ItemDrawerProps {
   onOpenChange: (open: boolean) => void;
   /** Passes the saved item up so the provider can refresh what it holds. */
   onSaved: (detail: ItemDetail) => void;
+  /** Passes a favorite or pin up, so the summary the header reads stays current. */
+  onFlagsChanged: (patch: { isFavorite?: boolean; isPinned?: boolean }) => void;
   /** Closes the drawer on the item that was just deleted. */
   onDeleted: () => void;
 }
@@ -47,6 +49,7 @@ export function ItemDrawer({
   open,
   onOpenChange,
   onSaved,
+  onFlagsChanged,
   onDeleted,
 }: ItemDrawerProps) {
   // Which item edit mode was entered on, rather than a bare boolean: clicking a
@@ -107,10 +110,15 @@ export function ItemDrawer({
               <ItemDrawerActions
                 itemId={summary.id}
                 title={summary.title}
-                isFavorite={detail?.isFavorite ?? summary.isFavorite}
-                isPinned={detail?.isPinned ?? summary.isPinned}
+                // Both flags come from the summary rather than the detail: the
+                // provider patches it on every toggle, so a change made while
+                // the detail fetch is still in flight is not overwritten by the
+                // older value that response carries.
+                isFavorite={summary.isFavorite}
+                isPinned={summary.isPinned}
                 detail={detail}
                 onEdit={() => setEditingId(summary.id)}
+                onFlagsChanged={onFlagsChanged}
                 onDeleted={handleDeleted}
               />
             </SheetHeader>

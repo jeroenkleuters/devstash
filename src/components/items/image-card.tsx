@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Pin, Star } from "lucide-react";
 
+import { ItemFlagButton } from "@/components/items/item-flag-button";
 import { useItemDrawer } from "@/components/items/item-drawer-provider";
 import { TYPE_ICONS } from "@/constants/item-types";
 import type { ItemSummary } from "@/lib/db/items";
@@ -58,17 +58,18 @@ export function ImageCard({ item }: ImageCardProps) {
       <div className="image-card-body">
         <h3 className="image-card-title">
           {item.title}
-          {item.isPinned && (
-            <Pin className="item-card-flag" size={13} aria-hidden />
-          )}
-          {item.isFavorite && (
-            <Star
-              className="item-card-flag item-card-star"
-              size={13}
-              fill="currentColor"
-              aria-hidden
-            />
-          )}
+          <ItemFlagButton
+            itemId={item.id}
+            title={item.title}
+            flag="pin"
+            active={item.isPinned}
+          />
+          <ItemFlagButton
+            itemId={item.id}
+            title={item.title}
+            flag="favorite"
+            active={item.isFavorite}
+          />
         </h3>
 
         <time className="image-card-date" dateTime={item.updatedAt.toISOString()}>

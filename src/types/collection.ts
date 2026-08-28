@@ -41,3 +41,11 @@ export type UpdateCollectionResult =
 export type DeleteCollectionResult =
   | { success: true }
   | { success: false; error: string };
+
+/**
+ * What `setCollectionFavorite` in `src/actions/collections.ts` answers with.
+ * No `data` half, for the reason `SetItemFlagResult` gives.
+ */
+export type SetCollectionFavoriteResult =
+  | { success: true }
+  | { success: false; error: string };

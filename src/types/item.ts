@@ -67,3 +67,12 @@ export type UpdateItemResult =
 export type DeleteItemResult =
   | { success: true }
   | { success: false; error: string };
+
+/**
+ * What `setItemFavorite` and `setItemPinned` in `src/actions/items.ts` answer
+ * with. No `data` half: the caller asked for a value and already knows it, so
+ * the only thing left to say is whether it stuck.
+ */
+export type SetItemFlagResult =
+  | { success: true }
+  | { success: false; error: string };

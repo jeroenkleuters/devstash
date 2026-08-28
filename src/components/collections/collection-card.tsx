@@ -31,6 +31,7 @@ export function CollectionCard({ collection }: CollectionCardProps) {
           name: collection.name,
           description: collection.description,
         }}
+        isFavorite={collection.isFavorite}
       />
 
       <h3 className="collection-card-name">

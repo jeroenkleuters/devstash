@@ -1,8 +1,7 @@
 "use client";
 
-import { Pin, Star } from "lucide-react";
-
 import { ItemCopyButton } from "@/components/items/item-copy-button";
+import { ItemFlagButton } from "@/components/items/item-flag-button";
 import { useItemDrawer } from "@/components/items/item-drawer-provider";
 import { isCopyableType, TYPE_ICONS } from "@/constants/item-types";
 import type { ItemSummary } from "@/lib/db/items";
@@ -36,17 +35,18 @@ export function ItemCard({ item }: ItemCardProps) {
       <div className="item-card-body">
         <h3 className="item-card-title">
           {item.title}
-          {item.isPinned && (
-            <Pin className="item-card-flag" size={13} aria-hidden />
-          )}
-          {item.isFavorite && (
-            <Star
-              className="item-card-flag item-card-star"
-              size={13}
-              fill="currentColor"
-              aria-hidden
-            />
-          )}
+          <ItemFlagButton
+            itemId={item.id}
+            title={item.title}
+            flag="pin"
+            active={item.isPinned}
+          />
+          <ItemFlagButton
+            itemId={item.id}
+            title={item.title}
+            flag="favorite"
+            active={item.isFavorite}
+          />
         </h3>
         <p className="item-card-description">{item.description}</p>
 

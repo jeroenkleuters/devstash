@@ -4,20 +4,19 @@ import { Pencil, Star, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { setCollectionFavorite } from "@/actions/collections";
 import { CollectionDeleteDialog } from "@/components/collections/collection-delete-dialog";
 import { CollectionEditDialog } from "@/components/collections/collection-edit-dialog";
 import type { CollectionFormCollection } from "@/components/collections/collection-form";
 import { Button } from "@/components/ui/button";
-
-/** Favorite renders for the layout and says why it is inert, as the drawer's does. */
-const SOON = "Coming soon";
+import { useFlagToggle } from "@/hooks/use-flag-toggle";
 
 interface CollectionActionsProps {
   collection: CollectionFormCollection;
   /**
-   * Reflected on the Favorite button, which stays inert — the toggle is its own
-   * feature. Separate from `collection` rather than widening it: that shape is
-   * what the edit dialog's form reads, and the form has no favorite field.
+   * The Favorite button's starting state. Separate from `collection` rather
+   * than widening it: that shape is what the edit dialog's form reads, and the
+   * form has no favorite field.
    */
   isFavorite: boolean;
 }
@@ -36,19 +35,22 @@ export function CollectionActions({
   const [deleting, setDeleting] = useState(false);
   const router = useRouter();
 
+  const favorite = useFlagToggle(isFavorite, (next) =>
+    setCollectionFavorite(collection.id, next),
+  );
+
   return (
     <div className="collection-actions">
-      {/* Still inert, but no longer blind to the state it names: a favorited
-          collection shows the button selected, as the drawer's does. */}
+      {/* A toggle button, so it carries `aria-pressed` and shows selected
+          rather than changing its label. */}
       <Button
         variant="outline"
         className="collection-favorite"
-        data-active={isFavorite}
-        aria-pressed={isFavorite}
-        disabled
-        title={SOON}
+        data-active={favorite.active}
+        aria-pressed={favorite.active}
+        onClick={favorite.toggle}
       >
-        <Star aria-hidden fill={isFavorite ? "currentColor" : "none"} />
+        <Star aria-hidden fill={favorite.active ? "currentColor" : "none"} />
         <span className="action-label">Favorite</span>
       </Button>
 

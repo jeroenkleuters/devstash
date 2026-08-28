@@ -1,7 +1,8 @@
 "use client";
 
-import { Download, File, Pin, Star } from "lucide-react";
+import { Download, File } from "lucide-react";
 
+import { ItemFlagButton } from "@/components/items/item-flag-button";
 import { useItemDrawer } from "@/components/items/item-drawer-provider";
 import { FILE_ICONS } from "@/constants/item-types";
 import type { FileItemSummary } from "@/lib/db/items";
@@ -49,17 +50,18 @@ export function FileRow({ item }: FileRowProps) {
               flex row, and a bare text node in one is an anonymous item, which
               `text-overflow` does not reach. */}
           <span className="file-row-name-text">{name}</span>
-          {item.isPinned && (
-            <Pin className="item-card-flag" size={13} aria-hidden />
-          )}
-          {item.isFavorite && (
-            <Star
-              className="item-card-flag item-card-star"
-              size={13}
-              fill="currentColor"
-              aria-hidden
-            />
-          )}
+          <ItemFlagButton
+            itemId={item.id}
+            title={name}
+            flag="pin"
+            active={item.isPinned}
+          />
+          <ItemFlagButton
+            itemId={item.id}
+            title={name}
+            flag="favorite"
+            active={item.isFavorite}
+          />
         </h3>
 
         {subtitle && <p className="file-row-subtitle">{subtitle}</p>}
