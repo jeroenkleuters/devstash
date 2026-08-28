@@ -1,12 +1,62 @@
-# Current Feature
+# Current Feature: Upload limits as a settings card
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
+- A third card on `/settings`, beside Account and Editor, holding the upload
+  rate limit: how many uploads an account may authorise, and over what window.
+- `UPLOAD_LIMIT` (30) and `UPLOAD_WINDOW_MS` (15 min) in
+  `src/app/api/upload/route.ts` stay where they are and become the **defaults** —
+  what an account gets before it has ever touched the card, and what an
+  unreadable stored value falls back to.
+- The stored values are what `POST /api/upload` actually enforces, read
+  server-side in the route rather than trusted from the client.
+- Saving follows the editor-preferences pattern exactly: a `Json` column on
+  `User`, a strict write schema, a lenient field-by-field read, and a server
+  action returning the usual `{ success, error }`.
+- Changing a setting takes effect on the next upload with no restart.
+
 ## Notes
+
+- **The concern to settle before implementing.** This limit is not a
+  convenience setting like font size — it is the guard that stops *this account*
+  filling the R2 bucket, which the app has no quota for. The comment on it in
+  `route.ts` says so. Letting the account raise its own ceiling means the limit
+  only ever binds someone who chooses to be bound; a user wanting 500 uploads
+  in 15 minutes sets 500. That may be exactly right for a single-user stash you
+  own, and wrong the moment DevStash has paying strangers on it.
+- **Two readings, and the choice changes the work:**
+  1. *As asked* — the stored number is the limit, unbounded. Simplest, and the
+     rate limiting becomes advisory.
+  2. *Bounded* — the card offers a choice from a fixed set, with the offered
+     set itself as the ceiling, applied server-side. Keeps the guard meaningful,
+     still puts the number in the user's hands, and matches how
+     `editorPreferencesSchema` already refuses a font size the dropdown does not
+     offer. **Chosen at `/feature start`.**
+- Scope is the two constants in `route.ts`. `MAX_UPLOAD_BYTES` (100 MB) lives in
+  `src/lib/file-constraints.ts` and is **signed into the presigned URL**, so R2
+  itself enforces it — making that per-account is a different and larger change,
+  and is out of scope unless asked for.
+- Follow the editor-preferences shape throughout: `uploadPreferences Json?` on
+  `User`, `src/lib/validations/upload-preferences.ts` holding the offered
+  values, the strict write schema and a lenient `parseUploadPreferences` that
+  falls back **field by field** so one bad value costs one preference; a
+  `src/actions/upload-preferences.ts` action; a `SettingsUpload` card built from
+  the existing `.settings-row` shape.
+- **Unlike editor preferences, nothing here reaches the browser.** Those are
+  read in `AppShell` and handed to Monaco through a provider; this is read
+  inside the upload route. `getCurrentUser` is `cache()`d, so the route can read
+  the row without adding a query per request — but the route currently calls
+  `getCurrentUserId`, so which helper it uses needs a look.
+- **This one needs a migration** (`npm run db:migrate`), the first since the
+  editor-preferences column.
+- Decided: **both** constants are configurable, since both were named. Count
+  from a fixed set and window from a fixed set, so the worst case an account can
+  ask for is the largest count over the shortest window — a stated ceiling
+  rather than an open one.
 
 ## History
 

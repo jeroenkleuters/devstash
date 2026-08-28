@@ -7,6 +7,10 @@ import {
   parseEditorPreferences,
   type EditorPreferences,
 } from "@/lib/validations/editor-preferences";
+import {
+  parseUploadPreferences,
+  type UploadPreferences,
+} from "@/lib/validations/upload-preferences";
 
 /** The account details the sidebar and the profile page show. */
 export interface CurrentUser {
@@ -27,6 +31,13 @@ export interface CurrentUser {
    * already being made — see `AppShell`.
    */
   editorPreferences: EditorPreferences;
+  /**
+   * The account's upload rate limit, already read out of the JSON column. The
+   * upload route reads it from here rather than making its own query — this one
+   * is `cache`d, so it costs nothing extra on a request that has already
+   * resolved the user.
+   */
+  uploadPreferences: UploadPreferences;
 }
 
 /**
@@ -62,6 +73,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
       createdAt: true,
       passwordHash: true,
       editorPreferences: true,
+      uploadPreferences: true,
     },
   });
 
@@ -69,7 +81,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     return null;
   }
 
-  const { passwordHash, editorPreferences, ...rest } = user;
+  const { passwordHash, editorPreferences, uploadPreferences, ...rest } = user;
 
   // Both null for an account that signs in with GitHub, so it always matches.
   // A token minted before fingerprints existed carries none and is rejected,
@@ -83,6 +95,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     ...rest,
     hasPassword: passwordHash !== null,
     editorPreferences: parseEditorPreferences(editorPreferences),
+    uploadPreferences: parseUploadPreferences(uploadPreferences),
   };
 });
 
@@ -108,6 +121,25 @@ export async function updateEditorPreferences(
   const { count } = await prisma.user.updateMany({
     where: { id: userId },
     data: { editorPreferences: preferences },
+  });
+
+  return count > 0;
+}
+
+/**
+ * Replaces the account's upload rate limit.
+ *
+ * Takes the whole set for the reason `updateEditorPreferences` does: merging a
+ * partial one into whatever the column happens to hold would make the result
+ * depend on what was stored rather than on what was sent.
+ */
+export async function updateUploadPreferences(
+  userId: string,
+  preferences: UploadPreferences,
+): Promise<boolean> {
+  const { count } = await prisma.user.updateMany({
+    where: { id: userId },
+    data: { uploadPreferences: preferences },
   });
 
   return count > 0;

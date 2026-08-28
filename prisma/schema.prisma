@@ -76,6 +76,10 @@ model User {
   // new preference is then a schema change rather than a migration.
   editorPreferences Json?
 
+  // Upload rate limit overrides, shaped by `uploadPreferencesSchema`. Same
+  // reasoning as above, and null means the account has never changed them.
+  uploadPreferences Json?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
