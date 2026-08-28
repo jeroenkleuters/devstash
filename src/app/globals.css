@@ -1886,6 +1886,116 @@ a.pagination-page:hover {
   color: var(--muted-foreground);
 }
 
+/* ---------- Bulk file drop (the file and image listings) ---------- */
+
+/* Positions the overlay, which covers the listing rather than the whole page. */
+.item-drop-zone {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.item-drop-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  padding: 1rem;
+  border: 2px dashed var(--type-color, var(--ring));
+  border-radius: var(--radius-lg);
+  background: color-mix(in oklch, var(--background) 88%, var(--type-color, var(--ring)));
+  color: var(--muted-foreground);
+  text-align: center;
+}
+
+.item-drop-overlay-label {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--foreground);
+}
+
+.item-drop-overlay-hint {
+  font-size: 0.75rem;
+}
+
+.item-drop-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+}
+
+.item-drop-progress-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.item-drop-progress-head h2 {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.item-drop-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  list-style: none;
+}
+
+.item-drop-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  font-size: 0.8125rem;
+  color: var(--muted-foreground);
+}
+
+.item-drop-row svg {
+  flex-shrink: 0;
+}
+
+.item-drop-row[data-status="done"] svg {
+  color: var(--type-link);
+}
+
+.item-drop-row[data-status="failed"] svg {
+  color: var(--destructive);
+}
+
+/* Wins the row, so a long name truncates rather than pushing the note out. */
+.item-drop-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--foreground);
+}
+
+.item-drop-note {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.item-drop-row[data-status="failed"] .item-drop-note {
+  color: var(--destructive);
+  /* The reason can be a sentence, so it is the half that wraps. */
+  flex-shrink: 1;
+  white-space: normal;
+  text-align: right;
+}
+
 .item-type-option:has(:checked) {
   border-color: var(--type-color);
   background: color-mix(in oklch, var(--type-color) 12%, transparent);
