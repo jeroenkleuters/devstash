@@ -1,12 +1,28 @@
-# Current Feature
+# Current Feature: Favorites Page Sorting
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
+- A sort control on `/favorites`, applying to both panels.
+- Sorting is **client-side** — no new query, no round trip, no `?sort=` navigation.
+- **Items** sort by **Date**, **Name (A–Z)**, **Name (Z–A)** or **Item type**.
+- **Collections** sort by **Date** (`updatedAt`), **Name (A–Z)** or **Name (Z–A)** — a collection has no item type, so that option does not apply to them.
+- Name sorts case-insensitively and stably in both directions; date sorts newest first, which is today's default order.
+- Section order (Items above Collections), the counts, the empty state and the "empty section is omitted" rule are all unchanged.
+
 ## Notes
+
+- The page (`src/app/favorites/page.tsx`) is currently an async server component that awaits `getFavoriteItems` and `getFavoriteCollections` and maps the rows inline. Client-side sorting means the two lists have to reach a `"use client"` component holding the sort state. `FavoriteItemRow` is already a client component; `FavoriteCollectionRow` and `FavoriteSection` are server components and would move.
+- **Collections sort on `updatedAt`, not `createdAt`** — decided at load. `CollectionSummary` already carries `updatedAt` and the row already displays it, so the sort order matches the dates on screen and the shared `cache()`d `collectionSelect` (which the sidebar, dashboard grid, stat cards and `/collections` all narrow) needs no extra column. `createdAt` would have been the truer reading of "creation date" but would sort on one date while showing another.
+- Since the two panels offer different option sets, the control is **per section** rather than one control for the page — otherwise "Item type" has to be disabled or ignored while collections are showing.
+- `updatedAt` is not "most recently favorited" — there is no such column, and starring an item moves `updatedAt` as a side effect of the write. Any `updatedAt` sort inherits that, as the current default already does.
+- Both dates arrive as `Date` objects here (unlike the drawer's ISO strings), so comparison is direct.
+- The comparators are pure and belong in `src/lib/` so Vitest collects them (`include` is `src/lib/**` and `src/actions/**` only); the component holding the state will not be covered.
+- No new dependency and no ShadCN primitive expected — no `select` primitive is installed, and the editor-preferences card sets the precedent of a native `<select>` styled in `globals.css`. A segmented row of buttons is the alternative; decide at `/feature start`.
+- No migration, and no query change at all — both lists already carry every field the comparators need.
 
 ## History
 

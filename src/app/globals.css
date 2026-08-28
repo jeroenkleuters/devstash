@@ -1253,8 +1253,16 @@ body {
   margin-top: 2rem;
 }
 
-.favorite-section-title {
+/* The label and its sort control on one line, with the control right-aligned. */
+.favorite-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
   margin-bottom: 0.625rem;
+}
+
+.favorite-section-title {
   font-size: 0.75rem;
   font-weight: 500;
   letter-spacing: 0.08em;
@@ -1264,6 +1272,27 @@ body {
 
 .favorite-section-count {
   letter-spacing: normal;
+}
+
+/* A native select, as `.settings-select` is, sized down to sit inside a section
+   header without pushing the label's line height around. */
+.favorite-sort-select {
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--background);
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+}
+
+.favorite-sort-select:hover {
+  color: var(--foreground);
+  border-color: var(--muted-foreground);
+}
+
+.favorite-sort-select:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
 }
 
 /* One surface holding every row, so the rows are separated by a line rather

@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 interface FavoriteSectionProps {
   title: string;
   count: number;
+  /** The section's sort control, rendered opposite the label. */
+  action?: ReactNode;
   children: ReactNode;
 }
 
@@ -17,13 +19,18 @@ interface FavoriteSectionProps {
 export function FavoriteSection({
   title,
   count,
+  action,
   children,
 }: FavoriteSectionProps) {
   return (
     <section className="favorite-section">
-      <h2 className="favorite-section-title">
-        {title} <span className="favorite-section-count">({count})</span>
-      </h2>
+      <div className="favorite-section-header">
+        <h2 className="favorite-section-title">
+          {title} <span className="favorite-section-count">({count})</span>
+        </h2>
+
+        {action}
+      </div>
 
       <ul className="favorite-list">{children}</ul>
     </section>
