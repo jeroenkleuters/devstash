@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getCurrentUserId } from "@/lib/db/user";
+import { getCurrentUser } from "@/lib/db/user";
 import { uploadContentType, validateUpload } from "@/lib/file-constraints";
 import { objectKey, presignPut } from "@/lib/r2";
 import { rateLimit, tooManyAttemptsResponse } from "@/lib/rate-limit";
@@ -12,12 +12,20 @@ import { presignUploadSchema } from "@/lib/validations/item";
 export const dynamic = "force-dynamic";
 
 /**
- * Sized against storage rather than against guessing: every authorised call can
- * put an object in the bucket that nothing else deletes, and the app has no
- * quota of its own.
+ * The limit this route applies, and why there is one: sized against storage
+ * rather than against guessing, since every authorised call can put an object
+ * in the bucket that nothing else deletes and the app has no quota of its own.
+ *
+ * The numbers are no longer written here. They are the *defaults* now — 30 in
+ * 15 minutes, in `DEFAULT_UPLOAD_PREFERENCES` — because an account can raise
+ * them on the settings page, and stating them in two places would let this
+ * route and that card disagree. What is still decided here is that the limit is
+ * applied at all, and that it is keyed on the account.
+ *
+ * The ceiling is not here either, and deliberately so: `uploadPreferencesSchema`
+ * accepts only the counts and windows the card offers, on the way in and again
+ * on the way out, so nothing this route reads can exceed what the app offered.
  */
-const UPLOAD_LIMIT = 30;
-const UPLOAD_WINDOW_MS = 15 * 60 * 1000;
 
 /**
  * Authorises one upload and answers with a URL the browser PUTs the file to
@@ -49,19 +57,22 @@ const UPLOAD_WINDOW_MS = 15 * 60 * 1000;
  * orphan can now be 100 MB.
  */
 export async function POST(request: Request) {
-  const userId = await getCurrentUserId();
+  // The whole row rather than the id alone: the account's own limit is on it,
+  // and `getCurrentUser` is `cache`d, so this is the same one query either way.
+  const user = await getCurrentUser();
 
-  if (!userId) {
+  if (!user) {
     return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   }
 
+  // Whatever the account chose, or the defaults above. Read through
+  // `parseUploadPreferences`, which refuses anything outside the offered set —
+  // so a value written around the app cannot raise the ceiling either.
+  const { limit: uploadLimit, windowMs } = user.uploadPreferences;
+
   // Keyed on the account rather than the caller: it is this user's storage
   // being spent, and they are already known by the time we get here.
-  const limit = await rateLimit(
-    `upload:${userId}`,
-    UPLOAD_LIMIT,
-    UPLOAD_WINDOW_MS,
-  );
+  const limit = await rateLimit(`upload:${user.id}`, uploadLimit, windowMs);
 
   if (!limit.success) {
     return tooManyAttemptsResponse(limit);
@@ -98,7 +109,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: problem }, { status: 400 });
   }
 
-  const key = objectKey(userId, name);
+  const key = objectKey(user.id, name);
   // From the extension, not from what the browser reported — see
   // `uploadContentType`. Signed into the URL, so the object cannot be stored as
   // anything else, and returned so the caller knows what header to send.
