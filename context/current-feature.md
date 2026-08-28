@@ -1,12 +1,45 @@
-# Current Feature
+# Current Feature — Homepage Mockup
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
+- A standalone marketing homepage prototype in `prototypes/homepage/` — `index.html`, `styles.css`, `script.js`. Plain static files, not part of the Next.js app.
+- Hero built around the "chaos to order" idea: a chaos container on the left ("Your knowledge today..."), a pulsing transform arrow in the middle, a simplified dashboard preview on the right ("...with DevStash").
+- The chaos container holds 8 floating icons (Notion, GitHub, Slack, VS Code, browser tabs, terminal, text file, bookmark) animated with `requestAnimationFrame`: drift, bounce off walls, subtle rotation and scale pulsing, and repel from the mouse cursor.
+- Dashboard preview shows a mock sidebar plus a grid of item cards with colored top borders drawn from the item type palette.
+- Fixed navigation (logo, Features / Pricing, Sign In / Get Started) that becomes more opaque on scroll.
+- Hero text above the visual: "Stop Losing Your Developer Knowledge" with gradient text, a subheadline about scattered knowledge, and CTA buttons.
+- Features section: 6 cards (Code Snippets, AI Prompts, Instant Search, Commands, Files & Docs, Collections), each using its item type accent color.
+- AI section: two columns — "Pro Feature" badge plus a checklist of AI capabilities on the left, a code editor mockup demoing "AI Generated Tags" on the right.
+- Pricing: Free ($0, 50 items, 3 collections) against Pro ($8/mo), Pro highlighted with a "Most Popular" badge, plus a monthly/yearly toggle showing the $72/yr option.
+- Closing CTA ("Ready to Organize Your Knowledge?") and a footer with logo, link columns and a copyright carrying the current year.
+- Scroll-triggered fade-in on sections; CSS pulse on the arrow.
+- Responsive: chaos / arrow / dashboard stack vertically on mobile with the arrow rotated 90° to point down; grids collapse to a single column.
+
 ## Notes
+
+- **This is a prototype, outside the app.** Static HTML/CSS/JS in `prototypes/homepage/`, so none of the project's usual rules apply to it: no Next.js, no React, no ShadCN, no Prisma, no `@/*` alias, and Tailwind's "no utility classes in markup" rule is irrelevant since Tailwind is not involved. Nothing in `src/` changes and there is nothing for Vitest to collect.
+- **Decision: the mockup matches the app, not the spec's palette.** The spec asked for Prompt amber / Command cyan / Note green / File slate / URL indigo; the app's own values win instead, copied from `src/app/globals.css`:
+
+  | Type | Value |
+  |---|---|
+  | Snippet | `#3b82f6` |
+  | Prompt | `#8b5cf6` |
+  | Command | `#f97316` |
+  | Note | `#fde047` |
+  | File | `#6b7280` |
+  | Image | `#ec4899` |
+  | Link | `#10b981` |
+
+  The spec's seventh type is called "URL" — the app calls it **Link**, and that name is used.
+- **Surfaces match too.** The dark theme tokens are lifted from the `.dark` block in `globals.css` (`--background: oklch(0.145 0 0)`, `--card: oklch(0.205 0 0)`, `--muted: oklch(0.269 0 0)`, `--muted-foreground: oklch(0.708 0 0)`, `--border: oklch(1 0 0 / 10%)`), so the dashboard preview reads as the real dashboard rather than as a generic dark mockup. Declared as plain custom properties on `:root` in `styles.css`, mirroring the app's naming.
+- Icons: the app uses lucide-react, which is not available here and, per the auth phase 3 entry, dropped its brand icons in v1 — so Notion / GitHub / Slack / VS Code marks need inline SVG (the `github-mark.tsx` precedent), as do the lucide type icons (`Code`, `Sparkles`, `Terminal`, `StickyNote`, `File`, `Image`, `Link`), traced by hand from the same set the app uses.
+- No build step, no dependency install, no CDN — the page should open directly from the filesystem.
+- The animation loop should honour `prefers-reduced-motion`, which the rest of the project does consistently.
+- Copy, prices and limits come from project overview §8: Free 50 items / 3 collections, Pro $8/mo or $72/yr.
 
 ## History
 
