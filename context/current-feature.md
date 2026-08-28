@@ -1,12 +1,55 @@
-# Current Feature
+# Current Feature: File & image create — no description, title from the filename
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
+- The create dialog shows **no Description field** for the File and Image types. Every other type keeps it.
+- Choosing a file in the create dialog **fills the Title** from the original filename: extension removed, and every run of underscores/dashes collapsed to a single space.
+- The generated title is a starting point, not a lock — it stays editable, and a title the user has already typed is not overwritten.
+- Nothing else about the create flow changes: the upload, the schema, the action and the stored row are untouched.
+
 ## Notes
+
+Loaded inline, not from a spec file.
+
+**Where the description field lives.** `ItemFormFields` in
+`src/components/items/item-form-fields.tsx` is shared by the create dialog and
+the drawer's edit mode, and it renders Title / Description / payload / Language
+/ Tags / Collections for every type. Hiding Description for the two upload types
+is a change there (gated on the type, the way Content, URL and Language already
+are), which means the **drawer's edit mode is affected too** unless it is gated
+per form. Decide at `/feature start`:
+
+- gate on the type, so a file item has no description anywhere (simplest, and
+  keeps create and edit agreeing); or
+- gate per form, so edit still shows it — which matters only for items that
+  already carry a description, since nothing could set one after this.
+
+Existing rows are not migrated either way: `Item.description` stays in the
+schema, and a file item created before this keeps whatever it holds.
+
+**Where the title generation goes.** `FileUpload` reports the chosen file
+through `onChange(UploadedFile | null)` carrying `{ key, name, size }`, so
+`ItemCreateForm`'s handler is the place with both the filename and the form
+values. The transform is small and pure — strip the extension, collapse
+`[_-]+` to one space, trim, collapse repeated whitespace — so it belongs in
+`src/lib/` where Vitest can reach it (`vitest.config.mts` collects only
+`src/lib/**` and `src/actions/**`), not inline in the component.
+
+Edge cases the transform has to name: a dotfile with no extension
+(`.gitignore`), a name that is all separators, a double extension
+(`archive.tar.gz` — only the last is an extension), and a name that reduces to
+nothing, which must leave the title alone rather than blanking it.
+
+**Do not overwrite a typed title.** Only fill when the title is still empty
+(or still equals the previous file's generated title), so a user who typed a
+name first and picked the file second does not lose it. Clearing the file
+(`onChange(null)`) should not clear the title.
+
+**No migration**, no new dependency, no new ShadCN primitive expected.
 
 ## History
 

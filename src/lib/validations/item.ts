@@ -3,7 +3,7 @@ import { z } from "zod";
 import { creatableType } from "@/constants/item-types";
 
 /** Long enough for a sentence, short enough to stay one line on a card. */
-const TITLE_MAX_LENGTH = 200;
+export const TITLE_MAX_LENGTH = 200;
 const DESCRIPTION_MAX_LENGTH = 500;
 
 /** A syntax-highlighting hint ("typescript"), not free text. */

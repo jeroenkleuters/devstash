@@ -23,6 +23,7 @@ import {
   creatableType,
   uploadKindFor,
 } from "@/constants/item-types";
+import { titleFromFileName } from "@/lib/file-title";
 import { firstIssueMessage } from "@/lib/validations/auth";
 import { createItemSchema } from "@/lib/validations/item";
 
@@ -53,6 +54,11 @@ export function ItemCreateForm({
   );
   const [values, setValues] = useState<ItemFormValues>(EMPTY_ITEM_FORM_VALUES);
   const [file, setFile] = useState<UploadedFile | null>(null);
+  /**
+   * The last title this form wrote from a filename. Kept so a second upload can
+   * replace it, while a title the user typed themselves is never overwritten.
+   */
+  const [generatedTitle, setGeneratedTitle] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const router = useRouter();
@@ -72,6 +78,33 @@ export function ItemCreateForm({
 
   function setCollectionIds(collectionIds: string[]) {
     setValues((current) => ({ ...current, collectionIds }));
+  }
+
+  /**
+   * Takes the upload, and names the item after it.
+   *
+   * The generated title is a starting point rather than a lock: it fills only
+   * an empty title or one this form generated, so picking the file after typing
+   * a name does not lose the name. Clearing the file leaves the title alone —
+   * the words are still the user's, whether or not the file is still attached.
+   */
+  function changeFile(next: UploadedFile | null) {
+    setFile(next);
+
+    if (!next) return;
+
+    const title = titleFromFileName(next.name);
+
+    // Empty for a name that is all separators, or a dotfile whose leading dot
+    // is its whole name — nothing to offer, so nothing is written.
+    if (!title) return;
+
+    setValues((current) =>
+      current.title.trim() === "" || current.title === generatedTitle
+        ? { ...current, title }
+        : current,
+    );
+    setGeneratedTitle(title);
   }
 
   function changeType(slug: string) {
@@ -187,7 +220,7 @@ export function ItemCreateForm({
             <FileUpload
               kind={uploadKind}
               value={file}
-              onChange={setFile}
+              onChange={changeFile}
               disabled={saving}
             />
           </div>
