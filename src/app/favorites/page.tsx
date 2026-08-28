@@ -3,9 +3,7 @@ import { redirect } from "next/navigation";
 import { Star } from "lucide-react";
 
 import { SIGN_IN_PATH } from "@/auth.config";
-import { FavoriteCollectionRow } from "@/components/favorites/favorite-collection-row";
-import { FavoriteItemRow } from "@/components/favorites/favorite-item-row";
-import { FavoriteSection } from "@/components/favorites/favorite-section";
+import { FavoritesList } from "@/components/favorites/favorites-list";
 import { getFavoriteCollections } from "@/lib/db/collections";
 import { getFavoriteItems } from "@/lib/db/items";
 import { getCurrentUser } from "@/lib/db/user";
@@ -23,6 +21,9 @@ export const metadata: Metadata = { title: "Favorites · DevStash" };
  * themselves, so a boundary would wrap the entire page and there would be
  * nothing left to paint ahead of it. The sidebar keeps its own boundary in
  * `AppShell`, so the shell is unaffected.
+ *
+ * The lists themselves are handed to a client component, which is what lets
+ * them be reordered without a round trip.
  */
 export default async function FavoritesPage() {
   const user = await getCurrentUser();
@@ -63,28 +64,7 @@ export default async function FavoritesPage() {
           up here.
         </p>
       ) : (
-        <div className="favorites-sections">
-          {/* A section with nothing in it is left out rather than rendered as
-              an empty panel — the same call `PinnedItemsSection` makes. */}
-          {items.length > 0 && (
-            <FavoriteSection title="Items" count={items.length}>
-              {items.map((item) => (
-                <FavoriteItemRow key={item.id} item={item} />
-              ))}
-            </FavoriteSection>
-          )}
-
-          {collections.length > 0 && (
-            <FavoriteSection title="Collections" count={collections.length}>
-              {collections.map((collection) => (
-                <FavoriteCollectionRow
-                  key={collection.id}
-                  collection={collection}
-                />
-              ))}
-            </FavoriteSection>
-          )}
-        </div>
+        <FavoritesList items={items} collections={collections} />
       )}
     </>
   );
