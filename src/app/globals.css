@@ -3086,35 +3086,15 @@ a.pagination-page:hover {
 
 /* ---------- Auth pages ---------- */
 
+/* The nav above is fixed and 4rem tall, so the top padding is what keeps a
+   centered card from sliding under it on a short viewport. */
 .auth-shell {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1.5rem;
   min-height: 100dvh;
-  padding: 2rem 1rem;
-}
-
-.auth-brand {
-  display: flex;
-  align-items: center;
-  gap: 0.625rem;
-  font-size: 1.125rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  color: inherit;
-  text-decoration: none;
-}
-
-.auth-brand-mark {
-  display: grid;
-  place-items: center;
-  width: 2.25rem;
-  height: 2.25rem;
-  border-radius: var(--radius-md);
-  background: linear-gradient(135deg, var(--type-snippet), var(--type-prompt));
-  color: #fff;
+  padding: 6rem 1rem 2rem;
 }
 
 .auth-card {
