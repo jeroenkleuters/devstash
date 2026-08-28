@@ -105,6 +105,7 @@ export default async function CollectionPage({
             name: collection.name,
             description: collection.description,
           }}
+          isFavorite={collection.isFavorite}
         />
       </div>
 

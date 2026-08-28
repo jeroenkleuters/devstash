@@ -32,5 +32,7 @@ export const config = {
     "/items/:path*",
     "/collections",
     "/collections/:path*",
+    "/favorites",
+    "/favorites/:path*",
   ],
 };

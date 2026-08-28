@@ -14,6 +14,12 @@ const SOON = "Coming soon";
 
 interface CollectionActionsProps {
   collection: CollectionFormCollection;
+  /**
+   * Reflected on the Favorite button, which stays inert — the toggle is its own
+   * feature. Separate from `collection` rather than widening it: that shape is
+   * what the edit dialog's form reads, and the form has no favorite field.
+   */
+  isFavorite: boolean;
 }
 
 /**
@@ -22,15 +28,27 @@ interface CollectionActionsProps {
  * It owns both dialogs' open state rather than letting them carry triggers, so
  * this and the card's dropdown menu drive the same two components the same way.
  */
-export function CollectionActions({ collection }: CollectionActionsProps) {
+export function CollectionActions({
+  collection,
+  isFavorite,
+}: CollectionActionsProps) {
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const router = useRouter();
 
   return (
     <div className="collection-actions">
-      <Button variant="outline" disabled title={SOON}>
-        <Star aria-hidden />
+      {/* Still inert, but no longer blind to the state it names: a favorited
+          collection shows the button selected, as the drawer's does. */}
+      <Button
+        variant="outline"
+        className="collection-favorite"
+        data-active={isFavorite}
+        aria-pressed={isFavorite}
+        disabled
+        title={SOON}
+      >
+        <Star aria-hidden fill={isFavorite ? "currentColor" : "none"} />
         <span className="action-label">Favorite</span>
       </Button>
 

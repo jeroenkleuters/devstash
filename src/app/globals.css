@@ -545,6 +545,7 @@ body {
 }
 
 .stat-card {
+  position: relative;
   display: grid;
   grid-template-columns: auto 1fr;
   gap: 0 0.875rem;
@@ -569,6 +570,28 @@ body {
 .stat-card[data-stat="favorite-items"],
 .stat-card[data-stat="favorite-collections"] {
   --stat-color: var(--type-favorite);
+}
+
+/* Only the favorites card carries one — the others have no listing to open. */
+.stat-card-open {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  cursor: pointer;
+}
+
+/* Stated through `:has` for the reason the cards' and rows' rules are: the
+   state belongs to the card, not to the transparent link over its text — and
+   the skeleton, which has no link inside, never looks interactive. */
+.stat-card:has(.stat-card-open:hover) {
+  border-color: color-mix(in oklch, var(--stat-color) 45%, var(--border));
+  background: color-mix(in oklch, var(--stat-color) 5%, var(--card));
+}
+
+.stat-card:has(.stat-card-open:focus-visible) {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
 }
 
 .stat-card-icon {
@@ -1151,6 +1174,147 @@ body {
   }
 }
 
+/* ---------- Favorites ----------
+   A dense scan list rather than the cards the rest of the app uses: one panel
+   per section, rows divided by hairlines. The type font stays the app's own —
+   only the density changes. */
+
+.favorites-title {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.favorites-title-star {
+  color: var(--type-favorite);
+}
+
+.favorites-title-count {
+  font-size: 1.25rem;
+  font-weight: 400;
+  color: var(--muted-foreground);
+}
+
+.favorites-empty {
+  margin-top: 2rem;
+  color: var(--muted-foreground);
+}
+
+.favorites-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  margin-top: 2rem;
+}
+
+.favorite-section-title {
+  margin-bottom: 0.625rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+.favorite-section-count {
+  letter-spacing: normal;
+}
+
+/* One surface holding every row, so the rows are separated by a line rather
+   than by a gap between cards. */
+.favorite-list {
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  list-style: none;
+}
+
+.favorite-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.875rem;
+  transition: background 0.15s;
+}
+
+.favorite-row + .favorite-row {
+  border-top: 1px solid var(--border);
+}
+
+/* Stated through `:has` for the reason every other row's is: the state belongs
+   to the row, not to the transparent hit target sitting over its text. */
+.favorite-row:has(.item-card-open:hover) {
+  background: var(--muted);
+}
+
+/* Inset, because the panel clips its overflow and an outline drawn outside the
+   first or last row would be cut off. */
+.favorite-row:has(.item-card-open:focus-visible) {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+
+.favorite-row-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 1.125rem;
+  color: var(--type-color);
+}
+
+.favorite-row-title {
+  overflow: hidden;
+  flex: 1;
+  min-width: 0;
+  font-size: 0.875rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.favorite-row-badge {
+  flex-shrink: 0;
+  padding: 0.0625rem 0.5rem;
+  border: 1px solid color-mix(in oklch, var(--type-color) 35%, transparent);
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--type-color) 12%, transparent);
+  font-size: 0.6875rem;
+  color: var(--type-color);
+}
+
+/* A collection has no type of its own, so its count badge carries no color. */
+.favorite-row-badge[data-neutral] {
+  border-color: var(--border);
+  background: var(--muted);
+  color: var(--muted-foreground);
+}
+
+.favorite-row-date {
+  flex-shrink: 0;
+  /* Fixed, so the dates line up down the list instead of tracking their own
+     length — the badges then line up with them. */
+  width: 5.5rem;
+  font-size: 0.75rem;
+  text-align: right;
+  color: var(--muted-foreground);
+}
+
+@media (max-width: 47.99rem) {
+  .favorite-row {
+    gap: 0.5rem;
+    padding: 0.5rem 0.625rem;
+  }
+
+  /* The title already truncates, so the two columns give up their alignment
+     before it gives up any more of the name. */
+  .favorite-row-date {
+    width: auto;
+  }
+}
+
 /* ---------- Pagination ----------
    Under a paginated listing. A step with nowhere to go is a `span` rather than
    a link, which is what `[data-disabled]` styles — greying an anchor would
@@ -1380,6 +1544,18 @@ a.pagination-page:hover {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+/* A favorited collection shows the button selected even though it is still
+   inert. The opacity is lifted back because the primitive dims a disabled
+   button to half, which would leave the state barely readable — `disabled` and
+   the "Coming soon" title are what say it does nothing. Unlayered, so it beats
+   the utilities without `!important`. */
+.collection-favorite[data-active="true"] {
+  border-color: color-mix(in oklch, var(--type-favorite) 40%, var(--border));
+  background: color-mix(in oklch, var(--type-favorite) 10%, transparent);
+  color: var(--type-favorite);
+  opacity: 1;
 }
 
 /* The type icons under a collection page's heading. Reuses the card's icon

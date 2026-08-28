@@ -137,6 +137,23 @@ export async function getSidebarCollections(
   };
 }
 
+/**
+ * Every favorited collection, most recently updated first — the `/favorites`
+ * list.
+ *
+ * A filter over the cached read rather than a query of its own: the sidebar
+ * already runs it on the same request, so this costs nothing, and it is where
+ * `itemCount` comes from without a second lookup. The partition is the same one
+ * `getSidebarCollections` makes.
+ */
+export async function getFavoriteCollections(
+  userId: string,
+): Promise<CollectionSummary[]> {
+  const collections = await getCollections(userId);
+
+  return collections.filter((collection) => collection.isFavorite);
+}
+
 export async function getCollectionStats(
   userId: string,
 ): Promise<CollectionStats> {

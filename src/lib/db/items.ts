@@ -72,6 +72,24 @@ export async function getPinnedItems(userId: string): Promise<ItemSummary[]> {
   return items.map(toSummary);
 }
 
+/**
+ * Every favorited item, most recently updated first — the `/favorites` list.
+ *
+ * `updatedAt` is not when the item was favorited: there is no such column, so
+ * this is last-modified order, which is what the page asks for. Unbounded, like
+ * the pinned list above and for the same reason — a stash has few favorites,
+ * and the page shows them all.
+ */
+export async function getFavoriteItems(userId: string): Promise<ItemSummary[]> {
+  const items = await prisma.item.findMany({
+    where: { userId, isFavorite: true },
+    orderBy: { updatedAt: "desc" },
+    select: itemSelect,
+  });
+
+  return items.map(toSummary);
+}
+
 export async function getRecentItems(
   userId: string,
   limit: number,
