@@ -5,8 +5,13 @@ import {
   sortFavoriteItems,
 } from "@/lib/favorites-sort";
 
-function item(title: string, typeName: string, iso: string) {
-  return { title, type: { name: typeName }, updatedAt: new Date(iso) };
+function item(title: string, typeName: string, iso: string, isPinned = false) {
+  return {
+    title,
+    type: { name: typeName },
+    isPinned,
+    updatedAt: new Date(iso),
+  };
 }
 
 function collection(name: string, iso: string) {
@@ -84,6 +89,39 @@ describe("sortFavoriteItems", () => {
     sortFavoriteItems(items, "name-asc");
 
     expect(items).toEqual(original);
+  });
+
+  describe("pinned items", () => {
+    // "zulu" is last by name, oldest by date and last by type — so it only
+    // leads if the pin outranks the sort itself, in every direction.
+    const withPin = [
+      item("alpha", "Command", "2026-08-09T00:00:00Z"),
+      item("zulu", "Snippet", "2026-08-01T00:00:00Z", true),
+      item("mike", "Note", "2026-08-05T00:00:00Z"),
+    ];
+
+    it.each(["date", "name-asc", "name-desc", "type"] as const)(
+      "puts a pinned item first when sorting by %s",
+      (key) => {
+        expect(sortFavoriteItems(withPin, key)[0].title).toBe("zulu");
+      },
+    );
+
+    it("orders within the pinned block and the rest by the chosen key", () => {
+      const many = [
+        item("beta", "Note", "2026-08-02T00:00:00Z"),
+        item("delta", "Note", "2026-08-04T00:00:00Z", true),
+        item("alpha", "Note", "2026-08-01T00:00:00Z"),
+        item("charlie", "Note", "2026-08-03T00:00:00Z", true),
+      ];
+
+      expect(sortFavoriteItems(many, "name-asc").map((i) => i.title)).toEqual([
+        "charlie",
+        "delta",
+        "alpha",
+        "beta",
+      ]);
+    });
   });
 });
 

@@ -1,12 +1,26 @@
-# Current Feature
+# Current Feature: Pinned Items Sort To Top
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
+- A pinned item appears above unpinned ones in **every** item listing, not just some.
+- Within the pinned block and within the unpinned block, the listing's existing order is unchanged.
+- The two listings that currently ignore the pin are fixed: the dashboard's **Recent items** and the **`/favorites`** items panel.
+- On `/favorites`, pinning survives the client-side sort — changing the sort reorders within the pinned and unpinned blocks rather than mixing them.
+
 ## Notes
+
+- **Most listings already do this.** `getItemsByType`, `getCollectionItems`, `getFileItemsByType` and `searchItems` all order `[{ isPinned: "desc" }, { … }]` already, so the change is narrower than it sounds. Verify rather than rewrite.
+- **The two that do not** are both in `src/lib/db/items.ts`: `getFavoriteItems` (`orderBy: { updatedAt: "desc" }`) and `getRecentItems` (same). Adding `{ isPinned: "desc" }` ahead of the existing key is a one-line change to each, with no select or signature change.
+- `getPinnedItems` is out of scope — every row it returns is pinned.
+- **`/favorites` is the one that needs thought, not just a query change.** Its items panel was made client-sortable in the previous feature, so `sortFavoriteItems` in `src/lib/favorites-sort.ts` decides the final order and would happily interleave a pinned item into the middle of a name sort. **Decided: every item comparator becomes pin-first**, so pinning outranks the sort — a pin the user can see in one order and not another reads as a bug. That is a `byPinned` comparison ahead of each of the four item comparators, plus tests for it. `SortableItem` gains `isPinned`.
+- **Collections have no pin, confirmed.** Only `Item` carries `isPinned`; `Collection` has `isFavorite` alone. The collections panel, `sortFavoriteCollections` and `/collections` are untouched.
+- The dashboard has a **separate Pinned section** above Recent, so a pinned item will appear twice on that page once Recent respects the pin. **Decided: leave it** — the section is a shortcut and Recent is the full list, so an item appearing in both is honest rather than a duplicate.
+- No migration — `isPinned` and its `@@index([userId, isPinned])` have been in the schema since `20260814120000_init`.
+- Testable surface: the comparator change in `src/lib/` is collected by Vitest; the two query changes are `orderBy` arguments, which is Prisma's behaviour rather than ours, though the existing `collection-items.test.ts` sets a precedent for asserting the arguments passed.
 
 ## History
 
