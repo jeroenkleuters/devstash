@@ -14,6 +14,10 @@
   /* Item type colors — the same seven values the app uses. */
   --type-snippet: #3b82f6;
   --type-prompt: #8b5cf6;
+
+  /* Site accent — the snippet blue, not a color of its own. */
+  --accent: var(--type-snippet);
+  --accent-light: #60a5fa;
   --type-command: #f97316;
   --type-note: #fde047;
   --type-file: #6b7280;
@@ -136,7 +140,7 @@ kbd {
 }
 
 .gradient-text {
-  background: linear-gradient(135deg, var(--type-snippet), var(--type-prompt));
+  background: linear-gradient(135deg, var(--accent), var(--accent-light));
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -154,7 +158,7 @@ kbd {
   width: 1.75rem;
   height: 1.75rem;
   border-radius: 0.5rem;
-  background: linear-gradient(135deg, var(--type-snippet), var(--type-prompt));
+  background: linear-gradient(135deg, var(--accent), var(--accent-light));
 }
 
 .brand-mark.small {
@@ -194,12 +198,12 @@ kbd {
 }
 
 .btn-primary {
-  background: var(--foreground);
-  color: var(--background);
+  background: var(--accent);
+  color: #fff;
 }
 
 .btn-primary:hover {
-  background: color-mix(in oklab, var(--foreground) 88%, var(--background));
+  background: color-mix(in oklab, var(--accent) 82%, #fff);
 }
 
 .btn-outline {
@@ -293,7 +297,7 @@ kbd {
   pointer-events: none;
   background:
     radial-gradient(40rem 24rem at 20% 0%, color-mix(in oklab, var(--type-snippet) 14%, transparent), transparent 70%),
-    radial-gradient(36rem 22rem at 82% 12%, color-mix(in oklab, var(--type-prompt) 14%, transparent), transparent 70%);
+    radial-gradient(36rem 22rem at 82% 12%, color-mix(in oklab, var(--accent-light) 14%, transparent), transparent 70%);
 }
 
 .hero .shell {
@@ -403,10 +407,12 @@ kbd {
   left: 0;
   display: grid;
   place-items: center;
-  width: 3rem;
-  height: 3rem;
+  /* 3.75rem = 60px. script.js falls back to this number before layout, so the
+     two have to move together. */
+  width: 3.75rem;
+  height: 3.75rem;
   border: 1px solid var(--border);
-  border-radius: 0.75rem;
+  border-radius: 0.875rem;
   background: var(--card);
   color: var(--muted-foreground);
   box-shadow: 0 4px 16px oklch(0 0 0 / 35%);
@@ -414,8 +420,8 @@ kbd {
 }
 
 .chaos-icon .icon {
-  width: 1.5rem;
-  height: 1.5rem;
+  width: 1.875rem;
+  height: 1.875rem;
 }
 
 .chaos-icon[data-icon="notion"],
@@ -443,7 +449,7 @@ kbd {
   width: 3rem;
   height: 3rem;
   border-radius: 999px;
-  background: linear-gradient(135deg, var(--type-snippet), var(--type-prompt));
+  background: linear-gradient(135deg, var(--accent), var(--accent-light));
   color: var(--background);
   animation: arrow-pulse 2s ease-in-out infinite;
 }
@@ -458,11 +464,11 @@ kbd {
   0%,
   100% {
     transform: scale(1);
-    box-shadow: 0 0 0 0 color-mix(in oklab, var(--type-prompt) 55%, transparent);
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--accent) 55%, transparent);
   }
   50% {
     transform: scale(1.08);
-    box-shadow: 0 0 0 0.875rem color-mix(in oklab, var(--type-prompt) 0%, transparent);
+    box-shadow: 0 0 0 0.875rem color-mix(in oklab, var(--accent) 0%, transparent);
   }
 }
 
@@ -470,7 +476,7 @@ kbd {
 
 .mock {
   display: grid;
-  grid-template-columns: 6.5rem 1fr;
+  grid-template-columns: 7.25rem 1fr;
   height: 20rem;
   border-radius: calc(var(--radius) - 2px);
   background: var(--background);
@@ -502,11 +508,45 @@ kbd {
   align-items: center;
   gap: 0.4375rem;
   color: var(--type-color);
+  min-width: 0;
+}
+
+.mock-nav-row .icon,
+.mock-search .icon {
+  flex-shrink: 0;
 }
 
 .mock-nav-row .icon {
   width: 0.875rem;
   height: 0.875rem;
+}
+
+.mock-label {
+  font-size: 0.5625rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.mock-label.strong {
+  font-weight: 650;
+  color: var(--foreground);
+}
+
+/* A type row and a card already carry their type color; the name inherits it
+   rather than restating each one. */
+.mock-nav-row .mock-label {
+  color: inherit;
+}
+
+.mock-card .mock-label {
+  color: var(--foreground);
+  font-size: 0.5rem;
 }
 
 .mock-bar {
@@ -531,6 +571,7 @@ kbd {
 .mock-search {
   display: flex;
   align-items: center;
+  min-width: 0;
   gap: 0.5rem;
   height: 1.75rem;
   padding: 0 0.5rem;
@@ -598,6 +639,14 @@ kbd {
 
 /* ---------- Features ---------- */
 
+/* Lifted off --background so the band reads as its own section between the
+   hero and the tinted AI section, without competing with that tint. */
+#features {
+  /* No bottom border — the AI section below draws its own top one. */
+  border-top: 1px solid var(--border);
+  background: color-mix(in oklab, var(--card) 60%, var(--background));
+}
+
 .feature-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -648,7 +697,7 @@ kbd {
   border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
   background:
-    radial-gradient(38rem 22rem at 15% 30%, color-mix(in oklab, var(--type-prompt) 10%, transparent), transparent 70%),
+    radial-gradient(38rem 22rem at 15% 30%, color-mix(in oklab, var(--accent) 10%, transparent), transparent 70%),
     var(--background);
 }
 
@@ -665,9 +714,9 @@ kbd {
   gap: 0.4375rem;
   padding: 0.3125rem 0.75rem;
   border-radius: 999px;
-  border: 1px solid color-mix(in oklab, var(--type-prompt) 45%, transparent);
-  background: color-mix(in oklab, var(--type-prompt) 14%, transparent);
-  color: var(--type-prompt);
+  border: 1px solid color-mix(in oklab, var(--accent) 45%, transparent);
+  background: color-mix(in oklab, var(--accent) 14%, transparent);
+  color: var(--accent);
   font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -802,7 +851,7 @@ kbd {
 .editor-tags {
   padding: 0.875rem 1rem 1rem;
   border-top: 1px solid var(--border);
-  background: color-mix(in oklab, var(--type-prompt) 7%, transparent);
+  background: color-mix(in oklab, var(--accent) 7%, transparent);
 }
 
 .tags-label {
@@ -813,7 +862,7 @@ kbd {
   font-weight: 600;
   letter-spacing: 0.03em;
   text-transform: uppercase;
-  color: var(--type-prompt);
+  color: var(--accent);
 }
 
 .tags-label .icon {
@@ -830,9 +879,9 @@ kbd {
 
 .tag {
   padding: 0.1875rem 0.5rem;
-  border: 1px solid color-mix(in oklab, var(--type-prompt) 35%, transparent);
+  border: 1px solid color-mix(in oklab, var(--accent) 35%, transparent);
   border-radius: 999px;
-  background: color-mix(in oklab, var(--type-prompt) 12%, transparent);
+  background: color-mix(in oklab, var(--accent) 12%, transparent);
   font-size: 0.75rem;
   color: var(--foreground);
   opacity: 0;
@@ -912,8 +961,8 @@ kbd {
 }
 
 .switch input:checked + .switch-track {
-  background: var(--type-prompt);
-  border-color: var(--type-prompt);
+  background: var(--accent);
+  border-color: var(--accent);
 }
 
 .switch input:checked + .switch-track::after {
@@ -921,7 +970,7 @@ kbd {
 }
 
 .switch input:focus-visible + .switch-track {
-  outline: 2px solid var(--type-prompt);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
@@ -955,11 +1004,11 @@ kbd {
 }
 
 .price-card.featured {
-  border-color: color-mix(in oklab, var(--type-prompt) 50%, transparent);
+  border-color: color-mix(in oklab, var(--accent) 50%, transparent);
   background:
-    radial-gradient(24rem 16rem at 50% 0%, color-mix(in oklab, var(--type-prompt) 12%, transparent), transparent 70%),
+    radial-gradient(24rem 16rem at 50% 0%, color-mix(in oklab, var(--accent) 12%, transparent), transparent 70%),
     var(--card);
-  box-shadow: 0 0 0 1px color-mix(in oklab, var(--type-prompt) 20%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--accent) 20%, transparent);
 }
 
 .popular {
@@ -969,7 +1018,7 @@ kbd {
   transform: translateX(-50%);
   padding: 0.1875rem 0.75rem;
   border-radius: 999px;
-  background: linear-gradient(135deg, var(--type-snippet), var(--type-prompt));
+  background: linear-gradient(135deg, var(--accent), var(--accent-light));
   color: var(--foreground);
   font-size: 0.75rem;
   font-weight: 600;
@@ -1181,11 +1230,11 @@ kbd {
   0%,
   100% {
     transform: rotate(90deg) scale(1);
-    box-shadow: 0 0 0 0 color-mix(in oklab, var(--type-prompt) 55%, transparent);
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--accent) 55%, transparent);
   }
   50% {
     transform: rotate(90deg) scale(1.08);
-    box-shadow: 0 0 0 0.875rem color-mix(in oklab, var(--type-prompt) 0%, transparent);
+    box-shadow: 0 0 0 0.875rem color-mix(in oklab, var(--accent) 0%, transparent);
   }
 }
 

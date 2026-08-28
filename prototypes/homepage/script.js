@@ -82,9 +82,14 @@
   if (icons.length === 0) return;
 
   var SPEED = 22; // px per second, roughly
-  var REPEL_RADIUS = 130;
-  var REPEL_FORCE = 900;
+  // The cursor nudges the icons aside rather than scattering them: a shorter
+  // reach, a much softer push, and a squared falloff so the force arrives
+  // gradually instead of snapping on at the edge of the radius.
+  var REPEL_RADIUS = 115;
+  var REPEL_FORCE = 800;
   var DRAG = 0.985;
+  var MAX_SPEED = SPEED * 3; // a hard ceiling, so a shove glides rather than darts
+  var ICON_SIZE = 60; // matches .chaos-icon in styles.css, used before layout
 
   var bounds = { width: 0, height: 0 };
   var pointer = { x: -9999, y: -9999, active: false };
@@ -93,7 +98,7 @@
     var angle = (index / icons.length) * Math.PI * 2 + Math.random();
     return {
       el: el,
-      size: 48,
+      size: ICON_SIZE,
       x: 0,
       y: 0,
       vx: Math.cos(angle) * SPEED,
@@ -112,7 +117,7 @@
     bounds.height = rect.height;
 
     particles.forEach(function (p) {
-      p.size = p.el.offsetWidth || 48;
+      p.size = p.el.offsetWidth || ICON_SIZE;
       // Keep everything inside after a resize rather than letting it drift out.
       p.x = Math.min(Math.max(p.x, 0), Math.max(bounds.width - p.size, 0));
       p.y = Math.min(Math.max(p.y, 0), Math.max(bounds.height - p.size, 0));
@@ -192,7 +197,8 @@
         var dy = cy - pointer.y;
         var dist = Math.hypot(dx, dy);
         if (dist < REPEL_RADIUS && dist > 0.01) {
-          var strength = (1 - dist / REPEL_RADIUS) * REPEL_FORCE;
+          var falloff = 1 - dist / REPEL_RADIUS;
+          var strength = falloff * falloff * REPEL_FORCE;
           p.vx += (dx / dist) * strength * dt;
           p.vy += (dy / dist) * strength * dt;
         }
@@ -206,9 +212,11 @@
       if (speed < SPEED * 0.5 && speed > 0.01) {
         p.vx *= 1.02;
         p.vy *= 1.02;
-      } else if (speed > SPEED * 8) {
-        p.vx *= 0.94;
-        p.vy *= 0.94;
+      } else if (speed > MAX_SPEED) {
+        // Scale straight back onto the ceiling rather than easing toward it,
+        // so no single frame can carry an icon across the field.
+        p.vx *= MAX_SPEED / speed;
+        p.vy *= MAX_SPEED / speed;
       }
 
       p.x += p.vx * dt;

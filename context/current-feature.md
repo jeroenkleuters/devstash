@@ -1,12 +1,28 @@
-# Current Feature
+# Current Feature: Homepage prototype polish
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
+- Make the hero's floating chaos icons noticeably bigger (tile and glyph together, so the proportions hold).
+- Soften the cursor repulsion so the icons drift away from the pointer instead of darting — a gentler force and/or a shorter reach, with the field still settling back to its calm base drift.
+- Label the dashboard mockup in the hero: readable section names in place of the anonymous grey bars where a name is what the mockup is trying to convey (the sidebar's type rows and/or the item cards), so a first-time reader sees *what* DevStash organises.
+- Lift the features section off the page background with a slightly lighter surface, so it reads as its own band between the hero and the AI section.
+- Re-key the marketing chrome — headline gradient, primary buttons, links, badges, focus rings, section glows — from the prompt purple (`--type-prompt`, `#8b5cf6`) to the snippet blue (`--type-snippet`, `#3b82f6`).
+
 ## Notes
+
+- Scope is `prototypes/homepage/` only — `index.html`, `styles.css`, `script.js`. Nothing under `src/` changes, so none of the app's rules apply (no Next.js, React, ShadCN, Tailwind or `@/*` alias here). No build step, no dependency.
+- **Purple that means "Prompt" stays purple.** The seven `--type-*` values are copied from the app's `globals.css` and are semantic: the prompt-coloured sidebar row, mock card, feature card and chaos icon all say *this is a Prompt*. Re-keying those to blue would make Snippet and Prompt indistinguishable and break the match with the real dashboard. The change is to the ~20 places purple is used as the site's *accent* (gradients, `.btn-primary`, the pricing toggle, focus outlines, the eyebrow badge, the featured-plan glow), not to the type map.
+- Two of the loaded lines ask for the same thing — bigger hero icons — and are treated as one goal.
+- Icon size lives in two places that must move together: `.chaos-icon` (`3rem` box) and `.chaos-icon .icon` (`1.5rem` glyph) in `styles.css`. `script.js` reads the box off `offsetWidth` with a `48` fallback (lines 96, 115), so that fallback wants updating to match or a first frame before layout will use the old number.
+- Repulsion constants are `REPEL_RADIUS = 130` and `REPEL_FORCE = 900` (`script.js:85-86`), applied as a linear falloff scaled by `dt`. Bigger tiles in a fixed `20rem` field also mean less free space, so the base `SPEED`, the speed clamps and the bounce may want a look once the size lands.
+- Mockup labels are new text inside `.mock-nav-row` / `.mock-card`, which currently hold only `.mock-bar` placeholders — the bars stay wherever they still read as *content*, and are replaced only where a name is the point. Type names should match the app's: Snippet, Prompt, Command, Note, Link, File, Image.
+- The features band is `<section class="section" id="features">` (`index.html:281`); the AI section already carries its own tinted treatment, so the new surface should sit between plain `--background` and that, without fighting it.
+- Verification is Playwright against a static server — the browser blocks the `file:` protocol, so serve the directory (e.g. `python -m http.server`) rather than opening the file. Check computed colours and measured positions rather than eyeballing; a full-page screenshot renders everything below the hero blank because the scroll reveals never fire.
+- `prefers-reduced-motion` already disables the physics loop entirely; the new sizes must still lay out sensibly in that static scatter.
 
 ## History
 
