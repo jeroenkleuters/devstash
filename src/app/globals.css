@@ -94,6 +94,7 @@ body {
   --type-file: #6b7280;
   --type-image: #ec4899;
   --type-link: #10b981;
+  --type-book: #06b6d4;
   --type-favorite: #facc15;
 }
 
@@ -179,6 +180,10 @@ body {
 
 [data-type="links"] {
   --type-color: var(--type-link);
+}
+
+[data-type="books"] {
+  --type-color: var(--type-book);
 }
 
 body {
@@ -2428,6 +2433,13 @@ a.pagination-page:hover {
 }
 
 .item-drawer-file {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* A book shows both payload fields it carries — its cover, then its link. */
+.item-drawer-book {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;

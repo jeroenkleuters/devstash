@@ -1,6 +1,6 @@
 import { cache } from "react";
 
-import { LANGUAGE_TYPE_SLUGS } from "@/constants/item-types";
+import { LANGUAGE_TYPE_SLUGS, isBookType } from "@/constants/item-types";
 import { ITEMS_PER_PAGE } from "@/constants/pagination";
 import type { Prisma } from "@/generated/prisma/client";
 import {
@@ -245,6 +245,7 @@ const itemDetailSelect = {
   fileSize: true,
   fileUrl: true,
   language: true,
+  author: true,
   createdAt: true,
   collections: {
     select: { collection: { select: { id: true, name: true } } },
@@ -369,11 +370,15 @@ export async function createItem(
       title: input.title,
       description: input.description,
       content: type.contentType === "TEXT" ? input.content : null,
-      url: type.contentType === "URL" ? input.url : null,
+      // A book is the one type filling two payload columns: its cover is the
+      // file below, and this is the link beside it.
+      url:
+        type.contentType === "URL" || isBookType(type.slug) ? input.url : null,
       fileUrl: stored?.key ?? null,
       fileName: stored?.name ?? null,
       fileSize: stored?.size ?? null,
       language: LANGUAGE_TYPE_SLUGS.has(type.slug) ? input.language : null,
+      author: isBookType(type.slug) ? input.author : null,
       // The join is an explicit model, so these are rows rather than a
       // `connect` — each one carries its own `addedAt`. The action has already
       // checked every id belongs to this user.
@@ -413,6 +418,9 @@ export async function updateItem(
     where: { id: itemId, userId },
     select: {
       contentType: true,
+      // The slug as well as the content type: a book is `FILE` and still owns a
+      // `url` and an `author`, which the content type alone cannot say.
+      itemType: { select: { slug: true } },
       collections: { select: { collectionId: true } },
     },
   });
@@ -431,6 +439,8 @@ export async function updateItem(
   const removed = [...current].filter((id) => !next.has(id));
   const added = [...next].filter((id) => !current.has(id));
 
+  const isBook = isBookType(existing.itemType.slug);
+
   const item = await prisma.item.update({
     // `userId` narrows a `where` that is already unique, so the row cannot be
     // swapped for another account's between the read above and this write.
@@ -439,8 +449,10 @@ export async function updateItem(
       title: input.title,
       description: input.description,
       language: input.language,
+      author: isBook ? input.author : undefined,
       content: existing.contentType === "TEXT" ? input.content : undefined,
-      url: existing.contentType === "URL" ? input.url : undefined,
+      url:
+        existing.contentType === "URL" || isBook ? input.url : undefined,
       collections: {
         deleteMany: removed.length > 0 ? { collectionId: { in: removed } } : [],
         create: added.map((collectionId) => ({ collectionId })),

@@ -33,6 +33,8 @@ export interface ItemDetail {
   fileUrl: string | null;
   /** Syntax highlighting hint, shown next to the type. */
   language: string | null;
+  /** A book's author. Null for every other type. */
+  author: string | null;
   isFavorite: boolean;
   isPinned: boolean;
   type: ItemTypeSummary;

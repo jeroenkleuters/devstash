@@ -47,6 +47,7 @@ const SYSTEM_ITEM_TYPES = [
   { name: "File", slug: "files", icon: "File", color: "#6b7280" },
   { name: "Image", slug: "images", icon: "Image", color: "#ec4899" },
   { name: "Link", slug: "links", icon: "Link", color: "#10b981" },
+  { name: "Book", slug: "books", icon: "BookOpen", color: "#06b6d4" },
 ];
 
 interface SeedItem {
@@ -331,7 +332,8 @@ CMD ["node", "server.js"]`,
 
 function contentTypeFor(typeSlug: string): ContentType {
   if (typeSlug === "links") return "URL";
-  if (typeSlug === "files" || typeSlug === "images") return "FILE";
+  if (typeSlug === "files" || typeSlug === "images" || typeSlug === "books")
+    return "FILE";
   return "TEXT";
 }
 

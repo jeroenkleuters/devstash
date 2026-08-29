@@ -1,12 +1,122 @@
-# Current Feature
+# Current Feature: Book item type
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
+- An eighth system item type, **Book**, seeded alongside the other seven
+  (`name: "Book"`, `slug: "books"`, a lucide icon, its own colour), with a
+  `--type-book` custom property and a `[data-type="books"]` entry in
+  `globals.css` so a book colour-codes like every other type.
+- A book carries **title**, **summary**, **cover image**, **link** and an
+  optional **author**.
+- Creating a book takes its **title from the uploaded image filename**, exactly
+  as files and images already do.
+- **Books appears in the left navigation** with its per-type item count, in the
+  Types list beside the other seven.
+- **`/items/books` renders the gallery layout** — the same three-column cover
+  grid `/items/images` uses, with its pagination, drag-and-drop upload and empty
+  state.
+- The drawer shows a book — cover, summary, author and link — and edit mode can
+  change everything but the cover.
+
 ## Notes
+
+### Decisions taken (settled at load)
+
+1. **`contentType: FILE`.** The cover is the payload; the link rides along in
+   `url` as a second populated field.
+2. **`summary` maps to the existing `description` column** (optional, 500
+   characters), which the card and drawer already render.
+3. **`author` is one new nullable column on `Item`.** ISBN and rating are **not
+   in scope** — no star overlay on the card, and the gallery card is the
+   existing `ImageCard` unchanged.
+
+### Books break the one-payload-field-per-type rule
+
+`Item` has three mutually exclusive payload columns — `content`, `fileUrl`,
+`url` — and every mechanism assumes exactly one per type:
+
+- `createItem` in `src/lib/db/items.ts` writes `content` for TEXT, `url` for
+  URL and the file fields for FILE, in one branch, from the **resolved** type
+  rather than the request, so a crafted payload cannot store two.
+- `updateItem` reads the **stored** `contentType` and writes only that field.
+- `createItemSchema` refuses a FILE type with no file, and a URL type with no
+  URL.
+- `scripts/test-db.ts` asserts as an integrity rule that **no item carries
+  both** a `content` and a `url`.
+
+Books are `FILE` **and** carry a `url`, so each of those needs a book-aware
+branch: the two write paths must persist `url` for this slug, the create schema
+must require both a cover and a link, and the integrity check must be reworded
+to the pair it actually means. Keep the rule enforced from the resolved type —
+never from the request — so the widening does not become a hole.
+
+### The new column
+
+One migration adding `author String?` to `Item`, following the existing
+`language` precedent: a nullable, type-specific column on the shared model,
+written only for the slug that owns it. `LANGUAGE_TYPE_SLUGS` is the pattern to
+copy — an `isBookType(slug)` predicate in `src/constants/item-types.ts`
+alongside `isCodeType` / `isMarkdownType` / `uploadKindFor`. Free text, trimmed,
+capped like a title, and **dropped for any other type**, the same way `language`
+is for a type that carries none.
+
+### The gallery needs no new components
+
+With the rating gone the card shows nothing `ItemSummary` does not already
+carry, so books reuse `ImageGallery` and `ImageCard` as they stand — no
+`bookItemSelect`, no fourth `ItemsLayout` value, and `itemsLayoutFor` needs no
+book branch: it derives the layout from `uploadKindFor`, which returns `"image"`
+for books and hands them the cover grid already.
+
+Books take the existing `image` upload constraints (extensions, MIME, 100 MB
+cap) rather than a third `UploadKind`.
+
+### What comes for free, and what does not
+
+Free:
+
+- **The whole `/items/books` page** — layout, pagination, skeleton, drop zone
+  and empty state, from the existing image branch.
+- **Sidebar placement** — the Types list is `getItemTypesWithCounts` ordered by
+  `compareItemTypes`, so adding `"books"` to `TYPE_SLUG_ORDER` in
+  `src/lib/db/item-types.ts` is all the nav needs. Last, after Links, unless
+  told otherwise.
+- **Title from filename** — `titleFromFileName` already runs on file choice in
+  `ItemCreateForm` and is not type-gated.
+
+Not free:
+
+- A `--type-book` colour and `[data-type="books"]` block in `globals.css`; a
+  lucide icon in `TYPE_ICONS` (`BookOpen` is the obvious candidate).
+- `SYSTEM_ITEM_TYPES` in `prisma/seed.ts` — the migration is for `author` only;
+  the type row is a seed change, and system types are find-then-write, so
+  re-seeding adds it without touching existing data.
+- The **Description field is hidden for upload types** in `item-form-fields.tsx`
+  (`uploadKindFor(typeSlug) === undefined`), so a book cannot be given a summary
+  until that gate makes an exception for it. The same gate governs where the
+  Author and Link fields appear.
+- The create and edit forms need Author and Link inputs shown for books — the
+  URL field exists but is currently gated to `URL` types only.
+- The drawer body needs a book branch — today a `FILE` item shows only its file
+  and a `URL` item only its link, and a book shows both plus the author.
+- **`PRO_TYPE_SLUGS`**: books carry an image, so the storage argument for gating
+  Files and Images applies, but the request does not mention Pro. Not gated.
+- Tests: the existing cases pinning "a file type is refused for having no file"
+  and the one-payload-field rules in `src/lib/db/items.test.ts` and
+  `src/actions/items.test.ts` need extending, plus new coverage for `author`
+  being written for a book and dropped for anything else.
+
+### Out of scope unless asked
+
+- **ISBN and rating**, and any other book metadata (publisher, page count,
+  series, read status).
+- Sorting or filtering a book list by author.
+- Fetching cover art or metadata from a lookup service.
+- A dedicated book detail page — the drawer stays the detail view.
 
 ## History
 

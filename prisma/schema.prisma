@@ -125,6 +125,7 @@ model Item {
 
   description String?
   language    String? // optional, code syntax highlighting hint
+  author      String? // book only, like language: written for the type that owns it
 
   isFavorite Boolean @default(false)
   isPinned   Boolean @default(false)

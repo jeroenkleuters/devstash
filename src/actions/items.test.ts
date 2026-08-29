@@ -86,6 +86,7 @@ function payload(overrides: Record<string, unknown> = {}) {
     content: "",
     url: "",
     language: "",
+    author: "",
     tags: [] as string[],
     ...overrides,
   };

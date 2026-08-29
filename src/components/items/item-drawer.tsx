@@ -7,6 +7,7 @@ import {
   File as FileIcon,
   Folder,
   Tag,
+  UserRound,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -20,6 +21,7 @@ import type { ItemDetailState } from "@/components/items/item-drawer-provider";
 import { Sheet, SheetContent, SheetHeader } from "@/components/ui/sheet";
 import {
   codeTypeLanguage,
+  isBookType,
   isCodeType,
   isMarkdownType,
   uploadKindFor,
@@ -144,8 +146,20 @@ function ItemDrawerBody({ detail }: { detail: ItemDetail }) {
     <div className="item-drawer-body">
       {detail.description && (
         <section className="item-drawer-section">
-          <h3 className="item-drawer-label">Description</h3>
+          <h3 className="item-drawer-label">
+            {isBookType(detail.type.slug) ? "Summary" : "Description"}
+          </h3>
           <p className="item-drawer-text">{detail.description}</p>
+        </section>
+      )}
+
+      {detail.author && (
+        <section className="item-drawer-section">
+          <h3 className="item-drawer-label">
+            <UserRound size={14} aria-hidden />
+            Author
+          </h3>
+          <p className="item-drawer-text">{detail.author}</p>
         </section>
       )}
 
@@ -203,23 +217,19 @@ function ItemDrawerBody({ detail }: { detail: ItemDetail }) {
 /** The item's payload, shown as whatever its content type makes it. */
 function ItemContent({ detail }: { detail: ItemDetail }) {
   if (detail.contentType === "URL") {
-    return detail.url ? (
-      <a
-        className="item-drawer-url"
-        href={detail.url}
-        target="_blank"
-        rel="noreferrer"
-      >
-        {detail.url}
-        <ExternalLink size={14} aria-hidden />
-      </a>
-    ) : (
-      <p className="item-drawer-empty">No link set.</p>
-    );
+    return <ItemLink url={detail.url} />;
   }
 
   if (detail.contentType === "FILE") {
-    return <ItemFile detail={detail} />;
+    // A book carries both: the cover is its file, and the link sits under it.
+    return isBookType(detail.type.slug) ? (
+      <div className="item-drawer-book">
+        <ItemFile detail={detail} />
+        <ItemLink url={detail.url} />
+      </div>
+    ) : (
+      <ItemFile detail={detail} />
+    );
   }
 
   if (!detail.content) {
@@ -250,8 +260,22 @@ function ItemContent({ detail }: { detail: ItemDetail }) {
   );
 }
 
+/** An item's link, shared by a link item and the link a book carries. */
+function ItemLink({ url }: { url: string | null }) {
+  if (!url) {
+    return <p className="item-drawer-empty">No link set.</p>;
+  }
+
+  return (
+    <a className="item-drawer-url" href={url} target="_blank" rel="noreferrer">
+      {url}
+      <ExternalLink size={14} aria-hidden />
+    </a>
+  );
+}
+
 /**
- * A File or Image item's payload: the picture itself for an image, the file's
+ * A File, Image or Book item's payload: the picture itself for an image, the file's
  * name and size for anything else, and a download either way.
  *
  * Both are served by `/api/items/[id]/file` rather than from R2 directly — the

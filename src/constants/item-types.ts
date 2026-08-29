@@ -1,4 +1,5 @@
 import {
+  BookOpen,
   Code,
   File,
   FileCode,
@@ -21,6 +22,7 @@ import type { ItemContentType } from "@/types/item";
  * Type colors live in `globals.css` as `--type-*` custom properties.
  */
 export const TYPE_ICONS: Record<string, LucideIcon> = {
+  BookOpen,
   Code,
   Sparkles,
   Terminal,
@@ -114,6 +116,22 @@ export function isCopyableType(slug: string): boolean {
  */
 export const LANGUAGE_TYPE_SLUGS = new Set(["snippets", "commands"]);
 
+/**
+ * `ItemType.slug`s that carry the book fields — an author, and a link beside
+ * their cover.
+ *
+ * A book is the one type that fills two of the mutually exclusive payload
+ * columns: `fileUrl` holds the cover, which is what makes it `ContentType.FILE`,
+ * and `url` holds the link. The column cannot say that, so the slug does, the
+ * same way `LANGUAGE_TYPE_SLUGS` says which types carry a language.
+ */
+export const BOOK_TYPE_SLUGS = new Set(["books"]);
+
+/** Whether a type carries an author, and a link alongside its file. */
+export function isBookType(slug: string): boolean {
+  return BOOK_TYPE_SLUGS.has(slug);
+}
+
 /** One of the system types the create dialog's picker shows. */
 export interface CreatableType {
   /** `ItemType.slug` — the id itself is resolved from the database. */
@@ -194,6 +212,15 @@ export const CREATABLE_TYPES: readonly CreatableType[] = [
     label: "Link",
     icon: "Link",
     contentType: "URL",
+  },
+  {
+    slug: "books",
+    label: "Book",
+    icon: "BookOpen",
+    // The cover is the payload, so a book is a FILE type taking the image
+    // upload rules. Its link lives in `url` besides — see `BOOK_TYPE_SLUGS`.
+    contentType: "FILE",
+    upload: "image",
   },
 ];
 

@@ -21,6 +21,7 @@ import {
   PRO_TYPE_SLUGS,
   TYPE_ICONS,
   creatableType,
+  isBookType,
   uploadKindFor,
 } from "@/constants/item-types";
 import { titleFromFileName } from "@/lib/file-title";
@@ -215,7 +216,11 @@ export function ItemCreateForm({
         {uploadKind && (
           <div className="item-form-field">
             <Label htmlFor={undefined}>
-              {uploadKind === "image" ? "Image" : "File"}
+              {isBookType(typeSlug)
+                ? "Cover"
+                : uploadKind === "image"
+                  ? "Image"
+                  : "File"}
             </Label>
             <FileUpload
               kind={uploadKind}

@@ -25,6 +25,12 @@ const NOTE: CreateItemType = { id: "type-2", slug: "notes", contentType: "TEXT" 
 
 const LINK: CreateItemType = { id: "type-3", slug: "links", contentType: "URL" };
 
+const BOOK: CreateItemType = {
+  id: "type-5",
+  slug: "books",
+  contentType: "FILE",
+};
+
 const FILE: CreateItemType = {
   id: "type-4",
   slug: "files",
@@ -47,6 +53,7 @@ function input(overrides: Partial<CreateItemInput> = {}): CreateItemInput {
     content: null,
     url: null,
     language: null,
+    author: null,
     file: null,
     tags: [],
     collectionIds: [],
@@ -166,6 +173,52 @@ describe("createItem", () => {
     );
 
     expect(written().language).toBeNull();
+  });
+
+  it("writes both payload fields a book carries", async () => {
+    // The one type that fills two: the cover is its file, and `url` is the
+    // link beside it. Every other FILE type has its URL cleared.
+    await createItem(
+      "user-1",
+      BOOK,
+      input({
+        typeSlug: "books",
+        file: UPLOAD,
+        url: "https://example.com/book",
+      }),
+      STORED,
+    );
+
+    expect(written()).toMatchObject({
+      contentType: "FILE",
+      fileUrl: STORED.key,
+      url: "https://example.com/book",
+      content: null,
+    });
+  });
+
+  it("keeps the author on a book", async () => {
+    await createItem(
+      "user-1",
+      BOOK,
+      input({ typeSlug: "books", file: UPLOAD, author: "Ted Chiang" }),
+      STORED,
+    );
+
+    expect(written().author).toBe("Ted Chiang");
+  });
+
+  it("drops the author on a type that carries none", async () => {
+    // An image is `FILE` too, which is why the gate is on the slug rather than
+    // the content type.
+    await createItem(
+      "user-1",
+      FILE,
+      input({ typeSlug: "files", file: UPLOAD, author: "Ted Chiang" }),
+      STORED,
+    );
+
+    expect(written().author).toBeNull();
   });
 
   it("attaches tags scoped to the owner", async () => {
