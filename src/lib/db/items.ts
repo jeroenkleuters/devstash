@@ -120,6 +120,19 @@ export async function getRecentItems(
  * Serves both layouts: the card list and the file rows differ in what they
  * select, not in which rows they match.
  */
+/**
+ * How many items the account holds, for the free-tier cap.
+ *
+ * Its own count rather than `getItemStats`, which also counts favorites — the
+ * gate asks one question and this is the cheaper way to answer it. Cached, so a
+ * request checking the cap and rendering something that needs the same number
+ * pays for one query.
+ */
+export const countItems = cache(
+  async (userId: string): Promise<number> =>
+    prisma.item.count({ where: { userId } }),
+);
+
 export const countItemsByType = cache(
   async (userId: string, itemTypeId: string): Promise<number> =>
     prisma.item.count({ where: { userId, itemTypeId } }),

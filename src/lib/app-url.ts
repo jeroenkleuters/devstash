@@ -25,3 +25,26 @@ export function appOrigin(request: Request): string {
 
   return new URL(request.url).origin;
 }
+
+/**
+ * The origin Stripe's `success_url`, `cancel_url` and `return_url` are built
+ * from. `APP_URL` with **no fallback**, in any environment.
+ *
+ * Separate from `appOrigin` for two reasons. It takes no `Request`, which a
+ * server action does not have; and it must never fall back to the request's own
+ * origin, because Next derives that from the caller's `Host` header — a spoofed
+ * one would send a paying visitor back to the attacker's domain after checkout.
+ * That is the exact attack `appOrigin` was written to prevent, so billing gets
+ * the stricter half of the rule and `APP_URL` becomes strictly required.
+ */
+export function configuredOrigin(): string {
+  const configured = process.env.APP_URL?.trim();
+
+  if (!configured) {
+    throw new Error(
+      "APP_URL must be set: billing return URLs cannot be derived from the request's Host header.",
+    );
+  }
+
+  return configured.replace(/\/+$/, "");
+}
