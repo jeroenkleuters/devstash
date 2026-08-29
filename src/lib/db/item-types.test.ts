@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { isProType } from "@/constants/item-types";
 import { compareItemTypes, type ItemTypeSummary } from "@/lib/db/item-types";
 
 /**
@@ -13,15 +14,19 @@ function type(slug: string, name = slug): ItemTypeSummary {
   return { id: `id-${slug}`, slug, name, icon: "Code" };
 }
 
-/** The seeded order, which the schema carries no column for. */
+/**
+ * The order the sidebar lists the system types in, which the schema carries no
+ * column for. The three Pro types come last — see `TYPE_SLUG_ORDER`.
+ */
 const SEEDED = [
   "snippets",
   "prompts",
   "commands",
   "notes",
+  "links",
   "files",
   "images",
-  "links",
+  "books",
 ];
 
 describe("compareItemTypes", () => {
@@ -37,6 +42,18 @@ describe("compareItemTypes", () => {
       .map((t) => t.slug);
 
     expect(sorted).toEqual(["snippets", "links", "custom"]);
+  });
+
+  it("puts every Pro type after every free one", () => {
+    const sorted = [...SEEDED].reverse().map((slug) => type(slug));
+    const slugs = sorted.sort(compareItemTypes).map((t) => t.slug);
+
+    const lastFree = Math.max(
+      ...slugs.map((slug, index) => (isProType(slug) ? -1 : index)),
+    );
+    const firstPro = slugs.findIndex((slug) => isProType(slug));
+
+    expect(firstPro).toBeGreaterThan(lastFree);
   });
 
   /** Custom types are post-launch, and nothing orders them but their name. */

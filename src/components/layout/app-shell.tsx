@@ -2,6 +2,7 @@ import { Suspense, type ReactNode } from "react";
 import { redirect } from "next/navigation";
 
 import { SIGN_IN_PATH } from "@/auth.config";
+import { BillingProvider } from "@/components/billing/billing-provider";
 import { EditorPreferencesProvider } from "@/components/editor/editor-preferences-provider";
 import { ItemDrawerProvider } from "@/components/items/item-drawer-provider";
 import { Sidebar } from "@/components/layout/sidebar";
@@ -9,9 +10,14 @@ import { SidebarProvider } from "@/components/layout/sidebar-provider";
 import { SidebarSkeleton } from "@/components/layout/sidebar-skeleton";
 import { TopBar } from "@/components/layout/top-bar";
 import { SearchProvider } from "@/components/search/search-provider";
-import { getSidebarCollections } from "@/lib/db/collections";
-import { getItemTypesWithCounts } from "@/lib/db/items";
+import { countCollections, getSidebarCollections } from "@/lib/db/collections";
+import { countItems, getItemTypesWithCounts } from "@/lib/db/items";
 import { getCurrentUser } from "@/lib/db/user";
+import {
+  collectionUsage,
+  itemUsage,
+  type ClientUsageSnapshot,
+} from "@/lib/usage-limits";
 
 /** How many non-favorite collections the sidebar's "Recent" list shows. */
 const RECENT_LIMIT = 5;
@@ -34,25 +40,31 @@ export async function AppShell({ children }: { children: ReactNode }) {
     redirect(SIGN_IN_PATH);
   }
 
+  const usage = await usageFor(user.id, user.isPro);
+
   return (
     <SidebarProvider>
-      <Suspense fallback={<SidebarSkeleton />}>
-        <SidebarWithData />
-      </Suspense>
-      {/* These providers wrap the page rather than living in one, because the
+      {/* Wraps the sidebar as well as the body: the Pro type rows up there are
+          gated too, and one provider means one upsell dialog for both. */}
+      <BillingProvider isPro={user.isPro} usage={usage}>
+        <Suspense fallback={<SidebarSkeleton />}>
+          <SidebarWithData />
+        </Suspense>
+        {/* These providers wrap the page rather than living in one, because the
           item cards and the top bar are server components and cannot hold state
           of their own. The drawer wraps the top bar too, not just `main`: the
           command palette lives up there and opens items with it. */}
-      <EditorPreferencesProvider initialPreferences={user.editorPreferences}>
-        <ItemDrawerProvider>
-          <SearchProvider>
-            <div className="dashboard-body">
-              <TopBar />
-              <main className="dashboard-main">{children}</main>
-            </div>
-          </SearchProvider>
-        </ItemDrawerProvider>
-      </EditorPreferencesProvider>
+        <EditorPreferencesProvider initialPreferences={user.editorPreferences}>
+          <ItemDrawerProvider>
+            <SearchProvider>
+              <div className="dashboard-body">
+                <TopBar />
+                <main className="dashboard-main">{children}</main>
+              </div>
+            </SearchProvider>
+          </ItemDrawerProvider>
+        </EditorPreferencesProvider>
+      </BillingProvider>
     </SidebarProvider>
   );
 }
@@ -81,4 +93,34 @@ async function SidebarWithData() {
       user={user}
     />
   );
+}
+
+/**
+ * What the account may still create, for the gates on the create buttons.
+ *
+ * Pro is unlimited, so neither count is queried for one — the same short-circuit
+ * `createItem` makes, and it keeps the shell's cost unchanged for a paying
+ * account. Both queries are `cache`d, so a page that also renders one of these
+ * numbers pays for a single query.
+ */
+async function usageFor(
+  userId: string,
+  isPro: boolean,
+): Promise<ClientUsageSnapshot> {
+  if (isPro) {
+    return {
+      items: itemUsage(true, 0),
+      collections: collectionUsage(true, 0),
+    };
+  }
+
+  const [items, collections] = await Promise.all([
+    countItems(userId),
+    countCollections(userId),
+  ]);
+
+  return {
+    items: itemUsage(false, items),
+    collections: collectionUsage(false, collections),
+  };
 }

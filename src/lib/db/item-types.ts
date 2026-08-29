@@ -29,9 +29,12 @@ const TYPE_SLUG_ORDER = [
   "prompts",
   "commands",
   "notes",
+  "links",
+  // The Pro types last, so the free ones a visitor can actually use lead the
+  // list. Kept in step with `CREATABLE_TYPES`, which the create picker renders
+  // in this same order, and with `PRO_TYPE_SLUGS`, which is exactly this tail.
   "files",
   "images",
-  "links",
   "books",
 ];
 

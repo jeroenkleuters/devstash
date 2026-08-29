@@ -1,12 +1,32 @@
-# Current Feature
+# Current Feature: Free-tier create gating & Pro upsell
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
+- When a free account is at the item or collection cap, the create buttons are disabled rather than letting the create fail server-side.
+- The Pro item types (Files, Images, Books) sort last in the sidebar's Types list.
+- Clicking a disabled/gated create control as a free user opens a dialog showing the Pro plan options, from which checkout can be started.
+- Any exception or error while creating an item or collection always surfaces as a toast.
+
 ## Notes
+
+**Where the pieces already are.**
+
+- `src/lib/usage-limits.ts` holds `FREE_ITEM_LIMIT` (50), `FREE_COLLECTION_LIMIT` (3), `itemUsage` / `collectionUsage` and the two limit messages. Pure by design — the caller fetches the count. `countItems` / `countCollections` are the queries; `getCurrentUser()` is `cache()`d and carries `isPro`.
+- The server gates already exist and stay the backstop: `createItem`, `createCollection` and `POST /api/upload` all refuse. This feature is the *client* half — the button state and the upsell — not a replacement for them.
+- Sidebar ordering comes from `TYPE_SLUG_ORDER` in `src/lib/db/item-types.ts` (currently `snippets, prompts, commands, notes, files, images, links, books`). Moving `links` ahead of `files` gives the Pro slugs (`PRO_TYPE_SLUGS` = files, images, books) the last three places. The create picker has its own order in `CREATABLE_TYPES` whose comment claims it matches the sidebar — decide at `/feature start` whether that follows too.
+- Create entry points to gate: the top bar's New Item and New Collection, the per-type button on `/items/[type]`, and the bulk drop zone on the file/image/book pages (which already stops a batch on `UploadNotAllowedError`).
+- Plan options for the upsell dialog: `$8/mo` and `$72/yr`, started through the existing `startCheckout` server action (`"monthly" | "yearly"`, never a price id). `pricing-cards.tsx` on the marketing page is the existing copy to draw from; note it renders the `FREE_*` constants rather than literals.
+
+**Goal 4 may be largely met already.** `item-create-form.tsx` and `collection-form.tsx` both toast on failure and both carry the `.catch(() => null)` a rejected *request* needs. Worth auditing rather than rebuilding: check the drop-zone path, the drawer edit/delete paths and anywhere a `{ success: false }` is handled without a toast.
+
+**Decisions (confirmed).**
+
+- The gated control **looks** disabled (muted, with a lock/PRO affordance) but stays clickable, so the click is what opens the upsell dialog. A truly `disabled` button would take no click and the upsell would be unreachable.
+- The upsell covers **both** cases: a free account at the item/collection cap, *and* a free account choosing a Pro type (Files, Images, Books) from the sidebar or the create picker. One dialog, with the copy naming which limit was hit.
 
 ## History
 

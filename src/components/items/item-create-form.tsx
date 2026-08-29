@@ -5,6 +5,7 @@ import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
 import { createItem } from "@/actions/items";
+import { useBilling } from "@/components/billing/billing-provider";
 import { FileUpload, type UploadedFile } from "@/components/items/file-upload";
 import {
   EMPTY_ITEM_FORM_VALUES,
@@ -22,6 +23,7 @@ import {
   TYPE_ICONS,
   creatableType,
   isBookType,
+  isProType,
   uploadKindFor,
 } from "@/constants/item-types";
 import { titleFromFileName } from "@/lib/file-title";
@@ -50,6 +52,7 @@ export function ItemCreateForm({
   initialTypeSlug,
   onCreated,
 }: ItemCreateFormProps) {
+  const { isPro, requestUpgrade } = useBilling();
   const [typeSlug, setTypeSlug] = useState(
     initialTypeSlug ?? CREATABLE_TYPES[0].slug,
   );
@@ -136,7 +139,13 @@ export function ItemCreateForm({
     const parsed = createItemSchema.safeParse(payload);
 
     if (!parsed.success) {
-      setError(firstIssueMessage(parsed.error));
+      const message = firstIssueMessage(parsed.error);
+
+      // Toasted as well as shown inline: the inline slot is at the top of a
+      // body that scrolls, so on a long form it can be off-screen when the
+      // submit button is not. Every refused create says why somewhere visible.
+      setError(message);
+      toast.error(message);
       return;
     }
 
@@ -183,25 +192,38 @@ export function ItemCreateForm({
           <div className="item-type-options">
             {CREATABLE_TYPES.map((option) => {
               const Icon = TYPE_ICONS[option.icon];
+              const locked = !isPro && isProType(option.slug);
 
               return (
                 <label
                   key={option.slug}
                   className="item-type-option"
                   data-type={option.slug}
+                  data-locked={locked || undefined}
                 >
+                  {/* Locked options stay selectable rather than `disabled`:
+                      the click is what raises the upsell, and the controlled
+                      `checked` below is what puts the selection back. */}
                   <input
                     type="radio"
                     name="typeSlug"
                     value={option.slug}
                     checked={option.slug === typeSlug}
-                    onChange={() => changeType(option.slug)}
+                    onChange={() => {
+                      if (locked) {
+                        requestUpgrade({
+                          kind: "type",
+                          label: `${option.label}s`,
+                        });
+                        return;
+                      }
+
+                      changeType(option.slug);
+                    }}
                     disabled={saving}
                   />
                   {Icon && <Icon size={16} aria-hidden />}
                   {option.label}
-                  {/* Labelled, not gated: all users get full access during
-                      development (project overview §8). */}
                   {PRO_TYPE_SLUGS.has(option.slug) && (
                     <Badge variant="outline" className="item-type-badge">
                       PRO
