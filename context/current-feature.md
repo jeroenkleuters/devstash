@@ -1,4 +1,4 @@
-# Current Feature
+# Current Feature: Stripe Phase 1 - Core Infrastructure
 
 ## Status
 
@@ -6,7 +6,50 @@ Not Started
 
 ## Goals
 
+- Install `stripe` as the one new runtime dependency; **no migration** (`User.isPro`, `stripeCustomerId`, `stripeSubscriptionId` have been in the schema since `20260814120000_init` and have never been used)
+- Create `src/lib/usage-limits.ts` - a **pure** module holding `FREE_ITEM_LIMIT` (50), `FREE_COLLECTION_LIMIT` (3) and the predicates the Phase 2 gates will call. Importing nothing that throws at import time, so its tests import it directly
+- Create `src/lib/stripe.ts` - `getStripe()`, `priceIdFor(plan)`, `webhookSecret()`; `webhookSecret()` **throws** when unset (fail closed)
+- Create `src/types/billing.ts` - `BILLING_PLANS`, `BillingPlan`, `StartCheckoutResult`, `BillingPortalResult`
+- Create `src/lib/validations/billing.ts` + test - `startCheckoutSchema`, which accepts `monthly`/`yearly` and refuses an unknown plan or a raw `price_...` id
+- Create `src/lib/db/billing.ts` - `getStripeCustomerId`, `setStripeCustomerId`, `applySubscriptionState`
+- Add `isPro` and `hasBilling` to `CurrentUser` in `src/lib/db/user.ts` (two columns on the `findUnique` that is already running; **not** a JWT claim)
+- Add `countItems(userId)` to `src/lib/db/items.ts` - a `cache()`d `prisma.item.count`
+- Add `configuredOrigin()` to `src/lib/app-url.ts` - `APP_URL` with **no request fallback**, throwing when unset
+- Document the Stripe entries in `.env.example` (values stay empty)
+- Unit tests for `usage-limits` and `billing` validations; `npm test`, `npx tsc --noEmit`, `npx eslint src` and `npm run build` all clean
+- **No behaviour change anywhere** - every module lands with its consumers still absent
+
 ## Notes
+
+Spec: @context/features/stripe-phase-1-spec.md - Plan: @docs/stripe-integration-plan.md (SS4.1-4.4, 5.1, 5.3, 5.4, 5.11, steps 1-5 of SS8)
+
+**Nothing in this phase is user-visible and nothing is enforced.** No checkout, no webhook, no gate, no UI. That is the point of the split: everything here is provable with `npm test`, while Phase 2 needs the Stripe CLI, a browser and a card number.
+
+**The usage-limits shape is the piece the phase exists to get right.**
+
+- Pure functions over numbers and booleans - the caller fetches the count and passes it in. `src/lib/prisma.ts` throws at import time without `DATABASE_URL`, so a module importing it can only be tested behind `vi.mock`; keeping this one pure means its tests assert real behaviour
+- Pro is unlimited, so `isPro` short-circuits before the count is consulted, and reports `limit: null`
+- **The boundary is `>=`, not `>`** - an account holding exactly the limit is *at* it
+- **Over the limit is a real state**: a Pro account that cancels can hold 60 items against a limit of 50, so `remaining` clamps at 0 and never goes negative
+- The numbers live here, not in `pricing-cards.tsx`, which currently states "50 items" / "3 collections" as display strings that nothing enforces. Phase 2 points that page at these constants
+
+**Why `isPro` is not on the session token.** `useSession()` / `SessionProvider` appear nowhere in `src/`, and `getCurrentUser()` already reads the row every request behind `cache()`. A token claim would cost a query *and* add a staler second source of truth for a value a webhook changes behind the visitor's back. A plain reload after checkout is enough.
+
+**`hasBilling`, not `stripeCustomerId`** - the same reduction `hasPassword` already makes for `passwordHash`, so the id never reaches a component's props. Destructure it out alongside `passwordHash`.
+
+**`configuredOrigin()` rather than reusing `appOrigin()`.** `appOrigin(request)` takes a `Request` a server action does not have, and falls back to the request's own origin - which Next derives from the caller's `Host` header. Stripe's `success_url` / `return_url` must never come from that; it is the exact attack `appOrigin` exists to prevent. `APP_URL` therefore becomes strictly required for billing.
+
+**Fail closed.** `webhookSecret()` throws rather than returning undefined - deliberately unlike `rateLimit`, which fails *open* on missing Upstash config. An unguarded rate limit is a nuisance; an unverified webhook is a free Pro account.
+
+**Deliberately out of scope:** `PRO_TYPE_SLUGS` gaining `books` and `isProType` (the sidebar renders its PRO badge straight from that set, so it is a visible UI change that belongs with the gate justifying it); any gate in `createItem`, `createCollection` or `POST /api/upload`; the webhook route, the billing actions and the settings card.
+
+**Testing.** `vitest.config.mts` collects only `src/lib/**` and `src/actions/**`, and everything this phase adds is in `src/lib/` - which is the other reason the phase is drawn here. Cover Pro-unlimited at 0/limit/past, `limit: null`, free below the limit with `remaining` counting down, free **at** the limit refused, one under allowed, a downgraded account over the limit refused with `remaining: 0`, both item and collection variants, the two constants, and that the messages name the number so copy cannot drift from the rule. **Mutation-check two** per house practice: `>=` to `>` must fail exactly the at-the-limit test, and dropping `Math.max(0, ...)` must fail exactly the over-limit one. Revert both.
+
+`src/lib/stripe.ts` and `src/lib/db/billing.ts` are not testable here (live SDK, Prisma) - proven in Phase 2 against `stripe listen`. `priceIdFor` / `webhookSecret` are pure enough for `vi.stubEnv`, and Vitest loads no `.env`, so the unconfigured branches are the default state.
+
+**Note:** `.env.example` already carries five Stripe placeholders as an uncommitted working-tree change; reconcile with what `src/lib/stripe.ts` actually reads.
+
+Follows the existing pure-rules-module pattern in `src/lib/upload-preferences.ts` and `src/lib/file-constraints.ts`.
 
 ## History
 
