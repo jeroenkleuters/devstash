@@ -14,6 +14,7 @@ function payload(overrides: Record<string, unknown> = {}) {
     content: "",
     url: "",
     language: "",
+    author: "",
     tags: [] as string[],
     ...overrides,
   };
@@ -219,6 +220,31 @@ describe("createItemSchema", () => {
     });
 
     expect(result.success).toBe(true);
+  });
+
+  it("takes a book with a cover and no link", () => {
+    // The link is optional: a cover dropped on the listing becomes a book
+    // straight away, and the link is added in the drawer afterwards.
+    const result = createParse({
+      typeSlug: "books",
+      url: "",
+      file: { key: "uploads/user-1/abc.jpg", name: "cover.jpg" },
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.success && result.data.url).toBeNull();
+  });
+
+  it("accepts a book carrying both a cover and a link", () => {
+    const result = createParse({
+      typeSlug: "books",
+      url: "https://example.com/book",
+      file: { key: "uploads/user-1/abc.jpg", name: "cover.jpg" },
+      author: "  Ursula K. Le Guin  ",
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.success && result.data.author).toBe("Ursula K. Le Guin");
   });
 
   it("does not ask a text type for a URL", () => {

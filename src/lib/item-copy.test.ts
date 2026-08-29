@@ -16,6 +16,7 @@ function detail(overrides: Partial<ItemDetail> = {}): ItemDetail {
     fileSize: null,
     fileUrl: null,
     language: null,
+    author: null,
     isFavorite: false,
     isPinned: false,
     type: { id: "type-1", slug: "snippets", name: "Snippet", icon: "Code" },

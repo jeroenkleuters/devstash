@@ -32,6 +32,7 @@ const TYPE_SLUG_ORDER = [
   "files",
   "images",
   "links",
+  "books",
 ];
 
 /**

@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   LANGUAGE_TYPE_SLUGS,
   codeTypeLanguage,
+  isBookType,
   isCodeType,
   isMarkdownType,
   uploadKindFor,
@@ -36,11 +37,13 @@ export function ItemFormFields({
   urlRequired = false,
   contentRows,
 }: ItemFormFieldsProps) {
+  const isBook = isBookType(typeSlug);
   const showContent = contentType === "TEXT";
   // A file item is its file: the name, the size and the preview say everything
-  // the description used to, so the two upload types do not carry one.
-  const showDescription = uploadKindFor(typeSlug) === undefined;
-  const showUrl = contentType === "URL";
+  // the description used to, so the two upload types do not carry one. A book
+  // uploads a cover rather than a document, and its summary is the point.
+  const showDescription = uploadKindFor(typeSlug) === undefined || isBook;
+  const showUrl = contentType === "URL" || isBook;
   const showLanguage = LANGUAGE_TYPE_SLUGS.has(typeSlug);
   const showCode = showContent && isCodeType(typeSlug);
   const showMarkdown = showContent && isMarkdownType(typeSlug);
@@ -61,7 +64,9 @@ export function ItemFormFields({
 
       {showDescription && (
         <div className="item-form-field">
-          <Label htmlFor={`${idPrefix}-description`}>Description</Label>
+          <Label htmlFor={`${idPrefix}-description`}>
+            {isBook ? "Summary" : "Description"}
+          </Label>
           <Textarea
             id={`${idPrefix}-description`}
             name="description"
@@ -116,7 +121,7 @@ export function ItemFormFields({
 
       {showUrl && (
         <div className="item-form-field">
-          <Label htmlFor={`${idPrefix}-url`}>URL</Label>
+          <Label htmlFor={`${idPrefix}-url`}>{isBook ? "Link" : "URL"}</Label>
           <Input
             id={`${idPrefix}-url`}
             name="url"
@@ -124,7 +129,21 @@ export function ItemFormFields({
             value={values.url}
             onChange={(event) => setField("url", event.target.value)}
             placeholder="https://"
-            required={urlRequired}
+            // A book's link is optional — a cover dropped on the listing
+            // becomes a book with no link, and the drawer adds one later.
+            required={urlRequired && !isBook}
+          />
+        </div>
+      )}
+
+      {isBook && (
+        <div className="item-form-field">
+          <Label htmlFor={`${idPrefix}-author`}>Author</Label>
+          <Input
+            id={`${idPrefix}-author`}
+            name="author"
+            value={values.author}
+            onChange={(event) => setField("author", event.target.value)}
           />
         </div>
       )}
@@ -170,6 +189,8 @@ export interface ItemFormValues {
   content: string;
   url: string;
   language: string;
+  /** Books only — see `BOOK_TYPE_SLUGS`. */
+  author: string;
   /** The comma-separated field, split into the array on submit. */
   tags: string;
   /**
@@ -215,6 +236,7 @@ export const EMPTY_ITEM_FORM_VALUES: ItemFormValues = {
   content: "",
   url: "",
   language: "",
+  author: "",
   tags: "",
   collectionIds: [],
 };
@@ -227,6 +249,7 @@ export function itemFormValuesFrom(detail: ItemDetail): ItemFormValues {
     content: detail.content ?? "",
     url: detail.url ?? "",
     language: detail.language ?? "",
+    author: detail.author ?? "",
     tags: detail.tags.join(", "),
     collectionIds: detail.collections.map((collection) => collection.id),
   };

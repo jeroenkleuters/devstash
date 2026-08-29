@@ -9,6 +9,9 @@ const DESCRIPTION_MAX_LENGTH = 500;
 /** A syntax-highlighting hint ("typescript"), not free text. */
 const LANGUAGE_MAX_LENGTH = 32;
 
+/** A book's author. Room for several names, not for a biography. */
+const AUTHOR_MAX_LENGTH = 200;
+
 const TAG_MAX_LENGTH = 32;
 const MAX_TAGS = 20;
 
@@ -185,6 +188,13 @@ const itemFields = {
   language: optionalText(
     LANGUAGE_MAX_LENGTH,
     `Language is limited to ${LANGUAGE_MAX_LENGTH} characters.`,
+  ),
+  // Books only, and optional even there. Which types keep it is `items.ts`'s
+  // call for the same reason the payload fields are: this shape does not say
+  // what type the item is.
+  author: optionalText(
+    AUTHOR_MAX_LENGTH,
+    `Author is limited to ${AUTHOR_MAX_LENGTH} characters.`,
   ),
   tags: tagsSchema,
   collectionIds: collectionIdsSchema,
