@@ -1,14 +1,22 @@
 # DevStash
 
-One fast, searchable, AI-enhanced hub for all developer knowledge & resources — snippets, prompts, commands, notes, files, images and links, organised into collections.
+One fast, searchable, AI-enhanced hub for all developer knowledge & resources — snippets, prompts, commands, notes, files, images, links and books, organised into collections.
 
 See [context/project-overview.md](context/project-overview.md) for the full product spec, data model and roadmap.
 
 ## Status
 
-Early development, but the signed-in experience is real. Authentication is NextAuth v5 with email/password and GitHub OAuth, plus email verification, password reset and a `/profile` page with change-password and delete-account. `/dashboard` renders the signed-in account's own data from Neon — stat cards, the recent collection grid, pinned and recent items, and the sidebar — and `/items/[type]` lists the items of one type, as a card list, an image gallery or a file list depending on the type.
+Active development. The signed-in experience is complete enough to use daily, and the marketing homepage at `/` is the public entry point.
 
-Items are fully workable: create one from the top bar or a type page, open any card in a right-side drawer to read it, edit it inline, copy its payload or delete it, with Monaco for code types and a Markdown editor for notes and prompts. File and image items upload straight to Cloudflare R2. Favorite and Pin are the remaining inert actions in the drawer, and `/collections` is still linked from the sidebar but does not exist yet.
+**Auth** — NextAuth v5 with email/password and GitHub OAuth, plus email verification, password reset, and rate limiting on every auth endpoint backed by Upstash Redis.
+
+**Items** — eight system types (Snippet, Prompt, Command, Note, Link, File, Image, Book), each with a page at `/items/[type]` rendered as a card list, an image gallery or a file list depending on the type. Create from the top bar or a type page, open any card in a right-side drawer to read it, edit it inline, favorite, pin, copy or delete it — with Monaco for code types and a Markdown editor for notes and prompts. File, image and book covers upload straight to Cloudflare R2, including by dropping a batch onto the listing.
+
+**Collections** — `/collections` and `/collections/[id]`, created, renamed, favorited and deleted from either the grid or the detail page, with an item able to sit in any number of them.
+
+**Elsewhere** — a `⌘K` search palette over items and collections, `/favorites` with per-section sorting, pagination on every listing, `/dashboard` for stats and recents, `/profile` for account usage, and `/settings` for password, account deletion, Monaco editor preferences and upload limits.
+
+**Billing** — Stripe subscriptions ($8/mo, $72/yr). The free tier is capped at 50 items and 3 collections, with File, Image and Book as Pro-only types; gated controls open an upgrade dialog rather than failing, and the server enforces the same limits independently. `isPro` is only ever written by the `/api/webhooks/stripe` handler.
 
 ## Stack
 
@@ -20,6 +28,11 @@ Items are fully workable: create one from the top bar or a type page, open any c
 | ORM | Prisma 7 with the Neon driver adapter |
 | Styling | Tailwind CSS v4 + shadcn/ui |
 | Fonts | Geist Sans / Geist Mono via `next/font` |
+| Editors | Monaco (code types) · react-markdown (notes & prompts) |
+| File storage | Cloudflare R2 (presigned direct-to-bucket uploads) |
+| Email | Resend (verification & password reset) |
+| Rate limiting | Upstash Redis |
+| Payments | Stripe subscriptions |
 | Unit tests | Vitest (server actions & utilities only) |
 
 Dark mode is the default, applied as `.dark` on `<html>` in [src/app/layout.tsx](src/app/layout.tsx).
@@ -36,11 +49,19 @@ npm run db:seed             # demo user + system item types + sample content
 npm run dev
 ```
 
-Open [http://localhost:3000/dashboard](http://localhost:3000/dashboard).
+Open [http://localhost:3000](http://localhost:3000).
 
-The seed creates `demo@devstash.io` (password `12345678`) with the seven system item types and five collections holding 18 items.
+The seed creates `demo@devstash.io` (password `12345678`) with the eight system item types and five collections holding 18 items. The demo account is seeded `isPro: true`, since five collections would otherwise sit over the free tier's cap of three.
+
+Only `DATABASE_URL` and `DIRECT_URL` are needed to get the app running. Everything else in `.env.example` unlocks one feature at a time — Resend for the mail flows, R2 for uploads, Upstash for rate limiting, Stripe for billing — and each is documented in place with what breaks when it is absent.
+
+To exercise **billing** locally you also need `npx stripe listen` running in a second terminal, or the upgrade appears to do nothing — see [Billing (Stripe)](#billing-stripe).
 
 ## Environment
+
+[.env.example](.env.example) is the authoritative list and explains every value in place. The notes below cover the ones with a real trap in them.
+
+### Database
 
 Both variables point at the same Neon database through different endpoints:
 
@@ -50,9 +71,40 @@ Both variables point at the same Neon database through different endpoints:
 
 Prisma 7 no longer reads `.env` files itself, so [prisma.config.ts](prisma.config.ts) loads `.env.local` / `.env` via dotenv.
 
+### Origin
+
+`APP_URL` is the origin every outbound link is built from — verification and password-reset mails, and Stripe's checkout return URLs. It is **required in production and required for billing anywhere**: the fallback is the request's own origin, which Next derives from the caller's `Host` header, so a spoofed one would aim a real user's reset link at someone else's domain. `configuredOrigin()` in [src/lib/app-url.ts](src/lib/app-url.ts) has no fallback at all for that reason.
+
+### Email (Resend)
+
+`onboarding@resend.dev` needs no domain setup but **only delivers to the address that owns the Resend account** — registering any other address creates an account that can never be verified. `EMAIL_VERIFICATION_ENABLED=false` is the escape hatch until a domain is verified; accounts registered while it is off are stored as already-verified, so turning it back on does not lock them out.
+
+### Rate limiting (Upstash Redis)
+
+Backs the limits on the auth, upload and password-change endpoints. **Both variables are required for limiting to run at all** — with either missing the limiter fails open and logs, so the app works unconfigured but those endpoints are unguarded.
+
+### Billing (Stripe)
+
+`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` and the two `STRIPE_PRICE_ID_*` values. The webhook handler at `/api/webhooks/stripe` **refuses every request without a signing secret** — an unverified webhook is a request from anyone claiming to be Stripe, and what it claims is that an account is now Pro. Locally the secret comes from the CLI:
+
+```bash
+stripe listen --forward-to localhost:3000/api/webhooks/stripe
+```
+
+A deployment's endpoint has its own, different secret. `STRIPE_PUBLISHABLE_KEY` is unused: checkout is a server-side redirect to a hosted Checkout Session, so no page loads Stripe.js.
+
+**The listener has to be running before you test billing locally.** The Stripe CLI ships as a dependency, so no separate install is needed — run it in its own terminal alongside `npm run dev`:
+
+```bash
+npx stripe login                                            # once
+npx stripe listen --forward-to localhost:3000/api/webhooks/stripe
+```
+
+Copy the `whsec_…` it prints into `STRIPE_WEBHOOK_SECRET` and restart the dev server. Without the listener, checkout still completes on Stripe's side but no event ever reaches the app, so `isPro` is never written and the account stays on the free tier — which looks like a broken upgrade rather than a missing terminal. Test cards: `4242 4242 4242 4242` succeeds, `4000 0000 0000 0002` declines; any future expiry, any CVC, any ZIP.
+
 ### File uploads (Cloudflare R2)
 
-Files and images are uploaded **straight from the browser to R2**. The app only
+Files, images and book covers are uploaded **straight from the browser to R2**. The app only
 authorises the upload: `POST /api/upload` signs a short-lived PUT URL, the
 browser sends the bytes to the bucket, and the item then stores the object key.
 Nothing large ever passes through a Next route, which is what allows a 100 MB
@@ -125,18 +177,36 @@ Vitest, configured in [vitest.config.mts](vitest.config.mts). The scope is delib
 
 Tests are co-located with the module they cover and stay offline — `src/lib/prisma.ts` throws at import time without `DATABASE_URL`, so anything touching `lib/db/` mocks it, and `@/auth` is mocked for action tests. Vitest loads no `.env` file; modules reading `process.env` are exercised with `vi.stubEnv`.
 
+### Browser verification (Playwright)
+
+Anything the unit suite cannot reach — components, route handlers, CSS, drag & drop, dialogs — is checked in a real browser through the **Playwright MCP server**, driven against the running dev server. There is no Playwright dependency in `package.json` and no spec files in the repo: it is an interactive verification pass, not a second test suite, and `npm test` does not run it.
+
+Conventions that pass has settled on:
+
+- Reuse the dev server already running; **never `npm run build` while one is live**, since they share `.next` and the build leaves the dev server's workers corrupted in ways that look exactly like a bug in the code under test.
+- Read the DOM (`getComputedStyle`, element counts, computed hrefs) rather than judging by screenshot — it is what makes a result reproducible.
+- Never add temporary instrumentation to source files to reach a state. Intercept the request instead.
+- Stay read-only against the database: a state the seed cannot produce is "not verifiable", not a reason to run SQL.
+
+Artifacts land in `/.playwright-mcp`, which is gitignored — though **two `.yml` files there are tracked** from before that rule, so clean up untracked files only rather than deleting the folder.
+
 ## Project layout
 
 ```
 prisma/          schema, migrations, seed
 scripts/         one-off maintenance scripts (test-db, prune-users)
 context/         product spec, coding standards, feature specs, history
-src/app/         routes — root layout, (auth) group, /dashboard, /items/[type], /profile, api/
-src/components/  ui/ (shadcn primitives), layout/, dashboard/, collections/, items/, auth/, profile/, user/
+prototypes/      standalone HTML mockups (no build step, not part of the app)
+src/app/         routes — root layout, (marketing) and (auth) groups, /dashboard,
+                 /items/[type], /collections, /favorites, /profile, /settings, api/
+src/components/  ui/ (shadcn primitives), layout/, marketing/, dashboard/, items/,
+                 collections/, favorites/, search/, billing/, settings/, editor/,
+                 auth/, profile/, user/
 src/actions/     server actions (+ co-located *.test.ts)
 src/lib/         prisma client, utils, db/ query modules, validations/ (+ co-located *.test.ts)
+src/hooks/       shared client hooks
 src/types/       shared type definitions and action state
-src/constants/   item type icons and Pro-gated slugs
+src/constants/   item type metadata, Pro-gated slugs, pagination and pricing constants
 src/generated/   Prisma client output (gitignored, rebuilt by postinstall)
 ```
 
