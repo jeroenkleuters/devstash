@@ -17,8 +17,11 @@ import {
   setItemPinned as setItemPinnedRow,
   updateItem as updateItemRow,
 } from "@/lib/db/items";
-import { getCurrentUserId } from "@/lib/db/user";
+import { countItems } from "@/lib/db/items";
+import { getCurrentUser, getCurrentUserId } from "@/lib/db/user";
+import type { CurrentUser } from "@/lib/db/user";
 import { deleteFile, headFile } from "@/lib/r2";
+import { FREE_ITEM_LIMIT, itemLimitMessage } from "@/lib/usage-limits";
 import type { ItemDetail } from "@/types/item";
 
 /**
@@ -28,6 +31,7 @@ import type { ItemDetail } from "@/types/item";
  * only thing under test.
  */
 vi.mock("@/lib/db/items", () => ({
+  countItems: vi.fn(),
   createItem: vi.fn(),
   updateItem: vi.fn(),
   deleteItem: vi.fn(),
@@ -37,7 +41,10 @@ vi.mock("@/lib/db/items", () => ({
 }));
 vi.mock("@/lib/db/item-types", () => ({ getItemTypeBySlug: vi.fn() }));
 vi.mock("@/lib/db/collections", () => ({ ownsAllCollections: vi.fn() }));
-vi.mock("@/lib/db/user", () => ({ getCurrentUserId: vi.fn() }));
+vi.mock("@/lib/db/user", () => ({
+  getCurrentUser: vi.fn(),
+  getCurrentUserId: vi.fn(),
+}));
 
 /**
  * Stands in for R2 as well, so nothing here reaches the network. `ownsObjectKey`
@@ -65,6 +72,11 @@ const headFileMock = vi.mocked(headFile);
 const getItemTypeBySlugMock = vi.mocked(getItemTypeBySlug);
 const ownsAllCollectionsMock = vi.mocked(ownsAllCollections);
 const getCurrentUserIdMock = vi.mocked(getCurrentUserId);
+const getCurrentUserMock = vi.mocked(getCurrentUser);
+const countItemsMock = vi.mocked(countItems);
+
+/** A free account well under the item cap — the default for these tests. */
+const FREE_USER = { id: "user-1", isPro: false } as CurrentUser;
 
 const SNIPPET_TYPE = {
   id: "type-1",
@@ -99,6 +111,8 @@ beforeEach(() => {
   vi.clearAllMocks();
 
   getCurrentUserIdMock.mockResolvedValue("user-1");
+  getCurrentUserMock.mockResolvedValue(FREE_USER);
+  countItemsMock.mockResolvedValue(0);
   getItemTypeBySlugMock.mockResolvedValue(SNIPPET_TYPE);
   ownsAllCollectionsMock.mockResolvedValue(true);
   createItemRowMock.mockResolvedValue(DETAIL);
@@ -117,8 +131,14 @@ describe("createItem", () => {
     return { typeSlug: "snippets", ...payload(overrides) };
   }
 
-  /** Resolves the File type, for the cases that carry an upload. */
+  /**
+   * Resolves the File type, for the cases that carry an upload.
+   *
+   * Also puts the account on Pro: `files` is in `PRO_TYPE_SLUGS`, so a free one
+   * is refused before any of the upload handling those tests are about runs.
+   */
   function asFileType() {
+    getCurrentUserMock.mockResolvedValue({ ...FREE_USER, isPro: true });
     getItemTypeBySlugMock.mockResolvedValue({
       id: "type-5",
       slug: "files",
@@ -145,8 +165,69 @@ describe("createItem", () => {
     expect(headFileMock).not.toHaveBeenCalled();
   });
 
+  it("refuses a Pro type on a free account", async () => {
+    // `files`, `images` and `books` all hold an upload, which is the storage the
+    // subscription pays for. The payload carries a file because the schema
+    // demands one of a file type and runs first — in practice a free account
+    // never gets this far, since `POST /api/upload` refuses it before there is
+    // a key to send. This is the backstop behind that.
+    const result = await createItem(
+      createPayload({
+        typeSlug: "files",
+        file: { key: "uploads/user-1/a.pdf", name: "a.pdf" },
+      }),
+    );
+
+    expect(result).toEqual({
+      success: false,
+      error: "Files, images and books are a Pro feature. Upgrade in Settings.",
+    });
+    expect(createItemRowMock).not.toHaveBeenCalled();
+  });
+
+  it("allows a Pro type once the account is on Pro", async () => {
+    asFileType();
+    headFileMock.mockResolvedValue({ size: 512 });
+
+    const result = await createItem(
+      createPayload({
+        typeSlug: "files",
+        file: { key: "uploads/user-1/a.pdf", name: "a.pdf" },
+      }),
+    );
+
+    expect(result).toEqual({ success: true, data: DETAIL });
+  });
+
+  it("refuses a free account that is at the item cap", async () => {
+    countItemsMock.mockResolvedValue(FREE_ITEM_LIMIT);
+
+    const result = await createItem(createPayload());
+
+    expect(result).toEqual({ success: false, error: itemLimitMessage() });
+    expect(createItemRowMock).not.toHaveBeenCalled();
+  });
+
+  it("allows a free account one below the cap", async () => {
+    // The boundary is `>=`: holding exactly the limit is at it, not under it.
+    countItemsMock.mockResolvedValue(FREE_ITEM_LIMIT - 1);
+
+    const result = await createItem(createPayload());
+
+    expect(result).toEqual({ success: true, data: DETAIL });
+  });
+
+  it("does not count a Pro account's items at all", async () => {
+    getCurrentUserMock.mockResolvedValue({ ...FREE_USER, isPro: true });
+
+    const result = await createItem(createPayload());
+
+    expect(result).toEqual({ success: true, data: DETAIL });
+    expect(countItemsMock).not.toHaveBeenCalled();
+  });
+
   it("refuses when the session has no live account", async () => {
-    getCurrentUserIdMock.mockResolvedValue(null);
+    getCurrentUserMock.mockResolvedValue(null);
 
     const result = await createItem(createPayload());
 
@@ -175,7 +256,10 @@ describe("createItem", () => {
 
   it("refuses an upload from another account's prefix", async () => {
     // The key is the one thing in the payload naming something outside the row
-    // being written, so it is checked against the caller's own prefix.
+    // being written, so it is checked against the caller's own prefix. Pro,
+    // because the type gate is ahead of this one and would answer first.
+    asFileType();
+
     const result = await createItem(
       createPayload({
         typeSlug: "files",

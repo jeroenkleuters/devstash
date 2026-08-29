@@ -1,10 +1,11 @@
 "use server";
 
-import { creatableType } from "@/constants/item-types";
+import { creatableType, isProType } from "@/constants/item-types";
 import { ownsAllCollections } from "@/lib/db/collections";
 import { getItemTypeBySlug } from "@/lib/db/item-types";
-import { getCurrentUserId } from "@/lib/db/user";
+import { getCurrentUser, getCurrentUserId } from "@/lib/db/user";
 import {
+  countItems,
   createItem as createItemRow,
   deleteItem as deleteItemRow,
   getItemFile,
@@ -16,6 +17,7 @@ import {
 import { MAX_UPLOAD_BYTES } from "@/lib/file-constraints";
 import { deleteFile, headFile, ownsObjectKey } from "@/lib/r2";
 import { formatFileSize } from "@/lib/utils";
+import { itemLimitMessage, itemUsage } from "@/lib/usage-limits";
 import { firstIssueMessage } from "@/lib/validations/auth";
 import { createItemSchema, updateItemSchema } from "@/lib/validations/item";
 import type {
@@ -58,6 +60,10 @@ const FOREIGN_FILE = "That file does not belong to this account.";
 const FOREIGN_COLLECTION =
   "One of those collections does not belong to this account.";
 
+/** A free account choosing a type only Pro may create — see `PRO_TYPE_SLUGS`. */
+const PRO_TYPE_REQUIRED =
+  "Files, images and books are a Pro feature. Upgrade in Settings.";
+
 /** A key with nothing behind it: never uploaded, or already cleaned up. */
 const MISSING_UPLOAD = "That upload is no longer there. Try choosing it again.";
 
@@ -75,11 +81,16 @@ const OVERSIZE_UPLOAD = `That file is larger than ${formatFileSize(
  * schema before any of this runs.
  */
 export async function createItem(input: unknown): Promise<CreateItemResult> {
-  const userId = await getCurrentUserId();
+  // The whole row rather than the id alone: the free-tier gates below need
+  // `isPro`, and `getCurrentUser` is `cache`d, so this costs exactly what the
+  // id did.
+  const user = await getCurrentUser();
 
-  if (!userId) {
+  if (!user) {
     return { success: false, error: SIGNED_OUT };
   }
+
+  const userId = user.id;
 
   const parsed = createItemSchema.safeParse(input);
 
@@ -94,6 +105,26 @@ export async function createItem(input: unknown): Promise<CreateItemResult> {
 
   if (!creatable) {
     return { success: false, error: UNKNOWN_TYPE };
+  }
+
+  // Refused before the upload key is even looked at: a free account choosing a
+  // Pro type should be told which feature it needs, not which field is wrong.
+  if (!user.isPro && isProType(creatable.slug)) {
+    return { success: false, error: PRO_TYPE_REQUIRED };
+  }
+
+  // Pro is unlimited, so the count query is not made at all for one.
+  //
+  // Two creates in flight can both read one under the cap and both write,
+  // taking a free account one over it. Postgres has no cheap constraint for
+  // that — the only exact fix is a transaction around a count and an insert —
+  // and one item over the cap is not worth paying for on every create.
+  if (!user.isPro) {
+    const usage = itemUsage(user.isPro, await countItems(userId));
+
+    if (!usage.allowed) {
+      return { success: false, error: itemLimitMessage() };
+    }
   }
 
   // The key is the one thing in the payload that names something outside the

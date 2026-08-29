@@ -65,6 +65,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   }
 
+  // Ahead of the rate limit, because a free account should be told it needs Pro
+  // rather than told to wait for a window that will refuse it again.
+  //
+  // `isPro` alone is enough only because every type holding an upload is a Pro
+  // type — see `PRO_TYPE_SLUGS`. This route is given an `UploadKind`
+  // (`"file"` / `"image"`) and never the item type slug, so it cannot tell a
+  // book's cover from an ordinary image. **If a free type ever gains an upload,
+  // this is the line that breaks first, and it breaks permissively:** the
+  // upload would be authorised and only `createItem` would refuse the type,
+  // leaving an object in the bucket with no item pointing at it.
+  if (!user.isPro) {
+    return NextResponse.json(
+      { error: "Uploads are a Pro feature. Upgrade in Settings." },
+      { status: 403 },
+    );
+  }
+
   // Whatever the account chose, or the defaults above. Read through
   // `parseUploadPreferences`, which refuses anything outside the offered set —
   // so a value written around the app cannot raise the ceiling either.

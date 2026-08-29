@@ -370,7 +370,9 @@ async function seedDemoUser() {
     name: DEMO_USER.name,
     passwordHash,
     emailVerified: new Date(),
-    isPro: false,
+    // Pro so the demo account is not caught by the free-tier gates: it seeds 5
+    // collections against a free cap of 3, so a free demo could not create one.
+    isPro: true,
   };
 
   return prisma.user.upsert({

@@ -7,13 +7,19 @@ import {
   updateCollection,
 } from "@/actions/collections";
 import {
+  countCollections,
   createCollection as createCollectionRow,
   deleteCollection as deleteCollectionRow,
   setCollectionFavorite as setCollectionFavoriteRow,
   updateCollection as updateCollectionRow,
 } from "@/lib/db/collections";
-import { getCurrentUserId } from "@/lib/db/user";
+import { getCurrentUser, getCurrentUserId } from "@/lib/db/user";
+import type { CurrentUser } from "@/lib/db/user";
 import type { CollectionSummary } from "@/lib/db/collections";
+import {
+  collectionLimitMessage,
+  FREE_COLLECTION_LIMIT,
+} from "@/lib/usage-limits";
 
 /**
  * Both modules import `@/lib/prisma`, which throws at import time without a
@@ -22,18 +28,27 @@ import type { CollectionSummary } from "@/lib/db/collections";
  * only thing under test.
  */
 vi.mock("@/lib/db/collections", () => ({
+  countCollections: vi.fn(),
   createCollection: vi.fn(),
   updateCollection: vi.fn(),
   deleteCollection: vi.fn(),
   setCollectionFavorite: vi.fn(),
 }));
-vi.mock("@/lib/db/user", () => ({ getCurrentUserId: vi.fn() }));
+vi.mock("@/lib/db/user", () => ({
+  getCurrentUser: vi.fn(),
+  getCurrentUserId: vi.fn(),
+}));
 
 const createCollectionRowMock = vi.mocked(createCollectionRow);
 const updateCollectionRowMock = vi.mocked(updateCollectionRow);
 const deleteCollectionRowMock = vi.mocked(deleteCollectionRow);
 const setCollectionFavoriteRowMock = vi.mocked(setCollectionFavoriteRow);
 const getCurrentUserIdMock = vi.mocked(getCurrentUserId);
+const getCurrentUserMock = vi.mocked(getCurrentUser);
+const countCollectionsMock = vi.mocked(countCollections);
+
+/** A free account well under the collection cap — the default for these tests. */
+const FREE_USER = { id: "user-1", isPro: false } as CurrentUser;
 
 const SUMMARY = {
   id: "collection-1",
@@ -45,6 +60,8 @@ beforeEach(() => {
   // tests — without this the "not called" assertions would read the last one's.
   vi.clearAllMocks();
   getCurrentUserIdMock.mockResolvedValue("user-1");
+  getCurrentUserMock.mockResolvedValue(FREE_USER);
+  countCollectionsMock.mockResolvedValue(0);
   createCollectionRowMock.mockResolvedValue(SUMMARY);
   updateCollectionRowMock.mockResolvedValue(SUMMARY);
   deleteCollectionRowMock.mockResolvedValue(true);
@@ -52,8 +69,36 @@ beforeEach(() => {
 });
 
 describe("createCollection", () => {
+  it("refuses a free account that is at the collection cap", async () => {
+    countCollectionsMock.mockResolvedValue(FREE_COLLECTION_LIMIT);
+
+    const result = await createCollection({ name: "React", description: "" });
+
+    expect(result).toEqual({ success: false, error: collectionLimitMessage() });
+    expect(createCollectionRowMock).not.toHaveBeenCalled();
+  });
+
+  it("allows a free account one below the cap", async () => {
+    // The boundary is `>=`: holding exactly the limit is at it, not under it.
+    countCollectionsMock.mockResolvedValue(FREE_COLLECTION_LIMIT - 1);
+
+    const result = await createCollection({ name: "React", description: "" });
+
+    expect(result).toEqual({ success: true, data: SUMMARY });
+  });
+
+  it("does not count a Pro account's collections at all", async () => {
+    getCurrentUserMock.mockResolvedValue({ ...FREE_USER, isPro: true });
+    countCollectionsMock.mockResolvedValue(999);
+
+    const result = await createCollection({ name: "React", description: "" });
+
+    expect(result).toEqual({ success: true, data: SUMMARY });
+    expect(countCollectionsMock).not.toHaveBeenCalled();
+  });
+
   it("refuses a session whose account is gone", async () => {
-    getCurrentUserIdMock.mockResolvedValue(null);
+    getCurrentUserMock.mockResolvedValue(null);
 
     const result = await createCollection({ name: "React", description: "" });
 

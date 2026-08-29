@@ -40,6 +40,17 @@ export class UploadError extends Error {}
  */
 export class UploadRateLimitedError extends UploadError {}
 
+/**
+ * The account may not upload at all — uploads are a Pro feature.
+ *
+ * Its own class for the reason `UploadRateLimitedError` has one: it says
+ * something about the *account* rather than about the file, so every upload
+ * queued behind it is refused for the same reason and a caller running several
+ * should stop rather than repeat one notice per file. Unlike the rate limit it
+ * will not pass with time, which makes stopping the more obviously right thing.
+ */
+export class UploadNotAllowedError extends UploadError {}
+
 /** The stored object, and what a create payload then carries a part of. */
 export interface UploadedFile {
   /** The R2 object key. */
@@ -114,6 +125,10 @@ async function authorise(kind: UploadKind, file: File): Promise<Authorised> {
   const payload = (await response
     .json()
     .catch(() => null)) as AuthoriseResponse | null;
+
+  if (response.status === 403) {
+    throw new UploadNotAllowedError(payload?.error || UPLOAD_UNREACHABLE);
+  }
 
   if (response.status === 429) {
     throw new UploadRateLimitedError(payload?.error || UPLOAD_UNREACHABLE);

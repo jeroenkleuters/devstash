@@ -1,12 +1,14 @@
 "use server";
 
 import {
+  countCollections,
   createCollection as createCollectionRow,
   deleteCollection as deleteCollectionRow,
   setCollectionFavorite as setCollectionFavoriteRow,
   updateCollection as updateCollectionRow,
 } from "@/lib/db/collections";
-import { getCurrentUserId } from "@/lib/db/user";
+import { getCurrentUser, getCurrentUserId } from "@/lib/db/user";
+import { collectionLimitMessage, collectionUsage } from "@/lib/usage-limits";
 import { firstIssueMessage } from "@/lib/validations/auth";
 import {
   createCollectionSchema,
@@ -46,9 +48,11 @@ const MISSING = "That collection no longer exists.";
 export async function createCollection(
   input: unknown,
 ): Promise<CreateCollectionResult> {
-  const userId = await getCurrentUserId();
+  // The whole row rather than the id alone: the free-tier cap below needs
+  // `isPro`, and `getCurrentUser` is `cache`d, so this costs what the id did.
+  const user = await getCurrentUser();
 
-  if (!userId) {
+  if (!user) {
     return { success: false, error: SIGNED_OUT };
   }
 
@@ -58,8 +62,19 @@ export async function createCollection(
     return { success: false, error: firstIssueMessage(parsed.error) };
   }
 
+  // Pro is unlimited, so the count query is not made at all for one. Two
+  // creates in flight can both read one under the cap and both write, taking a
+  // free account one over it — the same accepted race `createItem` records.
+  if (!user.isPro) {
+    const usage = collectionUsage(user.isPro, await countCollections(user.id));
+
+    if (!usage.allowed) {
+      return { success: false, error: collectionLimitMessage() };
+    }
+  }
+
   try {
-    const collection = await createCollectionRow(userId, parsed.data);
+    const collection = await createCollectionRow(user.id, parsed.data);
 
     return { success: true, data: collection };
   } catch (error) {

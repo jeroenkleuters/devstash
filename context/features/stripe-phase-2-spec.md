@@ -163,8 +163,22 @@ fail exactly one test.
 
 ### Manual — requires `stripe listen`
 
-Card `4242 4242 4242 4242`, any future expiry and CVC. Against the Neon
-**development** branch.
+Against the Neon **development** branch, with
+`stripe listen --forward-to localhost:3000/api/webhooks/stripe` running and its
+`whsec_…` in `.env`. Without that secret the handler refuses every delivery by
+design, so no checkout proves anything — `isPro` is only ever written by the
+webhook.
+
+Test cards, all with **any** future expiry, **any** 3-digit CVC and **any**
+5-digit ZIP:
+
+| Card | Outcome |
+|---|---|
+| `4242 4242 4242 4242` | Visa, payment succeeds |
+| `4000 0000 0000 0002` | Generic decline |
+
+Never a real card, and never against `demo@devstash.io` — use a throwaway
+account, which is also what the gating section needs.
 
 **Happy path**
 - [ ] Free account sees the Free card and an Upgrade button
@@ -174,6 +188,14 @@ Card `4242 4242 4242 4242`, any future expiry and CVC. Against the Neon
 - [ ] Row has `isPro: true`, a `stripeCustomerId` and a `stripeSubscriptionId`
 - [ ] **A plain reload shows Pro** — no sign-out. This proves the Phase 1
       decision to read the row rather than the token
+
+**Declined payment** — the negative path, and the one most likely to be skipped
+- [ ] `4000 0000 0000 0002` is refused on Stripe's page and the account is not
+      charged
+- [ ] The account is still Free afterwards: `isPro` false, no
+      `stripeSubscriptionId`, and no entitling webhook delivered
+- [ ] It can then pay with `4242 4242 4242 4242` and reach Pro — a failed
+      attempt must not leave anything behind that blocks the next one
 
 **Portal and lifecycle**
 - [ ] Manage billing opens the portal and returns to `/settings`
