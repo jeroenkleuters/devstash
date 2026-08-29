@@ -2757,6 +2757,47 @@ a.pagination-page:hover {
   color: var(--muted-foreground);
 }
 
+/* The billing row pairs a control with its button, which the row itself cannot
+   do: its own `space-between` would push the two apart. */
+.settings-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Which plan the account is on, opposite the card title. Free is stated in the
+   muted palette and Pro in the accent one, so the two read as a state rather
+   than as two labels of equal weight. */
+.settings-plan-badge {
+  flex-shrink: 0;
+  padding: 0.125rem 0.625rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--muted-foreground);
+}
+
+.settings-plan-badge[data-pro="true"] {
+  border-color: color-mix(in oklab, var(--type-snippet) 40%, transparent);
+  background: color-mix(in oklab, var(--type-snippet) 12%, transparent);
+  color: var(--type-snippet);
+}
+
+/* What Stripe sent the visitor back with. Sits between the card heading and the
+   action row, so it is read before the button it explains. */
+.settings-notice {
+  margin-top: 1rem;
+  padding: 0.625rem 0.875rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--muted);
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+}
+
 /* The editor card's controls. A native `<select>` rather than a ShadCN one:
    there is no `select` primitive installed, and the browser's own gives the
    keyboard and touch behaviour for free. */

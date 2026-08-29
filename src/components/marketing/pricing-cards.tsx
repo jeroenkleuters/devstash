@@ -6,10 +6,13 @@ import { useId, useState } from "react";
 
 import { Reveal } from "@/components/marketing/reveal";
 import { Button } from "@/components/ui/button";
+import { FREE_COLLECTION_LIMIT, FREE_ITEM_LIMIT } from "@/lib/usage-limits";
 
+// Rendered from the constants the gates enforce rather than restated, so the
+// page cannot promise a number the server refuses.
 const FREE = [
-  "50 items",
-  "3 collections",
+  `${FREE_ITEM_LIMIT} items`,
+  `${FREE_COLLECTION_LIMIT} collections`,
   "Snippets, prompts, notes, commands, links",
   "Full search",
   "Dark mode",
@@ -17,12 +20,17 @@ const FREE = [
 
 const PRO = [
   "Unlimited items and collections",
-  "File and image uploads",
+  "File, image and book uploads",
   "AI auto-tagging and summaries",
   "Explain this code, prompt optimizer",
   "Data export (JSON / ZIP)",
   "Priority support",
 ];
+
+interface PricingCardsProps {
+  /** Whether anyone is signed in, which decides where both CTAs lead. */
+  signedIn: boolean;
+}
 
 function Checklist({ items }: { items: string[] }) {
   return (
@@ -46,10 +54,13 @@ function Checklist({ items }: { items: string[] }) {
  * no `switch` primitive is installed, and the browser's own keyboard and touch
  * behaviour is worth more than a hand-built toggle.
  *
- * Both CTAs go to /register — there is no checkout yet, and someone choosing a
- * plan needs an account either way.
+ * The CTAs depend on whether anyone is signed in. Signed out, both lead to
+ * /register — checkout is a server action needing a session, and someone
+ * choosing a plan needs an account either way. Signed in, Go Pro leads to
+ * /settings rather than starting checkout directly: a marketing page should not
+ * silently begin a payment flow.
  */
-export function PricingCards() {
+export function PricingCards({ signedIn }: PricingCardsProps) {
   const [yearly, setYearly] = useState(false);
   const switchId = useId();
 
@@ -91,7 +102,9 @@ export function PricingCards() {
           </p>
           <Checklist items={FREE} />
           <Button asChild variant="outline" className="cta-block">
-            <Link href="/register">Get Started</Link>
+            <Link href={signedIn ? "/dashboard" : "/register"}>
+              {signedIn ? "Go to your stash" : "Get Started"}
+            </Link>
           </Button>
         </Reveal>
 
@@ -109,7 +122,7 @@ export function PricingCards() {
           </p>
           <Checklist items={PRO} />
           <Button asChild className="cta-accent cta-block">
-            <Link href="/register">Go Pro</Link>
+            <Link href={signedIn ? "/settings" : "/register"}>Go Pro</Link>
           </Button>
         </Reveal>
       </div>

@@ -55,10 +55,26 @@ export const FILE_ICONS: Record<string, LucideIcon> = {
 };
 
 /**
- * `ItemType.slug`s reserved for Pro accounts. Labelled only — nothing is gated
- * while all users get full access during development.
+ * `ItemType.slug`s that require a Pro subscription — both the badge the sidebar
+ * shows and the rule the server enforces, so the two cannot disagree.
+ *
+ * `books` is here because a book's cover goes through the image upload path, so
+ * it costs the same storage that gates images. That also makes this set exactly
+ * the set of types holding an upload, which is what lets `POST /api/upload`
+ * check `isPro` alone: the route sees an `UploadKind` and never the item type
+ * slug, so a free type in this group would force the payload to start carrying
+ * one just so the route could branch.
+ *
+ * **If a free type ever gains an upload, that route is what breaks first, and
+ * it breaks permissively** — the upload is allowed and only `createItem`
+ * refuses the type.
  */
-export const PRO_TYPE_SLUGS = new Set(["files", "images"]);
+export const PRO_TYPE_SLUGS = new Set(["files", "images", "books"]);
+
+/** Whether a type requires a Pro subscription. */
+export function isProType(slug: string): boolean {
+  return PRO_TYPE_SLUGS.has(slug);
+}
 
 /**
  * Which editor a type's content field uses.

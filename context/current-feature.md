@@ -1,13 +1,37 @@
-# Current Feature
+# Current Feature: Stripe Phase 2 — Integration & UI
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
+- `POST /api/webhooks/stripe` verifies Stripe signatures and is the only thing that writes `isPro` — `request.text()` + `constructEventAsync`, four handled events (`checkout.session.completed`, `customer.subscription.created/updated/deleted`), 200 for everything else.
+- The write is keyed on `stripeCustomerId` via `updateMany`, sets `isPro` from `active`/`trialing` alone, and clears `stripeSubscriptionId` when Pro stops — the column is `@unique`, so a stale id blocks a re-subscribe.
+- The route stays out of `src/proxy.ts`'s matcher; its authentication is the signature, not a session. Idempotent by construction — absolute state, never a delta.
+- `src/actions/billing.ts` adds `startCheckout(input)` and `openBillingPortal()` as server actions: session guard, refuse an account already on Pro, resolve the price server-side from the plan enum, create the Stripe customer once and reuse it.
+- `src/components/settings/settings-billing.tsx` renders second on `/settings` — Upgrade for a free account, Manage billing for a Pro one. Both calls `.catch(() => null)`, navigation via `window.location.assign`, failures toast.
+- Free-tier gates on **create only**, using the `usage-limits` messages verbatim: `createItem` (Pro type, then the item cap), `createCollection` (the collection cap), `POST /api/upload` (403 for a free account, ahead of the rate limit). Existing content stays readable, editable and deletable.
+- `books` joins `PRO_TYPE_SLUGS` with a new `isProType(slug)`, making the Pro slugs and the upload-holding types the same set — commented, since a free type gaining an upload would break this permissively.
+- `src/lib/upload-file.ts` gains `UploadNotAllowedError` for a 403 and `item-drop-zone.tsx` stops the batch on it, mirroring the existing 429 handling.
+- `pricing-cards.tsx` renders the `FREE_*` constants instead of literals and its CTAs point somewhere real.
+- `src/actions/billing.test.ts` covers the checkout and portal paths plus the gates; mutation-check that deleting the `user.isPro` early return in `startCheckout` fails exactly one test.
+- `npm test`, `npx tsc --noEmit`, `npx eslint src` and `npm run build` all clean.
+
 ## Notes
 
+- **Depends on phase 1** (merged): `src/lib/stripe.ts`, `src/lib/usage-limits.ts`, `src/lib/db/billing.ts`, `src/lib/validations/billing.ts`, and `isPro` / `hasBilling` on `CurrentUser`.
+- **Prerequisites no code can do:** the Stripe Dashboard needs one product, two recurring prices and the customer portal activated (plan §6), and `stripe listen --forward-to localhost:3000/api/webhooks/stripe` must be running with its `whsec_…` in `.env` — that secret differs from the dashboard endpoint's.
+- **Order matters** (plan §8 steps 6–15): build and verify the webhook **before any UI exists**, driven by `stripe trigger` alone. Then the actions, then the card, then the gates.
+- **The gates are the destructive step.** Everything before them is additive. Demo holds 18 items across 5 collections — under the item cap but **over** the 3-collection cap — so gating collections would stop demo creating another one. **Decided: demo is `isPro: true`** — already changed in `prisma/seed.ts` with the reason in a comment. Note the seed only writes it on a run, and `npm run db:seed` rebuilds demo content (wiping hand-set favorites/pins and rewriting the password), so the live dev row wants a one-off `isPro` update instead. Test the gates with a throwaway account.
+- **Stripe production keys are handled outside this work.** Everything here targets test mode against the Neon **development** branch — `sk_test_…` and the `whsec_…` that `stripe listen` prints. No production key belongs in `.env`, `.env.production` or any commit.
+- **The race is accepted:** two creates in flight can both read 49 and both write, taking a free account to 51. No cheap Postgres constraint, and one over the cap is not worth a transaction — say so in a comment.
+- Swap `getCurrentUserId()` for `getCurrentUser()` in the gated actions; it is `cache()`d, so the whole row costs what the id did.
+- **Untestable by configuration:** route handlers and components are outside what `vitest.config.mts` collects, so the webhook, the card and the drop zone are verified by hand — Stripe CLI plus a browser, against the Neon **development** branch.
+- **Test cards** (any future expiry, any 3-digit CVC, any 5-digit ZIP): `4242 4242 4242 4242` succeeds, `4000 0000 0000 0002` is a generic decline. The decline is the check worth not skipping — it must leave the account Free with no `stripeSubscriptionId` and no entitling webhook, and must not block a later successful payment. Throwaway account only, never `demo@devstash.io`, never a real card.
+- Manual checklist in the spec covers the happy path, portal and lifecycle (including re-subscribing after a cancel, which is what clearing the unique column buys), gating, webhook security (no signature → 400, altered body → 400, double `trigger` → both 200, secret unset → refuses), and regression.
+- **The card cannot show plan, renewal date or a failed payment** — `isPro` is a boolean and adding `subscriptionStatus` / `stripePriceId` / `currentPeriodEnd` is a migration, out of scope (plan §5.12).
+- Spec: @context/features/stripe-phase-2-spec.md · Plan: @docs/stripe-integration-plan.md
 ## History
 
 <!-- Keep this updated. Earliest to latest -->

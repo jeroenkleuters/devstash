@@ -16,6 +16,7 @@ import { titleFromFileName } from "@/lib/file-title";
 import {
   uploadFile,
   UploadError,
+  UploadNotAllowedError,
   UploadRateLimitedError,
   UPLOAD_UNREACHABLE,
 } from "@/lib/upload-file";
@@ -195,9 +196,14 @@ export function ItemDropZone({ kind, typeSlug, children }: ItemDropZoneProps) {
         created += 1;
         update(entry.id, { status: "done" });
       } catch (failure) {
-        // The account is over its upload allowance, which every file still
-        // queued would hit as well. Stop rather than say it once per file.
-        if (failure instanceof UploadRateLimitedError) {
+        // Either the account may not upload at all, or it is over its
+        // allowance. Both are about the account rather than this file, so every
+        // file still queued would be refused for the same reason — stop rather
+        // than repeat the same notice once per file.
+        if (
+          failure instanceof UploadNotAllowedError ||
+          failure instanceof UploadRateLimitedError
+        ) {
           stopped = true;
         }
 
