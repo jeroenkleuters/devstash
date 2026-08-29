@@ -26,6 +26,22 @@ export interface CurrentUser {
    */
   hasPassword: boolean;
   /**
+   * Whether the account is on Pro.
+   *
+   * Read from the row rather than from the session token, for the reason `name`
+   * and `image` are: a token is whatever it was minted with, and a Stripe
+   * webhook changes this behind the visitor's back. Since this query already
+   * runs on every request, a plain reload after checkout is enough — where a
+   * token claim would cost a query *and* add a second, staler source of truth.
+   */
+  isPro: boolean;
+  /**
+   * Whether the account has a Stripe customer, so the billing portal has
+   * something to open. The id itself stays in this module, the same reduction
+   * `hasPassword` makes for the password hash.
+   */
+  hasBilling: boolean;
+  /**
    * The account's Monaco settings, already read out of the JSON column. Carried
    * here because the shell needs them on the first render and this query is
    * already being made — see `AppShell`.
@@ -72,6 +88,8 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
       image: true,
       createdAt: true,
       passwordHash: true,
+      isPro: true,
+      stripeCustomerId: true,
       editorPreferences: true,
       uploadPreferences: true,
     },
@@ -81,7 +99,13 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     return null;
   }
 
-  const { passwordHash, editorPreferences, uploadPreferences, ...rest } = user;
+  const {
+    passwordHash,
+    stripeCustomerId,
+    editorPreferences,
+    uploadPreferences,
+    ...rest
+  } = user;
 
   // Both null for an account that signs in with GitHub, so it always matches.
   // A token minted before fingerprints existed carries none and is rejected,
@@ -94,6 +118,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   return {
     ...rest,
     hasPassword: passwordHash !== null,
+    hasBilling: stripeCustomerId !== null,
     editorPreferences: parseEditorPreferences(editorPreferences),
     uploadPreferences: parseUploadPreferences(uploadPreferences),
   };
