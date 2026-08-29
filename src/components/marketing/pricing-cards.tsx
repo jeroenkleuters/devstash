@@ -6,6 +6,7 @@ import { useId, useState } from "react";
 
 import { Reveal } from "@/components/marketing/reveal";
 import { Button } from "@/components/ui/button";
+import { PLAN_PRICING } from "@/constants/pricing";
 import { FREE_COLLECTION_LIMIT, FREE_ITEM_LIMIT } from "@/lib/usage-limits";
 
 // Rendered from the constants the gates enforce rather than restated, so the
@@ -62,6 +63,7 @@ function Checklist({ items }: { items: string[] }) {
  */
 export function PricingCards({ signedIn }: PricingCardsProps) {
   const [yearly, setYearly] = useState(false);
+  const pricing = PLAN_PRICING[yearly ? "yearly" : "monthly"];
   const switchId = useId();
 
   return (
@@ -112,8 +114,10 @@ export function PricingCards({ signedIn }: PricingCardsProps) {
           <span className="popular">Most Popular</span>
           <h3>Pro</h3>
           <p className="price">
-            <span className="amount">{yearly ? "$72" : "$8"}</span>
-            <span className="per">{yearly ? "per year" : "per month"}</span>
+            {/* From the shared table, so this page and the upgrade dialog
+                cannot quote different figures. */}
+            <span className="amount">{pricing.amount}</span>
+            <span className="per">{pricing.period}</span>
           </p>
           <p className="price-note">
             {yearly

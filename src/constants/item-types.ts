@@ -210,6 +210,15 @@ export const CREATABLE_TYPES: readonly CreatableType[] = [
     editor: "markdown",
   },
   {
+    slug: "links",
+    label: "Link",
+    icon: "Link",
+    contentType: "URL",
+  },
+  // The three Pro types last, matching `TYPE_SLUG_ORDER` in
+  // `src/lib/db/item-types.ts` — the sidebar and this picker list the types in
+  // one order, and `PRO_TYPE_SLUGS` is exactly this tail.
+  {
     slug: "files",
     label: "File",
     icon: "File",
@@ -222,12 +231,6 @@ export const CREATABLE_TYPES: readonly CreatableType[] = [
     icon: "Image",
     contentType: "FILE",
     upload: "image",
-  },
-  {
-    slug: "links",
-    label: "Link",
-    icon: "Link",
-    contentType: "URL",
   },
   {
     slug: "books",

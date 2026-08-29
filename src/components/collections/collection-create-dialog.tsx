@@ -1,8 +1,9 @@
 "use client";
 
-import { FolderPlus } from "lucide-react";
+import { FolderPlus, Lock } from "lucide-react";
 import { useState } from "react";
 
+import { useBilling } from "@/components/billing/billing-provider";
 import { CollectionForm } from "@/components/collections/collection-form";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,6 +36,29 @@ export function CollectionCreateDialog({
   label = "New Collection",
 }: CollectionCreateDialogProps) {
   const [open, setOpen] = useState(false);
+  const { collections, requestUpgrade } = useBilling();
+
+  // At the free cap. `createCollection` refuses this too — the gate here only
+  // decides what the button does before the request is made, and turns it into
+  // the upsell rather than a failed create.
+  if (!collections.allowed) {
+    return (
+      <Button
+        variant="outline"
+        size="lg"
+        className="create-gated"
+        // Not `disabled`: a disabled button takes no click, and the click is
+        // what opens the upsell.
+        aria-disabled
+        aria-label={`${label} — requires Pro`}
+        title="Upgrade to Pro"
+        onClick={() => requestUpgrade({ kind: "collections" })}
+      >
+        <Lock aria-hidden />
+        <span className="action-label">{label}</span>
+      </Button>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

@@ -1,8 +1,9 @@
 "use client";
 
-import { Plus } from "lucide-react";
+import { Lock, Plus } from "lucide-react";
 import { useState } from "react";
 
+import { useBilling } from "@/components/billing/billing-provider";
 import { ItemCreateForm } from "@/components/items/item-create-form";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,7 +14,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { creatableType } from "@/constants/item-types";
+import { creatableType, isProType } from "@/constants/item-types";
 
 interface ItemCreateDialogProps {
   /**
@@ -44,10 +45,33 @@ export function ItemCreateDialog({
   label = "New Item",
 }: ItemCreateDialogProps) {
   const [open, setOpen] = useState(false);
+  const { isPro, items, requestUpgrade } = useBilling();
 
   // Only preselects a type the picker actually knows; anything else falls
   // through to the form's own default rather than selecting nothing.
   const selected = typeSlug ? creatableType(typeSlug) : undefined;
+
+  // Two ways a free account is turned away here: it is at the item cap, or the
+  // button belongs to a type page for one of the Pro types. Both are the
+  // server's rule already — `createItem` refuses either — so this only decides
+  // what the button does before the request is made.
+  const proType = !isPro && selected !== undefined && isProType(selected.slug);
+  const gated = proType || !items.allowed;
+
+  if (gated) {
+    return (
+      <GatedButton
+        label={label}
+        onClick={() =>
+          requestUpgrade(
+            proType && selected
+              ? { kind: "type", label: `${selected.label}s` }
+              : { kind: "items" },
+          )
+        }
+      />
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -76,5 +100,35 @@ export function ItemCreateDialog({
         />
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * The create button when the account may not create.
+ *
+ * Styled as unavailable but deliberately **not** `disabled`: a disabled button
+ * takes no click, and the click is the whole point — it is what opens the
+ * upsell. `aria-disabled` says the same thing to a screen reader without
+ * removing it from the tab order.
+ */
+function GatedButton({
+  label,
+  onClick,
+}: {
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <Button
+      size="lg"
+      className="create-gated"
+      aria-disabled
+      aria-label={`${label} — requires Pro`}
+      title="Upgrade to Pro"
+      onClick={onClick}
+    >
+      <Lock aria-hidden />
+      <span className="action-label">{label}</span>
+    </Button>
   );
 }

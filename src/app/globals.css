@@ -4524,3 +4524,153 @@ html:has(.marketing) {
     }
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Free-tier gating & the Pro upsell
+   --------------------------------------------------------------------------- */
+
+/* A create button the account may not use. Muted like a disabled control, but
+   the element is not `disabled` — the click is what opens the upsell — so it
+   keeps a pointer cursor and a full-strength hover to say it still does
+   something. */
+.create-gated {
+  opacity: 0.75;
+}
+
+.create-gated:hover {
+  opacity: 1;
+}
+
+/* A locked type in the create picker, and a locked type row in the sidebar. The
+   sidebar button also has to be flattened back to a link's box, since a
+   `<button>` brings its own. */
+.item-type-option[data-locked] {
+  opacity: 0.7;
+}
+
+button.sidebar-link {
+  width: 100%;
+  background: none;
+  border: 0;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sidebar-link[data-locked] {
+  opacity: 0.7;
+}
+
+.sidebar-link[data-locked]:hover {
+  opacity: 1;
+}
+
+.upgrade-dialog {
+  max-width: 34rem;
+}
+
+.upgrade-benefits {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+}
+
+.upgrade-benefits li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.upgrade-benefits svg {
+  flex-shrink: 0;
+  color: var(--type-snippet);
+}
+
+.upgrade-plans {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.upgrade-plans-legend {
+  margin-bottom: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+.upgrade-plan {
+  display: grid;
+  gap: 0.125rem;
+  padding: 0.875rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+
+/* Hidden rather than removed, so the group keeps its keyboard behaviour and its
+   focus lands somewhere visible — the same shape the type picker uses. */
+.upgrade-plan input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.upgrade-plan:hover {
+  border-color: var(--muted-foreground);
+}
+
+.upgrade-plan:has(:checked) {
+  border-color: var(--type-snippet);
+  background: color-mix(in oklab, var(--type-snippet) 10%, transparent);
+}
+
+.upgrade-plan:has(:focus-visible) {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.upgrade-plan-label {
+  font-size: 0.8125rem;
+  color: var(--muted-foreground);
+}
+
+.upgrade-plan-amount {
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.upgrade-plan-period,
+.upgrade-plan-note {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+
+.upgrade-plan-note {
+  color: var(--type-snippet);
+}
+
+.upgrade-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+@media (max-width: 30rem) {
+  .upgrade-plans {
+    grid-template-columns: 1fr;
+  }
+}

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronDown, Folder, Layers, Star } from "lucide-react";
 
+import { useBilling } from "@/components/billing/billing-provider";
 import { useSidebar } from "@/components/layout/sidebar-provider";
 import { SidebarUser } from "@/components/layout/sidebar-user";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +30,7 @@ export function Sidebar({
 }: SidebarProps) {
   const pathname = usePathname();
   const { closeOnMobile } = useSidebar();
+  const { isPro, requestUpgrade } = useBilling();
   const [typesOpen, setTypesOpen] = useState(true);
   const [collectionsOpen, setCollectionsOpen] = useState(true);
 
@@ -63,35 +65,63 @@ export function Sidebar({
               {types.map((type) => {
                 const Icon = TYPE_ICONS[type.icon];
                 const href = `/items/${type.slug}`;
-                const isPro = PRO_TYPE_SLUGS.has(type.slug);
+                const proType = PRO_TYPE_SLUGS.has(type.slug);
+
+                // A free account is sent to the upsell rather than to an empty
+                // Pro listing — but only when the listing really is empty. An
+                // account that was Pro and lapsed still owns its files, and
+                // hiding the one page they are on would be taking them away
+                // rather than gating what it can add.
+                const locked = proType && !isPro && type.itemCount === 0;
+
+                const contents = (
+                  <>
+                    {Icon && (
+                      <Icon
+                        className="sidebar-type-icon"
+                        data-type={type.slug}
+                        size={16}
+                        aria-hidden
+                      />
+                    )}
+                    <span className="sidebar-link-label">{type.name}</span>
+                    {proType && (
+                      <Badge variant="outline" className="sidebar-pro-badge">
+                        PRO
+                      </Badge>
+                    )}
+                    <span className="sidebar-link-count">{type.itemCount}</span>
+                  </>
+                );
 
                 return (
                   <li key={type.id}>
-                    <Link
-                      href={href}
-                      className="sidebar-link"
-                      data-active={pathname === href}
-                      title={type.name}
-                      onClick={closeOnMobile}
-                    >
-                      {Icon && (
-                        <Icon
-                          className="sidebar-type-icon"
-                          data-type={type.slug}
-                          size={16}
-                          aria-hidden
-                        />
-                      )}
-                      <span className="sidebar-link-label">{type.name}</span>
-                      {isPro && (
-                        <Badge variant="outline" className="sidebar-pro-badge">
-                          PRO
-                        </Badge>
-                      )}
-                      <span className="sidebar-link-count">
-                        {type.itemCount}
-                      </span>
-                    </Link>
+                    {locked ? (
+                      <button
+                        type="button"
+                        className="sidebar-link"
+                        data-locked
+                        title={`${type.name} — requires Pro`}
+                        onClick={() =>
+                          requestUpgrade({
+                            kind: "type",
+                            label: `${type.name}s`,
+                          })
+                        }
+                      >
+                        {contents}
+                      </button>
+                    ) : (
+                      <Link
+                        href={href}
+                        className="sidebar-link"
+                        data-active={pathname === href}
+                        title={type.name}
+                        onClick={closeOnMobile}
+                      >
+                        {contents}
+                      </Link>
+                    )}
                   </li>
                 );
               })}

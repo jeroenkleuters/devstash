@@ -26,6 +26,22 @@ export interface UsageLimit {
 }
 
 /**
+ * The client-side view of one cap.
+ *
+ * `remaining` is deliberately absent. It is `Infinity` for a Pro account, and
+ * nothing that crosses to the browser should have to care whether that survives
+ * the trip — the gates in the UI ask `allowed`, and the copy uses `limit` and
+ * `used`.
+ */
+export type ClientUsage = Omit<UsageLimit, "remaining">;
+
+/** Both caps as the browser sees them. */
+export interface ClientUsageSnapshot {
+  items: ClientUsage;
+  collections: ClientUsage;
+}
+
+/**
  * The rule both caps follow.
  *
  * Deliberately pure: it takes the count rather than fetching it, so the caller

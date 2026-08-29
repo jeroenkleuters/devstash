@@ -73,7 +73,13 @@ export function CollectionForm({ collection, onDone }: CollectionFormProps) {
     const parsed = schema.safeParse(payload);
 
     if (!parsed.success) {
-      setError(firstIssueMessage(parsed.error));
+      const message = firstIssueMessage(parsed.error);
+
+      // Toasted as well as shown inline: the inline slot is at the top of a
+      // body that scrolls, so on a long form it can be off-screen when the
+      // submit button is not. Every refused create says why somewhere visible.
+      setError(message);
+      toast.error(message);
       return;
     }
 
