@@ -1,21 +1,15 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
 import { toast } from "sonner";
 
-import { openBillingPortal, startCheckout } from "@/actions/billing";
+import { openBillingPortal } from "@/actions/billing";
+import { useBilling } from "@/components/billing/billing-provider";
 import { Button } from "@/components/ui/button";
 import { FREE_COLLECTION_LIMIT, FREE_ITEM_LIMIT } from "@/lib/usage-limits";
-import { BILLING_PLANS, type BillingPlan } from "@/types/billing";
 
 /** Said when an action never answered, so it named no reason. */
 const UNREACHABLE = "Could not reach the server. Try again.";
-
-/** What each plan is called on the control. */
-const PLAN_LABELS: Record<BillingPlan, string> = {
-  monthly: "Monthly",
-  yearly: "Yearly — two months free",
-};
 
 interface SettingsBillingProps {
   isPro: boolean;
@@ -33,17 +27,16 @@ interface SettingsBillingProps {
  * which is the only thing that sets `isPro`. So there is no optimistic state to
  * hold and nothing to render on success.
  *
- * The amounts are deliberately not shown. This app holds Stripe *price ids*,
- * never the amounts behind them, so a figure here would be a second place for
- * the real price to drift from — and Stripe's own checkout page states it
- * before anything is charged.
+ * Upgrading hands off to the shared upsell dialog rather than starting checkout
+ * from here, so the plans and their amounts are stated in one place — the same
+ * dialog a free account meets when it hits an item, collection or Pro-type gate.
  */
 export function SettingsBilling({
   isPro,
   hasBilling,
   checkout,
 }: SettingsBillingProps) {
-  const [plan, setPlan] = useState<BillingPlan>("monthly");
+  const { requestUpgrade } = useBilling();
   const [busy, startBusy] = useTransition();
 
   function leaveFor(run: () => Promise<{ success: boolean; url?: string; error?: string }>) {
@@ -133,29 +126,12 @@ export function SettingsBilling({
             </p>
           </div>
 
-          <div className="settings-row-actions">
-            <select
-              className="settings-select"
-              value={plan}
-              onChange={(event) => setPlan(event.target.value as BillingPlan)}
-              aria-label="Billing period"
-              disabled={busy}
-            >
-              {BILLING_PLANS.map((option) => (
-                <option key={option} value={option}>
-                  {PLAN_LABELS[option]}
-                </option>
-              ))}
-            </select>
-
-            <Button
-              type="button"
-              disabled={busy}
-              onClick={() => leaveFor(() => startCheckout({ plan }))}
-            >
-              Upgrade
-            </Button>
-          </div>
+          <Button
+            type="button"
+            onClick={() => requestUpgrade({ kind: "plan" })}
+          >
+            Upgrade
+          </Button>
         </div>
       )}
     </section>

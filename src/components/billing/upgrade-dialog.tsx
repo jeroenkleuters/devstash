@@ -25,7 +25,11 @@ const UNREACHABLE = "Could not reach the server. Try again.";
  * the copy names the feature the visitor just reached for.
  */
 export type UpgradeReason =
-  { kind: "items" } | { kind: "collections" } | { kind: "type"; label: string };
+  | { kind: "items" }
+  | { kind: "collections" }
+  | { kind: "type"; label: string }
+  /** Asked for outright from the settings card, rather than by hitting a gate. */
+  | { kind: "plan" };
 
 /** What Pro gives, listed once. */
 const BENEFITS = [
@@ -50,6 +54,11 @@ function headline(reason: UpgradeReason): { title: string; body: string } {
       return {
         title: `${reason.label} are a Pro feature`,
         body: `${reason.label} need a Pro subscription, because they are stored as uploads.`,
+      };
+    case "plan":
+      return {
+        title: "Upgrade",
+        body: "Pick a plan and continue to checkout. Cancel any time.",
       };
   }
 }

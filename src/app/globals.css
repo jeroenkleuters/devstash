@@ -2757,15 +2757,6 @@ a.pagination-page:hover {
   color: var(--muted-foreground);
 }
 
-/* The billing row pairs a control with its button, which the row itself cannot
-   do: its own `space-between` would push the two apart. */
-.settings-row-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-}
-
 /* Which plan the account is on, opposite the card title. Free is stated in the
    muted palette and Pro in the accent one, so the two read as a state rather
    than as two labels of equal weight. */
@@ -2781,9 +2772,9 @@ a.pagination-page:hover {
 }
 
 .settings-plan-badge[data-pro="true"] {
-  border-color: color-mix(in oklab, var(--type-snippet) 40%, transparent);
-  background: color-mix(in oklab, var(--type-snippet) 12%, transparent);
-  color: var(--type-snippet);
+  border-color: var(--type-snippet);
+  background: var(--type-snippet);
+  color: #fff;
 }
 
 /* What Stripe sent the visitor back with. Sits between the card heading and the
