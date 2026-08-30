@@ -15,16 +15,7 @@
    data-usage terms at the moment of writing. It is the only part of this page
    describing someone else's policy, and it is the part that dates. Do not copy
    the sentence from here or from `docs/ai-integration-plan.md`.
-3. **Fix account deletion first, or change §7.** `deleteAccount` in
-   `src/lib/account.ts` deletes the user row and lets Prisma cascade the items,
-   collections and tag links — but it **does not delete the uploaded files from
-   Cloudflare R2**. `deleteItem` deletes an item's object; deleting the whole
-   account does not. Files are therefore orphaned in the bucket after an account
-   is gone. That is a real defect, not a wording problem: it is a right-to-erasure
-   gap and an unbounded storage cost. §7 is written honestly about it below,
-   **but the better fix is the code.** Worth its own feature before this page is
-   linked publicly.
-4. **Have someone qualified read it.** This is written to be accurate and
+3. **Have someone qualified read it.** This is written to be accurate and
    understandable, not to be a legal instrument. DevStash has EU users, so GDPR
    applies, and the wording of a rights section is not something to take from an
    AI-assisted draft unreviewed.
@@ -175,10 +166,14 @@ whether your account is on Pro.
 Your account and everything in it stay until you delete them.
 
 Deleting your account immediately removes your account record and everything
-linked to it — items, collections, tags and sessions — from our database.
+linked to it — items, collections, tags and sessions — from our database, and
+deletes the files you uploaded from file storage at the same time.
 
-Files you uploaded may remain in file storage for a period after
-account deletion before they are removed.
+If file storage cannot be reached at that moment, your account is still deleted
+straight away and the remaining files are removed by a routine cleanup that runs
+against the store afterwards. Nothing about your account survives either way:
+what is left is an unreferenced file, and it is deleted without anything having
+to identify it as yours.
 
 Verification links expire after 24 hours and password-reset links after one hour.
 Rate-limit counters expire within hours.

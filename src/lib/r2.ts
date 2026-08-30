@@ -2,7 +2,9 @@ import { randomUUID } from "node:crypto";
 
 import {
   DeleteObjectCommand,
+  DeleteObjectsCommand,
   GetObjectCommand,
+  ListObjectsV2Command,
   HeadObjectCommand,
   NoSuchKey,
   NotFound,
@@ -239,4 +241,124 @@ export async function deleteFile(key: string): Promise<void> {
   await getR2().send(
     new DeleteObjectCommand({ Bucket: bucket(), Key: key }),
   );
+}
+
+/**
+ * The S3 API's cap on one `DeleteObjects` request, which R2 implements.
+ */
+const DELETE_BATCH_SIZE = 1000;
+
+/**
+ * Removes many objects, in as few round trips as the API allows.
+ *
+ * **A partial failure is a 200 carrying an `Errors` array rather than a throw**,
+ * so a `try`/`catch` alone would read one as a success. That matters most where
+ * this is called from: account deletion treats a rejection as "these objects are
+ * now orphans, log it and let the sweep find them", and a silent partial failure
+ * would turn that best effort into no effort.
+ *
+ * Keys are not checked for ownership here — see `deleteFiles` for the account
+ * path. The sweep has no single owner to check against, its keys coming from a
+ * listing of the bucket diffed against the database.
+ */
+export async function deleteObjects(keys: string[]): Promise<void> {
+  for (let start = 0; start < keys.length; start += DELETE_BATCH_SIZE) {
+    const batch = keys.slice(start, start + DELETE_BATCH_SIZE);
+
+    const response = await getR2().send(
+      new DeleteObjectsCommand({
+        Bucket: bucket(),
+        Delete: { Objects: batch.map((Key) => ({ Key })) },
+      }),
+    );
+
+    const errors = response.Errors ?? [];
+
+    if (errors.length > 0) {
+      const [first] = errors;
+
+      throw new Error(
+        `${errors.length} of ${batch.length} object(s) were not deleted — ${first.Key}: ${first.Code} ${first.Message}`,
+      );
+    }
+  }
+}
+
+/**
+ * Removes many of one user's objects.
+ *
+ * The keys come from that user's own item rows, so the `ownsObjectKey` filter
+ * should never drop anything — but `fileUrl` is a stored string, and a value
+ * edited by hand or written by a future bug could name another account's
+ * object. It is the one check standing between a data bug and deleting someone
+ * else's file, and it costs a string comparison.
+ *
+ * A dropped key is logged rather than thrown on: the caller is mid-erasure and
+ * must not be stopped, but a key that fails this is a bug worth seeing.
+ */
+export async function deleteFiles(
+  userId: string,
+  keys: string[],
+): Promise<void> {
+  const owned = keys.filter((key) => ownsObjectKey(userId, key));
+
+  if (owned.length !== keys.length) {
+    console.error(
+      `Refusing to delete ${keys.length - owned.length} object(s) outside the prefix of user ${userId}.`,
+    );
+  }
+
+  if (owned.length === 0) {
+    return;
+  }
+
+  await deleteObjects(owned);
+}
+
+/** One object as the bucket lists it. */
+export interface ListedObject {
+  key: string;
+  size: number;
+  /** `null` for the rare object listed without one. */
+  lastModified: Date | null;
+}
+
+/**
+ * Every object under a prefix, following the listing's pages.
+ *
+ * Only the reconciliation sweep needs this: the app itself never asks the
+ * bucket what it holds, because the item rows are the index.
+ */
+export async function listObjects(prefix: string): Promise<ListedObject[]> {
+  const objects: ListedObject[] = [];
+  let continuationToken: string | undefined;
+
+  do {
+    const page = await getR2().send(
+      new ListObjectsV2Command({
+        Bucket: bucket(),
+        Prefix: prefix,
+        ContinuationToken: continuationToken,
+      }),
+    );
+
+    for (const object of page.Contents ?? []) {
+      if (!object.Key) {
+        continue;
+      }
+
+      objects.push({
+        key: object.Key,
+        size: object.Size ?? 0,
+        lastModified: object.LastModified ?? null,
+      });
+    }
+
+    // `NextContinuationToken` is only set while there is another page.
+    continuationToken = page.IsTruncated
+      ? page.NextContinuationToken
+      : undefined;
+  } while (continuationToken);
+
+  return objects;
 }

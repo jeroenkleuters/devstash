@@ -118,7 +118,7 @@ model Item {
   contentType ContentType
 
   content  String? @db.Text // text content (snippet/prompt/note/command)
-  fileUrl  String? // Cloudflare R2 URL
+  fileUrl  String? // Cloudflare R2 object key, not a URL — `uploads/{userId}/…`
   fileName String? // original filename
   fileSize Int? // bytes
   url      String? // for link type

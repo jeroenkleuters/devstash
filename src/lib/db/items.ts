@@ -326,6 +326,33 @@ export async function getItemFile(
 }
 
 /**
+ * Every R2 object key this user's items hold.
+ *
+ * Written for account deletion, which has to collect these *before* the row
+ * goes: `Item` cascades from `User`, so the only record of which objects belong
+ * to the account disappears at the same moment they become orphans.
+ *
+ * `fileUrl` is the one column holding a key — a book puts its cover there too —
+ * so this needs no per-type branching.
+ *
+ * Deliberately not `cache()`d, unlike most of this module: it is read once
+ * during a mutation, and memoizing that across a request buys nothing.
+ * Unbounded for the same kind of reason — a key is a short string and even a
+ * large Pro account is a small array, so paginating it would cost more than it
+ * saves.
+ */
+export async function getUserFileKeys(userId: string): Promise<string[]> {
+  const items = await prisma.item.findMany({
+    where: { userId, fileUrl: { not: null } },
+    select: { fileUrl: true },
+  });
+
+  return items
+    .map((item) => item.fileUrl)
+    .filter((key): key is string => key !== null);
+}
+
+/**
  * An object confirmed to be in the bucket, ready to hang off a new item.
  *
  * `size` is what R2 reported, which is the only size anyone can vouch for: the
