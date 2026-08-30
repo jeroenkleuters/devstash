@@ -177,8 +177,7 @@ Your account and everything in it stay until you delete them.
 Deleting your account immediately removes your account record and everything
 linked to it — items, collections, tags and sessions — from our database.
 
-**[REWRITE THIS PARAGRAPH ONCE THE CODE IS FIXED — see the note at the top of
-this file]** Files you uploaded may remain in file storage for a period after
+Files you uploaded may remain in file storage for a period after
 account deletion before they are removed.
 
 Verification links expire after 24 hours and password-reset links after one hour.
