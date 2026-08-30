@@ -16,6 +16,7 @@
     "db:seed": "prisma db seed",
     "db:test": "tsx scripts/test-db.ts",
     "db:prune": "tsx scripts/prune-users.ts",
+    "r2:sweep": "tsx scripts/sweep-orphans.ts",
     "db:studio": "prisma studio"
   },
   "dependencies": {
