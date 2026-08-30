@@ -1,4 +1,4 @@
-# Current Feature
+# Current Feature: Account deletion leaves uploaded files in R2
 
 ## Status
 
@@ -6,7 +6,70 @@ Not Started
 
 ## Goals
 
+Deleting an account must remove that account's objects from Cloudflare R2, and a
+sweep must exist to reclaim the orphans already in the bucket. **No migration, no
+new dependency, no new ShadCN primitive, and no user-visible change** — the delete
+dialog, its action and its redirect all behave exactly as they do now.
+
+- **Part A — delete the objects when the account goes.** `deleteAccount` collects
+  the file keys **before** anything is deleted (the cascade removes the `Item`
+  rows that hold them, so collecting afterwards is impossible), deletes the row,
+  and then sweeps R2 best-effort. A failed object delete is logged loudly with the
+  count and the recovery command, and **never fails the erasure** — a vendor
+  outage must not block someone from leaving.
+- `getUserFileKeys(userId)` in `src/lib/db/items.ts` — unbounded and not `cache()`d,
+  both deliberate. `fileUrl` is the only column holding a key, book covers
+  included, so it needs no per-type branching.
+- `deleteFiles(keys)` in `src/lib/r2.ts` — bulk `DeleteObjectsCommand`, chunked at
+  1,000, filtered through `ownsObjectKey` first, and **reading the `Errors` array**
+  since a partial failure is a 200 rather than a throw.
+- **Part B — `npm run r2:sweep`.** Lists everything under `uploads/`, diffs against
+  the `fileUrl` of every live item, reports the orphans with a total size. Dry run
+  by default, `--yes` to delete, refuses under `NODE_ENV=production`, and **skips
+  anything newer than 24 hours** — without that threshold it races the create flow
+  and deletes an object out from under an open dialog.
+- `src/lib/account.test.ts` — the module has no tests at all today. The one that
+  matters asserts the **call order**, and is mutation-checked by moving the
+  `getUserFileKeys` call after the `deleteMany`.
+- Fix the `fileUrl` comment in `prisma/schema.prisma`: it says "Cloudflare R2 URL"
+  and has held a key since the first upload feature.
+
+Spec: @context/features/account-deletion-r2-spec.md
+
 ## Notes
+
+This is the **prerequisite for AI feature 2** (@context/features/ai-controls-spec.md):
+§7 of @context/features/privacy-page-content.md currently has to disclose the
+orphaned files as a limitation, and cannot be written honestly until this lands.
+The follow-up is to rewrite that section and drop its `[REWRITE THIS PARAGRAPH]`
+marker.
+
+Two problems, not one — **right to erasure** (DevStash has EU users, and their
+files are still in the bucket after they ask to be deleted) and **cost** (since
+direct-to-R2 an object can be 100 MB and nothing reclaims it).
+
+**The deliberate consequence of the chosen ordering:** an R2 failure still leaves
+an orphan. This does not eliminate orphans, it makes them the exception and gives
+them a cleanup path.
+
+Part B is not only a backstop — it also clears the orphans this project has had
+open for months: every account deleted before this fix, and every abandoned
+upload, since the object is written before the item exists.
+
+`scripts/` is not collected by Vitest, so part B rests on a dry run against the
+real bucket. Note `npm run r2:sweep -- --yes` **silently no-ops under PowerShell**,
+which eats the `--`; run it through the Bash tool or use `--%`.
+
+The AI feature queue this sits in front of, unchanged:
+
+1. @context/features/ai-foundation-spec.md — client, wrapper, spend cap, schemas
+2. @context/features/ai-controls-spec.md — privacy page + AI off switch
+3. @context/features/ai-auto-tagging-spec.md — **first real call**; proves the shape
+4. @context/features/ai-summaries-spec.md
+5. @context/features/ai-explain-code-spec.md
+6. @context/features/ai-prompt-optimizer-spec.md
+
+Full research and reasoning: @docs/ai-integration-plan.md
 
 ## History
 
