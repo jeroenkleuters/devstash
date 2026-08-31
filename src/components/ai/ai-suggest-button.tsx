@@ -84,7 +84,7 @@ export function AiSuggestButton({
       }}
     >
       {busy ? (
-        <Loader2 size={14} className="file-upload-spinner" aria-hidden />
+        <Loader2 size={14} className="spinner" aria-hidden />
       ) : locked ? (
         <Lock size={14} aria-hidden />
       ) : (

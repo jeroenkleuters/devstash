@@ -184,7 +184,7 @@ export function FileUpload({
 
         {uploading ? (
           <>
-            <Loader2 size={20} className="file-upload-spinner" aria-hidden />
+            <Loader2 size={20} className="spinner" aria-hidden />
             <p className="file-upload-label">Uploading… {progress}%</p>
             <progress className="file-upload-progress" value={progress} max={100}>
               {progress}%

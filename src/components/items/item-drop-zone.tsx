@@ -332,7 +332,7 @@ function DropStatusIcon({ status }: { status: DropStatus }) {
     case "waiting":
       return <FileUp size={16} aria-hidden />;
     default:
-      return <Loader2 size={16} className="file-upload-spinner" aria-hidden />;
+      return <Loader2 size={16} className="spinner" aria-hidden />;
   }
 }
 

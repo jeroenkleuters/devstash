@@ -1,6 +1,8 @@
 "use client";
 
+import { Loader2 } from "lucide-react";
 import { useActionState, useEffect } from "react";
+import { useFormStatus } from "react-dom";
 import Link from "next/link";
 
 import { signInWithCredentials, signInWithGitHub } from "@/actions/auth";
@@ -107,8 +109,11 @@ export function SignInForm({
           />
         </div>
 
+        {/* The spinner rather than a changed label: the button keeps saying
+            what it does, and the moving thing is what says it is working. */}
         <Button type="submit" disabled={isPending}>
-          {isPending ? "Signing in…" : "Sign in"}
+          {isPending && <Loader2 size={16} className="spinner" aria-hidden />}
+          Sign in
         </Button>
       </form>
 
@@ -122,19 +127,49 @@ export function SignInForm({
           above, and submitting it must not carry them along. */}
       <form action={signInWithGitHub}>
         <input type="hidden" name="callbackUrl" value={callbackUrl ?? ""} />
-        <Button
-          type="submit"
-          variant="outline"
-          className="auth-provider-button"
-        >
-          <GitHubMark />
-          Sign in with GitHub
-        </Button>
+        <GitHubSubmit />
       </form>
 
       <p className="auth-switch">
         Don&apos;t have an account? <Link href="/register">Create one</Link>
       </p>
     </section>
+  );
+}
+
+/**
+ * The GitHub button, as its own component so it can read the form's state.
+ *
+ * **`useFormStatus` rather than a second `useActionState`**, and that is forced
+ * rather than preferred: `signInWithGitHub` redirects to github.com instead of
+ * returning anything, so an action state would have nothing to hold and would
+ * never settle. `useFormStatus` reports the submission itself — but only to a
+ * component *inside* the form, which is the whole reason this is not inline.
+ *
+ * The pending state matters more here than on the credentials button beside it.
+ * That one at least disables and relabels; this was a bare submit, and the
+ * round trip it starts is the slowest of the three, so until the browser
+ * actually navigates nothing on screen said anything had happened.
+ */
+function GitHubSubmit() {
+  const { pending } = useFormStatus();
+
+  return (
+    <Button
+      type="submit"
+      variant="outline"
+      className="auth-provider-button"
+      disabled={pending}
+    >
+      {/* The mark gives way to the spinner, and the label does not move —
+          matching the credentials button above, where the spinner is likewise
+          the only thing that changes. */}
+      {pending ? (
+        <Loader2 size={16} className="spinner" aria-hidden />
+      ) : (
+        <GitHubMark />
+      )}
+      Sign in with GitHub
+    </Button>
   );
 }
