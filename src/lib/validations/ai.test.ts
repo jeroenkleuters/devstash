@@ -94,6 +94,20 @@ describe("itemSummarySchema", () => {
   it("refuses an empty summary", () => {
     expect(itemSummarySchema.safeParse({ summary: "  " }).success).toBe(false);
   });
+
+  /**
+   * The destination is the Description field, so the cap is that field's and
+   * is imported rather than restated — a summary the model was allowed to
+   * return and the form then refused would look like a bug and waste a call.
+   * The literal here is the spec's own example, and it is only meaningful
+   * because the constant really is 500.
+   */
+  it("refuses a 600-character summary, the cap being the field's own", () => {
+    expect(DESCRIPTION_MAX_LENGTH).toBe(500);
+    expect(itemSummarySchema.safeParse({ summary: "x".repeat(600) }).success).toBe(
+      false,
+    );
+  });
 });
 
 describe("codeExplanationSchema", () => {

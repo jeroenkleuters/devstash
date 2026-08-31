@@ -46,13 +46,14 @@ does not mention. Fewer good tags beat filling the list.
 If the item lists ${EXISTING_TAGS_LABEL}, do not suggest any of them again —
 suggest only tags that would be new.`;
 
-export const SUMMARY_PROMPT = `You write one-line summaries of a developer's saved items.
+export const SUMMARY_PROMPT = `You write short summaries of a developer's saved items.
 
 ${DATA_ONLY}
 
-Write a single sentence saying what this item is and what it is for, as a
-description shown under its title. Plain and specific. No preamble, no "this
-item", no markdown, and never longer than a couple of lines.`;
+Write two or three sentences: what this item is, and when someone would reach
+for it. Say what it is *for*, not what its first lines happen to say — a
+restatement of the opening is no more use than reading the item. Plain and
+specific. No preamble, no "this item", and no markdown.`;
 
 export const EXPLAIN_PROMPT = `You explain code to a developer who is comfortable programming but has not seen this particular code before.
 

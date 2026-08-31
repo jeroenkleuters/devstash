@@ -1,16 +1,125 @@
-# Current Feature
+# Current Feature: AI summaries (AI feature 4 of 6)
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
-<!-- Bullet points of what success looks like -->
+A Sparkles button beside the **Description** field asks `gpt-5-nano` for a short
+summary of the item, offered as an accept-or-dismiss suggestion. **Almost
+everything is already built** — feature 1 gave the client, the wrapper, the
+ledger and truncation; feature 3 gave the gate preamble, the suggest component,
+the `ai` upsell member and the budget latch. This is a prompt, an output schema,
+one action and a mount point.
+
+- **`summarizeItem` in `src/actions/ai.ts`**, reusing the shared `guard`
+  preamble unchanged — it is already generic over the request schema, so the
+  gate ordering (session → off switch → Pro → shape → both rate limits → spend
+  cap → item read) is inherited rather than restated. Its own per-feature rate
+  limit key, the same `TAG_LIMIT`-shaped 30/hour, against the shared 60/hour
+  ceiling.
+- **The call:** title + content through `truncateForAi`, `effort: "low"` (not
+  tagging's `"minimal"` — it has to read the item, though still not reason about
+  it), `verbosity: "low"`, `prompt_cache_key: "devstash:summary:v1"`, then
+  `recordSpend(usage)`.
+- **Output capped at `DESCRIPTION_MAX_LENGTH`, imported and never restated.**
+  The destination is the Description field, so a summary the form would then
+  refuse is a worse failure than one the model was constrained to fit: the first
+  looks like a bug and wastes a call, the second cannot happen. Already written
+  as `itemSummarySchema` — see Notes.
+- **It writes nothing**, like feature 3. The action returns a string, the user
+  accepts it into the form's local state, and the existing `updateItem` saves it
+  on Save.
+- **Accepting *replaces* the field, which is the one behavioural difference from
+  tags** — tags merge, a description does not. So the suggestion renders
+  **beside** the current value with the existing text still visible, and
+  accepting is an explicit click. Someone who already wrote a description has to
+  be able to see what they are about to lose.
+- **Offered only for the types that have a Description field**, which is the one
+  rule here no schema enforces — see Notes, because the spec has the set wrong.
+
+**No migration, no new dependency, no new ShadCN primitive, and no new component
+beyond the mount.** Depends on features 1, 2 and 3, all done.
+
+Spec: @context/features/ai-summaries-spec.md · Reference: @docs/ai-integration-plan.md §5.2
 
 ## Notes
 
-<!-- Additional context, constraints, or details from spec -->
+**Read @context/features/ai-auto-tagging-spec.md first** — the gate ordering,
+the `.catch` rule and the three UI states are specified there and deliberately
+not repeated in this spec.
+
+**Three of the spec's claims were checked rather than assumed, and all three are
+out of date.** The spec predates the Book type.
+
+1. **`itemSummarySchema` already exists** in `src/lib/validations/ai.ts`, capped
+   at an imported `DESCRIPTION_MAX_LENGTH` exactly as asked. The spec calls it
+   `summaryOutputSchema` and lists it as a file to modify; there is nothing to
+   write. **Note the name hazard**: it exports `type ItemSummary`, which is also
+   the name of the row summary exported from `@/lib/db/items`. Two unrelated
+   types sharing one name is legal and confusing, and this feature is the first
+   thing that might want both in one file — worth renaming one at `/feature
+   start` rather than importing them aliased.
+
+2. **`SUMMARY_PROMPT` already exists too**, and it **contradicts the spec**. The
+   prompt (written in feature 1) asks for "a single sentence… never longer than
+   a couple of lines"; the spec asks for "two or three sentences describing what
+   the item *is* and when it would be useful". **A decision is needed at
+   `/feature start`.** One sentence is the better fit for where the value
+   actually renders — `ItemCard` and the file rows show the description as a
+   short secondary line — but the spec's framing is more useful in the drawer,
+   which is where it is read in full. Note the four prompts have **never been
+   sent to a model**, so whichever is chosen is unproven and should be expected
+   to need iteration; feature 3's tagging prompt is in the same position.
+
+3. **The type gate in the spec is wrong.** It says Description does not exist
+   for File, Image **and Book**, and calls this "five types, not seven". The
+   code says otherwise: `showDescription` in `item-form-fields.tsx` is
+   `uploadKindFor(typeSlug) === undefined || isBook`, so a **book does show the
+   field**, labelled **"Summary"** — the book feature added it back after the
+   file-title feature dropped it for the two upload types. There are also eight
+   types now, not seven. So it is **six of eight** (snippets, prompts, commands,
+   notes, links, books), and File and Image are the only exclusions. The
+   spec's advice to reuse the existing predicate rather than write a fourth
+   parallel list of slugs still stands and is still right — the predicate is
+   just `showDescription` itself, which the component already computes, so the
+   button mounts inside that same block and needs no gate of its own. A book is
+   arguably the *best* home for this, its Summary being the point of the type.
+
+**The button label and the accept affordance are the open design question.**
+Feature 3's `AiSuggestButton` is built to be reused and its three not-enabled
+states (AI off → renders nothing; free → `aria-disabled` with a lock, never
+`disabled`, so the upsell stays reachable; budget spent → inert) are exactly
+right here. What it has no precedent for is the **replace** interaction — tags
+gave a row of individually clickable chips, and a summary is one block of prose
+with an existing value to weigh it against. A second small component is likely,
+despite the spec's "no new component beyond the mount".
+
+**Testing:** the spec asks for the gate tests to be **parameterised across the
+actions** rather than duplicated, which means refactoring what feature 3 left —
+`ai.test.ts` currently has `suggestTags — the gates, in order` as its own block
+and `suggestTagsForDraft` as another. The preamble is one shared function, so
+testing it three times in full is testing one thing three times. New assertions
+specific to this action: 600 characters fails the output schema, exactly 500
+passes, the cap asserted **against the imported constant** so the test cannot
+drift from the field, `effort` is `"low"` and not `"minimal"`, and `recordSpend`
+is called with the reported usage. `vi.clearAllMocks()` in `beforeEach` is what
+makes every "was not called" assertion mean anything, and **`@/lib/openai` must
+be mocked** — no test may reach OpenAI.
+
+**Still true from feature 3 and worth carrying in:** nothing here has ever
+reached OpenAI, so the first real click remains the first proof the key and the
+model id work at all. `AI_MONTHLY_BUDGET_USD` **is** configured at 5 in `.env`,
+`.env.production` and Vercel, so the $5 cap is the configured number rather than
+the fallback — but the OpenAI dashboard limit is still the only control that
+actually stops the money, this one being checked before a call and incremented
+after and so able to overshoot by one.
+
+**A browser check is warranted for one thing specifically**, and the spec names
+it: that the button is **absent on File and Image** items. That gate is the only
+rule in this feature no schema enforces, so it is the one thing that can be
+silently wrong.
 
 ## History
 
