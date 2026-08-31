@@ -95,16 +95,17 @@ export function ItemFormFields({
 
           {/* Inside `showDescription`, so the types without the field get no
               button by construction rather than by a second list of slugs
-              agreeing with the first. Only where there is an item to summarise:
-              `summarizeItem` names one, and the create dialog has no row. */}
-          {itemId && (
-            <AiSummarySuggestion
-              itemId={itemId}
-              value={values.description}
-              label={descriptionLabel}
-              onAccept={(summary) => setField("description", summary)}
-            />
-          )}
+              agreeing with the first. `itemId` is absent in the create dialog,
+              which is what makes it summarise what has been typed instead of a
+              stored row — `AiSummarySuggestion` picks the action from that,
+              exactly as the tag suggestions below do. */}
+          <AiSummarySuggestion
+            itemId={itemId}
+            draft={{ title: values.title, content: values.content }}
+            value={values.description}
+            label={descriptionLabel}
+            onAccept={(summary) => setField("description", summary)}
+          />
         </div>
       )}
 
