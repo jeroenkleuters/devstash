@@ -30,6 +30,11 @@ interface ItemDrawerActionsProps {
  *
  * Favorite and Pin are live in view mode and never need edit mode — they act on
  * the flags the card already carried, so neither waits on the detail fetch.
+ *
+ * Every label sits in `.action-label`, which is `display: none` below the md
+ * breakpoint — five labelled buttons do not fit a phone. That also takes the
+ * label out of the accessibility tree, which is why each button carries an
+ * `aria-label` repeating it; Delete already had one.
  */
 export function ItemDrawerActions({
   itemId,
@@ -77,6 +82,7 @@ export function ItemDrawerActions({
         className="item-drawer-action item-drawer-action-favorite"
         data-active={favorite.active}
         aria-pressed={favorite.active}
+        aria-label="Favorite"
         onClick={favorite.toggle}
       >
         <Star
@@ -84,7 +90,7 @@ export function ItemDrawerActions({
           fill={favorite.active ? "currentColor" : "none"}
           aria-hidden
         />
-        Favorite
+        <span className="action-label">Favorite</span>
       </button>
 
       <button
@@ -92,6 +98,7 @@ export function ItemDrawerActions({
         className="item-drawer-action"
         data-active={pin.active}
         aria-pressed={pin.active}
+        aria-label="Pin"
         onClick={pin.toggle}
       >
         <Pin
@@ -99,29 +106,31 @@ export function ItemDrawerActions({
           fill={pin.active ? "currentColor" : "none"}
           aria-hidden
         />
-        Pin
+        <span className="action-label">Pin</span>
       </button>
 
       <button
         type="button"
         className="item-drawer-action"
+        aria-label="Copy"
         onClick={copy}
         disabled={!copyable}
       >
         <Copy size={16} aria-hidden />
-        Copy
+        <span className="action-label">Copy</span>
       </button>
 
       <div className="item-drawer-actions-end">
         <button
           type="button"
           className="item-drawer-action"
+          aria-label="Edit"
           onClick={onEdit}
           // There is nothing to populate the form with until the detail lands.
           disabled={!detail}
         >
           <Pencil size={16} aria-hidden />
-          Edit
+          <span className="action-label">Edit</span>
         </button>
 
         {/* Deletable as soon as the drawer is open: unlike Edit, this needs no

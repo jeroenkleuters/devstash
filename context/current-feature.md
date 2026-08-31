@@ -1,12 +1,24 @@
-# Current Feature
+# Current Feature: Item drawer action bar on mobile
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
+- All five buttons in the item drawer's action bar (Favorite, Pin, Copy, Edit, Delete) are visible at 360px with no overflow and no wrap.
+- Below the app's md breakpoint the buttons collapse to their icons, using the existing `.action-label` pattern rather than a new rule.
+- Every button keeps an accessible name once its label is hidden.
+- Desktop is unchanged: labels stay, spacing stays.
+
 ## Notes
+
+- "The slide" is the item drawer (`Sheet`), not the image lightbox — the lightbox toolbar is already icon-only with `aria-label`s and has no labels to remove.
+- The labels are currently bare text nodes inside the buttons, so CSS alone cannot hide them; each needs wrapping in `<span className="action-label">`, which is the house pattern (`collection-actions.tsx`, `pagination.tsx`, `item-create-dialog.tsx`, the two editor bars).
+- `.action-label` already exists in `globals.css` inside the `max-width: 47.99rem` block as `display: none`, so no new media query is needed.
+- `display: none` removes the label from the accessibility tree, so the four labelled buttons need an `aria-label` matching their visible text. Delete already has one (`aria-label="Delete item"`) and is already icon-only.
+- Touches `src/components/items/item-drawer-actions.tsx` and possibly `src/app/globals.css` (gap/padding at the small size). Edit mode's Cancel/Save row is text-only and out of scope unless it overflows too.
+- No migration, no dependency, no new primitive. Nothing importable changes, so the suite should stay at 672.
 
 ## History
 
