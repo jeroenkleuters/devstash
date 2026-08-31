@@ -145,12 +145,41 @@ model Item {
 
   tags        Tag[]
   collections ItemCollection[]
+  explanation ItemExplanation?
 
   @@index([userId])
   @@index([itemTypeId])
   @@index([userId, isFavorite])
   @@index([userId, isPinned])
   @@index([userId, updatedAt])
+}
+
+/// A cached AI explanation of one item's code.
+///
+/// Its own model rather than columns on `Item`: `itemSelect` is shared by every
+/// dashboard, list and search query, and a `@db.Text` blob on `Item` is one
+/// careless `select` away from being shipped to the browser for every row.
+model ItemExplanation {
+  id String @id @default(cuid())
+
+  /// One explanation per item — a newer one replaces it rather than joining it.
+  itemId String @unique
+  item   Item   @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  explanation String @db.Text
+
+  /// A digest of exactly what was sent to the model, so the cache is discarded
+  /// when the code changes and kept when anything else about the item does.
+  /// Deliberately not `Item.updatedAt`, which Prisma bumps on every write —
+  /// favouriting or pinning would otherwise throw away a paid-for answer.
+  sourceHash String
+
+  /// The model that wrote it. A hit requires a match, so changing models does
+  /// not keep serving answers the new one never produced.
+  model String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Collection {

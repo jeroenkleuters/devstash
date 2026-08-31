@@ -10,6 +10,12 @@ import { runStructured } from "@/lib/ai/run";
 import { budgetExceededMessage, checkSpend, recordSpend } from "@/lib/ai/spend";
 import { truncateForAi } from "@/lib/ai/truncate";
 import { isCodeType } from "@/constants/item-types";
+import { explanationSourceHash } from "@/lib/ai/explanation-cache";
+import {
+  cacheExplanation,
+  getCachedExplanation,
+} from "@/lib/db/explanations";
+import { AI_MODEL } from "@/lib/openai";
 import { getItemDetail } from "@/lib/db/items";
 import { getCurrentUser } from "@/lib/db/user";
 import { rateLimit, tooManyAttemptsMessage } from "@/lib/rate-limit";
@@ -269,12 +275,9 @@ async function summarize(source: {
 export async function explainCode(
   input: unknown,
 ): Promise<AiActionResult<string>> {
-  const gate = await guard(
-    input,
-    aiItemRequestSchema,
-    "explain",
-    EXPLAIN_LIMIT,
-  );
+  // `authorize` rather than the whole `guard`: the cache is consulted before
+  // the rate limits, so a hit does not spend one of the caller's attempts.
+  const gate = await authorize(input, aiItemRequestSchema);
 
   if (!gate.ok) {
     return gate.failure;
@@ -294,6 +297,23 @@ export async function explainCode(
     return { success: false, error: NOTHING_TO_EXPLAIN };
   }
 
+  // Keyed on the code and the hint, never on `Item.updatedAt` — Prisma bumps
+  // that on every write, so a star or a rename would throw away an answer that
+  // is still correct. The item was read with the session's user in the `where`,
+  // which is what makes this id safe to hand to the cache.
+  const sourceHash = explanationSourceHash(item.content, item.language);
+  const cached = await getCachedExplanation(item.id, sourceHash, AI_MODEL);
+
+  if (cached) {
+    return { success: true, data: cached };
+  }
+
+  const spend = await allowSpend(gate.user.id, "explain", EXPLAIN_LIMIT);
+
+  if (spend) {
+    return spend;
+  }
+
   const result = await runStructured({
     instructions: EXPLAIN_PROMPT,
     // Spelled out rather than passing `item`: narrowing `item.content` above
@@ -311,6 +331,16 @@ export async function explainCode(
   }
 
   await recordSpend(result.usage).catch(() => {});
+
+  // Best effort, for the reason `recordSpend` is: the visitor already has the
+  // answer and the money is already spent, so a failed cache write must not
+  // turn that into an error they see. The cost is paying again next time.
+  await cacheExplanation(
+    item.id,
+    result.data.explanation,
+    sourceHash,
+    AI_MODEL,
+  ).catch(() => {});
 
   return { success: true, data: result.data.explanation };
 }
@@ -379,10 +409,38 @@ async function guard<T>(
   feature: string,
   limit: number,
 ): Promise<Guarded<T>> {
-  const refuse = (
-    error: string,
-    extra?: { budgetExceeded: true },
-  ): Guarded<T> => ({ ok: false, failure: { success: false, error, ...extra } });
+  const auth = await authorize(input, schema);
+
+  if (!auth.ok) {
+    return auth;
+  }
+
+  const spend = await allowSpend(auth.user.id, feature, limit);
+
+  if (spend) {
+    return { ok: false, failure: spend };
+  }
+
+  return auth;
+}
+
+/**
+ * Steps 1 to 4 — who is asking, whether they have AI on, whether they are Pro,
+ * and whether the request is even the right shape.
+ *
+ * Split from the two that follow so an action can do something in between.
+ * `explainCode` is the one that does: a cached answer costs nothing, so it
+ * reads the item and consults the cache here, and only reaches `allowSpend` on
+ * a miss. Everything else runs the two halves back to back through `guard`.
+ */
+async function authorize<T>(
+  input: unknown,
+  schema: { safeParse: (value: unknown) => z.ZodSafeParseResult<T> },
+): Promise<Guarded<T>> {
+  const refuse = (error: string): Guarded<T> => ({
+    ok: false,
+    failure: { success: false, error },
+  });
 
   const user = await getCurrentUser();
 
@@ -404,15 +462,36 @@ async function guard<T>(
     return refuse(firstIssueMessage(parsed.error));
   }
 
+  return { ok: true, user, data: parsed.data };
+}
+
+/**
+ * Steps 5 and 6 of the sequence above, on their own so an action can do
+ * something between them and the checks before them.
+ *
+ * `explainCode` is why: a cached answer costs nothing, so it must not spend one
+ * of the caller's hourly attempts, which means the cache is consulted first and
+ * this runs only on a miss.
+ *
+ * Answers `null` when the call may proceed, and the refusal otherwise.
+ */
+async function allowSpend(
+  userId: string,
+  feature: string,
+  limit: number,
+): Promise<AiActionResult<never> | null> {
   const [perFeature, combined] = [
-    await rateLimit(`ai:${feature}:${user.id}`, limit, HOUR),
-    await rateLimit(`ai:all:${user.id}`, COMBINED_LIMIT, HOUR),
+    await rateLimit(`ai:${feature}:${userId}`, limit, HOUR),
+    await rateLimit(`ai:all:${userId}`, COMBINED_LIMIT, HOUR),
   ];
 
   if (!perFeature.success || !combined.success) {
     // Quotes only the window that actually failed, so an action checking two
     // never overstates the wait.
-    return refuse(tooManyAttemptsMessage(perFeature, combined));
+    return {
+      success: false,
+      error: tooManyAttemptsMessage(perFeature, combined),
+    };
   }
 
   const budget = await checkSpend();
@@ -420,10 +499,14 @@ async function guard<T>(
   if (!budget.allowed) {
     // The flag is what lets `BillingProvider` hold this for the session, so a
     // second click does not spend a round trip discovering the same thing.
-    return refuse(budgetExceededMessage(budget), { budgetExceeded: true });
+    return {
+      success: false,
+      error: budgetExceededMessage(budget),
+      budgetExceeded: true,
+    };
   }
 
-  return { ok: true, user, data: parsed.data };
+  return null;
 }
 
 /**
