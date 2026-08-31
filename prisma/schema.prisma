@@ -80,6 +80,10 @@ model User {
   // reasoning as above, and null means the account has never changed them.
   uploadPreferences Json?
 
+  // AI settings, shaped by `aiPreferencesSchema`. Same reasoning again, and
+  // null means the account has never changed them — which reads as AI on.
+  aiPreferences Json?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

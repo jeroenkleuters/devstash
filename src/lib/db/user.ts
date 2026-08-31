@@ -8,9 +8,13 @@ import {
   type EditorPreferences,
 } from "@/lib/validations/editor-preferences";
 import {
+  parseAiPreferences,
+} from "@/lib/validations/ai-preferences";
+import {
   parseUploadPreferences,
   type UploadPreferences,
 } from "@/lib/validations/upload-preferences";
+import type { AiPreferences } from "@/types/ai";
 
 /** The account details the sidebar and the profile page show. */
 export interface CurrentUser {
@@ -54,6 +58,12 @@ export interface CurrentUser {
    * resolved the user.
    */
   uploadPreferences: UploadPreferences;
+  /**
+   * The account's AI settings, already read out of the JSON column. Carried
+   * here so the off-switch check every AI action makes costs no query of its
+   * own — this one is `cache`d and has already resolved the user by then.
+   */
+  aiPreferences: AiPreferences;
 }
 
 /**
@@ -92,6 +102,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
       stripeCustomerId: true,
       editorPreferences: true,
       uploadPreferences: true,
+      aiPreferences: true,
     },
   });
 
@@ -104,6 +115,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     stripeCustomerId,
     editorPreferences,
     uploadPreferences,
+    aiPreferences,
     ...rest
   } = user;
 
@@ -121,6 +133,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     hasBilling: stripeCustomerId !== null,
     editorPreferences: parseEditorPreferences(editorPreferences),
     uploadPreferences: parseUploadPreferences(uploadPreferences),
+    aiPreferences: parseAiPreferences(aiPreferences),
   };
 });
 
