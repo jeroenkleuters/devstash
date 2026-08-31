@@ -55,9 +55,33 @@ describe("uploadContentType", () => {
 
 describe("acceptAttribute", () => {
   it("lists the kind's own extensions", () => {
-    expect(acceptAttribute("image")).toBe(
-      ".png,.jpg,.jpeg,.gif,.webp,.svg",
-    );
+    const accept = acceptAttribute("image").split(",");
+
+    expect(accept).toEqual(expect.arrayContaining([".png", ".jpg", ".svg"]));
+  });
+
+  it("lists the media types as well as the extensions", () => {
+    // The whole reason a camera was never offered on a phone: Android's picker
+    // matches on media types, and an extension-only list gives it nothing to
+    // match a camera against.
+    const accept = acceptAttribute("image").split(",");
+
+    expect(accept).toContain("image/jpeg");
+    expect(accept).toContain("image/png");
+  });
+
+  it("offers HEIC for images, which is converted rather than stored", () => {
+    const accept = acceptAttribute("image").split(",");
+
+    expect(accept).toContain(".heic");
+    expect(accept).toContain("image/heic");
+  });
+
+  it("does not offer HEIC for files, which have no conversion path", () => {
+    const accept = acceptAttribute("file");
+
+    expect(accept).not.toContain("heic");
+    expect(accept.split(",")).toContain("application/pdf");
   });
 });
 

@@ -3,6 +3,7 @@
 import { FileUp, Loader2, X } from "lucide-react";
 import { useRef, useState, type DragEvent } from "react";
 
+import { CameraButton } from "@/components/items/camera-button";
 import { Button } from "@/components/ui/button";
 import {
   acceptAttribute,
@@ -10,6 +11,11 @@ import {
   validateUpload,
   type UploadKind,
 } from "@/lib/file-constraints";
+import {
+  convertHeicToJpeg,
+  HEIC_CONVERSION_FAILED,
+  isHeicFile,
+} from "@/lib/heic";
 import {
   uploadFile,
   UploadError,
@@ -53,21 +59,41 @@ export function FileUpload({
   disabled = false,
 }: FileUploadProps) {
   const [progress, setProgress] = useState<number | null>(null);
+  const [converting, setConverting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const uploading = progress !== null;
-  const busy = uploading || disabled;
+  const busy = uploading || converting || disabled;
   const { maxBytes, extensions } = uploadConstraint(kind);
 
   async function upload(chosen: File) {
+    // A camera photo may arrive as HEIC, which nothing can display and nothing
+    // may store. Converted before validation rather than after it, so what is
+    // checked is the JPEG that will actually be uploaded.
+    let file = chosen;
+
+    if (isHeicFile(chosen)) {
+      setError(null);
+      setConverting(true);
+
+      try {
+        file = await convertHeicToJpeg(chosen);
+      } catch {
+        setError(HEIC_CONVERSION_FAILED);
+        return;
+      } finally {
+        setConverting(false);
+      }
+    }
+
     // The same rules the route enforces, run here so an obviously wrong file
     // costs no round trip. The route is still the rule.
     const problem = validateUpload(kind, {
-      name: chosen.name,
-      type: chosen.type,
-      size: chosen.size,
+      name: file.name,
+      type: file.type,
+      size: file.size,
     });
 
     if (problem) {
@@ -79,7 +105,7 @@ export function FileUpload({
     setProgress(0);
 
     try {
-      const stored = await uploadFile(kind, chosen, setProgress);
+      const stored = await uploadFile(kind, file, setProgress);
 
       setProgress(null);
 
@@ -182,7 +208,12 @@ export function FileUpload({
           aria-label={kind === "image" ? "Upload an image" : "Upload a file"}
         />
 
-        {uploading ? (
+        {converting ? (
+          <>
+            <Loader2 size={20} className="spinner" aria-hidden />
+            <p className="file-upload-label">Converting photo…</p>
+          </>
+        ) : uploading ? (
           <>
             <Loader2 size={20} className="spinner" aria-hidden />
             <p className="file-upload-label">Uploading… {progress}%</p>
@@ -203,6 +234,10 @@ export function FileUpload({
           </>
         )}
       </div>
+
+      {kind === "image" && (
+        <CameraButton onCapture={(file) => void upload(file)} disabled={busy} />
+      )}
 
       {error && (
         <p className="item-drawer-error" role="alert">

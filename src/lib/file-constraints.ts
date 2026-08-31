@@ -69,6 +69,24 @@ const TYPE_ALIASES = new Map([
  */
 const UNKNOWN_TYPES = new Set(["", "application/octet-stream"]);
 
+/**
+ * What a phone camera writes with "high efficiency pictures" turned on.
+ *
+ * Deliberately not storable: no browser can display HEIC, so an item holding
+ * one would show a broken picture in the gallery, the drawer and the lightbox
+ * alike. It is offered to the picker anyway and converted to JPEG in the
+ * browser before anything is uploaded — see `src/lib/heic.ts` — so it belongs
+ * in `accept` and nowhere near validation, which only ever sees the JPEG.
+ */
+export const HEIC_EXTENSIONS: ReadonlySet<string> = new Set([".heic", ".heif"]);
+
+export const HEIC_TYPES: ReadonlySet<string> = new Set([
+  "image/heic",
+  "image/heif",
+  "image/heic-sequence",
+  "image/heif-sequence",
+]);
+
 interface UploadConstraint {
   maxBytes: number;
   /** Lowercase, with the leading dot. */
@@ -111,9 +129,25 @@ export function uploadConstraint(kind: UploadKind): UploadConstraint {
   return CONSTRAINTS.get(kind) as UploadConstraint;
 }
 
-/** What an `<input type="file">` should accept for this kind. */
+/**
+ * What an `<input type="file">` should accept for this kind.
+ *
+ * Extensions *and* media types. Android's picker matches on media types, so an
+ * extension-only list gives it nothing to offer a camera against and it falls
+ * back to a plain file browser — which is why taking a photo was not an option
+ * on a phone at all.
+ */
 export function acceptAttribute(kind: UploadKind): string {
-  return uploadConstraint(kind).extensions.join(",");
+  const { extensions, mimeTypes } = uploadConstraint(kind);
+  const accept = [...extensions, ...mimeTypes];
+
+  // So a camera photo can be chosen at all. It is converted before it is
+  // uploaded, so nothing is ever stored in this format.
+  if (kind === "image") {
+    accept.push(...HEIC_EXTENSIONS, ...HEIC_TYPES);
+  }
+
+  return accept.join(",");
 }
 
 /** ".png" for "photo.PNG", or "" for a name with no extension at all. */

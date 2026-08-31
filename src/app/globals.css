@@ -5510,3 +5510,47 @@ button.sidebar-link {
     width: 5.5rem;
   }
 }
+
+/* --------------------------------------------------------- camera capture
+   Hidden wherever the primary pointer is not a finger, which is the closest a
+   media query gets to "this device has a camera worth offering". Asking
+   properly means prompting for permission, which is not something a page
+   should do to decide whether to draw a button. */
+.camera-button {
+  display: none;
+}
+
+@media (pointer: coarse) {
+  .camera-button {
+    display: inline-flex;
+  }
+}
+
+/* The input is the control; the button beside it is what gets clicked, so this
+   one only has to be out of the way without being `display: none` — a hidden
+   input cannot be opened from script in every browser. */
+.camera-button-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Sits above the listing rather than in the heading row, so it is next to the
+   thing it adds to. Gated on the same query as the button it holds, so the row
+   does not leave a gap on a desktop where the button inside it is hidden. */
+.item-drop-capture {
+  display: none;
+}
+
+@media (pointer: coarse) {
+  .item-drop-capture {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 1rem;
+  }
+}

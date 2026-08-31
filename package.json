@@ -36,6 +36,7 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "dotenv": "^17.4.2",
+    "heic-to": "^1.5.2",
     "lucide-react": "^1.31.0",
     "next": "16.3.0",
     "next-auth": "^5.0.0-beta.32",
