@@ -4,7 +4,7 @@ import { creatableType } from "@/constants/item-types";
 
 /** Long enough for a sentence, short enough to stay one line on a card. */
 export const TITLE_MAX_LENGTH = 200;
-const DESCRIPTION_MAX_LENGTH = 500;
+export const DESCRIPTION_MAX_LENGTH = 500;
 
 /** A syntax-highlighting hint ("typescript"), not free text. */
 const LANGUAGE_MAX_LENGTH = 32;
@@ -12,7 +12,7 @@ const LANGUAGE_MAX_LENGTH = 32;
 /** A book's author. Room for several names, not for a biography. */
 const AUTHOR_MAX_LENGTH = 200;
 
-const TAG_MAX_LENGTH = 32;
+export const TAG_MAX_LENGTH = 32;
 const MAX_TAGS = 20;
 
 /** Generous: the free tier caps collections at 3, and Pro is unbounded. */
