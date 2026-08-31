@@ -5,6 +5,7 @@ import {
   codeExplanationSchema,
   itemSummarySchema,
   MAX_SUGGESTED_TAGS,
+  MAX_OPTIMIZER_NOTES,
   optimizedPromptSchema,
   suggestedTagsSchema,
 } from "@/lib/validations/ai";
@@ -140,22 +141,68 @@ describe("codeExplanationSchema", () => {
 });
 
 describe("optimizedPromptSchema", () => {
-  it("takes a rewrite and its note", () => {
+  it("takes a rewrite and its notes", () => {
     const result = optimizedPromptSchema.safeParse({
-      prompt: "Summarize the text below in one sentence.",
-      note: "Made the output format explicit.",
+      optimized: "Summarize the text below in one sentence.",
+      notes: ["Made the output format explicit.", "Kept the length limit."],
     });
 
     expect(result.success).toBe(true);
   });
 
-  it("allows an empty note but not an empty prompt", () => {
+  it("allows no notes at all, but not an empty rewrite", () => {
     expect(
-      optimizedPromptSchema.safeParse({ prompt: "Do the thing.", note: "" })
+      optimizedPromptSchema.safeParse({ optimized: "Do the thing.", notes: [] })
         .success,
     ).toBe(true);
     expect(
-      optimizedPromptSchema.safeParse({ prompt: "", note: "x" }).success,
+      optimizedPromptSchema.safeParse({ optimized: "", notes: ["x"] }).success,
+    ).toBe(false);
+  });
+
+  /**
+   * The cap is enforced rather than trimmed, the same call `suggestedTagsSchema`
+   * makes: a model returning ten notes has not done the task, and silently
+   * keeping the first five would hide that. A list longer than the change it
+   * describes is its own problem.
+   */
+  it("caps the notes at five", () => {
+    const note = "Made the output format explicit.";
+
+    expect(
+      optimizedPromptSchema.safeParse({
+        optimized: "Do the thing.",
+        notes: Array.from({ length: MAX_OPTIMIZER_NOTES }, () => note),
+      }).success,
+    ).toBe(true);
+    expect(
+      optimizedPromptSchema.safeParse({
+        optimized: "Do the thing.",
+        notes: Array.from({ length: MAX_OPTIMIZER_NOTES + 1 }, () => note),
+      }).success,
+    ).toBe(false);
+  });
+
+  /** A note is a sentence about one change, not a second essay. */
+  it("refuses a note that is not a sentence", () => {
+    expect(
+      optimizedPromptSchema.safeParse({
+        optimized: "Do the thing.",
+        notes: ["x".repeat(1_000)],
+      }).success,
+    ).toBe(false);
+  });
+
+  /**
+   * `content` is `@db.Text` and uncapped, so this bound exists purely to stop
+   * one call producing unbounded — and unbounded-cost — output.
+   */
+  it("is bounded, so one rewrite cannot be unbounded output", () => {
+    expect(
+      optimizedPromptSchema.safeParse({
+        optimized: "x".repeat(20_000),
+        notes: [],
+      }).success,
     ).toBe(false);
   });
 });

@@ -131,17 +131,29 @@ export const codeExplanationSchema = z.object({
 export type CodeExplanation = z.infer<typeof codeExplanationSchema>;
 
 /**
- * A rewritten prompt is offered for the visitor to accept into the item, so it
- * is held to what `content` can hold in practice rather than to a column limit
- * — `content` is `@db.Text` and has none.
+ * The rewritten prompt, and the short list of what changed.
+ *
+ * `optimized` is held to what `content` can hold in practice rather than to a
+ * column limit — `content` is `@db.Text` and has none — so this cap exists
+ * purely to bound cost.
+ *
+ * **The notes are not decoration.** They are what makes the rewrite something
+ * a person can weigh rather than a black box, and they cost a handful of
+ * output tokens. Five of them, because a list longer than the change it
+ * describes is its own problem; each is held to a sentence, loosely enough
+ * that a slightly wordy model does not fail the whole call — the SDK's parse
+ * throws on a violation, so an over-tight cap here costs the answer entirely.
  */
 const OPTIMIZED_PROMPT_MAX_LENGTH = 8_000;
-const OPTIMIZER_NOTE_MAX_LENGTH = 1_000;
+const OPTIMIZER_NOTE_MAX_LENGTH = 300;
+export const MAX_OPTIMIZER_NOTES = 5;
 
 export const optimizedPromptSchema = z.object({
-  prompt: z.string().trim().min(1).max(OPTIMIZED_PROMPT_MAX_LENGTH),
+  optimized: z.string().trim().min(1).max(OPTIMIZED_PROMPT_MAX_LENGTH),
   /** What changed and why, shown beside the rewrite rather than stored. */
-  note: z.string().trim().max(OPTIMIZER_NOTE_MAX_LENGTH),
+  notes: z
+    .array(z.string().trim().min(1).max(OPTIMIZER_NOTE_MAX_LENGTH))
+    .max(MAX_OPTIMIZER_NOTES),
 });
 
 export type OptimizedPrompt = z.infer<typeof optimizedPromptSchema>;
