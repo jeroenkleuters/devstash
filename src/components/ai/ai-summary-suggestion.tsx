@@ -1,13 +1,14 @@
 "use client";
 
 import { Check, X } from "lucide-react";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { summarizeDraft, summarizeItem } from "@/actions/ai";
 import { AiSuggestButton } from "@/components/ai/ai-suggest-button";
 import { useBilling } from "@/components/billing/billing-provider";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { UNREACHABLE } from "@/constants/messages";
 
 interface AiSummarySuggestionProps {
@@ -26,11 +27,25 @@ interface AiSummarySuggestionProps {
   value: string;
   /** What the field is called for this type, so the copy can say it. */
   label: string;
+  /** Pairs the label it renders with the field passed as `children`. */
+  htmlFor: string;
   onAccept: (summary: string) => void;
+  /** The field itself, between the label row and the offer. */
+  children: ReactNode;
 }
 
 /**
- * Asks the model to summarise the item and offers the answer for one click.
+ * The description field, with a Suggest button on its label row and the model's
+ * answer offered underneath.
+ *
+ * **It renders the label and wraps the field** rather than sitting under it,
+ * the shape `AiExplainableCode` established: the button belongs on the line
+ * that names the field, where it reads as an affordance *on* that field rather
+ * than a second action competing with Save, and the state behind it belongs
+ * with the offer it produces — so one component owns both ends.
+ *
+ * With AI switched off the button renders nothing and this is just a labelled
+ * field, which is why the label row is not conditional.
  *
  * **The difference from tags is that accepting replaces rather than merges.**
  * Tags are a set and a suggestion joins it; a description is one value and a
@@ -49,12 +64,14 @@ export function AiSummarySuggestion({
   draft,
   value,
   label,
+  htmlFor,
   onAccept,
+  children,
 }: AiSummarySuggestionProps) {
   const [summary, setSummary] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { aiEnabled, setBudgetExceeded } = useBilling();
+  const { setBudgetExceeded } = useBilling();
 
   const replacing = value.trim() !== "";
 
@@ -100,15 +117,11 @@ export function AiSummarySuggestion({
     }
   }
 
-  // With AI off the button renders nothing, which would leave this wrapper as
-  // an empty box under the field. The whole section goes instead.
-  if (!aiEnabled) {
-    return null;
-  }
-
   return (
-    <div className="ai-suggestions">
-      <div className="ai-suggestions-bar">
+    <>
+      <div className="item-form-field-header">
+        <Label htmlFor={htmlFor}>{label}</Label>
+
         <AiSuggestButton
           label="AI summaries"
           title={
@@ -121,6 +134,8 @@ export function AiSummarySuggestion({
           onSuggest={run}
         />
       </div>
+
+      {children}
 
       {busy && (
         // Shaped like the answer and sitting where it will appear, so the field
@@ -167,6 +182,6 @@ export function AiSummarySuggestion({
       )}
 
       {error && <p className="ai-suggestions-error">{error}</p>}
-    </div>
+    </>
   );
 }

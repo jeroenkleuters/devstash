@@ -148,6 +148,22 @@ export function isBookType(slug: string): boolean {
   return BOOK_TYPE_SLUGS.has(slug);
 }
 
+/**
+ * `ItemType.slug`s whose content is itself a prompt for a language model.
+ *
+ * Its own set rather than a check against `isMarkdownType`, which is true for
+ * notes as well: a note is prose about something, where a prompt is an
+ * instruction *to* a model and the only type worth rewriting as one. The slug
+ * has to say it, for the reason every set in this file does — `ContentType` is
+ * TEXT for all four of them.
+ */
+export const PROMPT_TYPE_SLUGS = new Set(["prompts"]);
+
+/** Whether a type's content is a prompt written for a language model. */
+export function isPromptType(slug: string): boolean {
+  return PROMPT_TYPE_SLUGS.has(slug);
+}
+
 /** One of the system types the create dialog's picker shows. */
 export interface CreatableType {
   /** `ItemType.slug` — the id itself is resolved from the database. */

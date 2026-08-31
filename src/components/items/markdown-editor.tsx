@@ -1,7 +1,13 @@
 "use client";
 
 import { Check, Copy } from "lucide-react";
-import { useEffect, useRef, useState, type ComponentProps } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ComponentProps,
+  type ReactNode,
+} from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { toast } from "sonner";
@@ -16,6 +22,11 @@ interface MarkdownEditorProps {
   onChange?: (value: string) => void;
   /** Names the source field for screen readers, as the forms' labels do. */
   ariaLabel?: string;
+  /**
+   * Extra controls for the right of the bar, between the format label and
+   * Copy — the same slot `CodeEditor` gives Explain.
+   */
+  barExtra?: ReactNode;
 }
 
 /**
@@ -31,6 +42,7 @@ export function MarkdownEditor({
   readOnly = false,
   onChange,
   ariaLabel,
+  barExtra,
 }: MarkdownEditorProps) {
   const [copied, setCopied] = useState(false);
   const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -55,22 +67,38 @@ export function MarkdownEditor({
     }
   }
 
-  const copyButton = (
-    <button
-      type="button"
-      className="markdown-editor-copy"
-      onClick={copy}
-      disabled={value === ""}
-      data-copied={copied}
-      title={copied ? "Copied" : "Copy"}
-      aria-label={copied ? "Copied" : "Copy markdown"}
-    >
-      {copied ? (
-        <Check size={14} aria-hidden />
-      ) : (
-        <Copy size={14} aria-hidden />
-      )}
-    </button>
+  /**
+   * The right of the bar, mirroring the code editor's: the format, whatever
+   * the caller put in `barExtra`, then Copy.
+   *
+   * **"Markdown" is not decoration** — the field is a plain textarea until you
+   * switch to Preview, so nothing else on screen says that `**bold**` will do
+   * anything. It sits where the code frame names its language, for the same
+   * reason: the bar is where a frame says what it holds.
+   */
+  const meta = (
+    <span className="markdown-editor-meta">
+      <span className="markdown-editor-language">Markdown</span>
+
+      {barExtra}
+
+      <button
+        type="button"
+        className="markdown-editor-copy"
+        onClick={copy}
+        disabled={value === ""}
+        data-copied={copied}
+        title={copied ? "Copied" : "Copy"}
+        aria-label={copied ? "Copied" : "Copy"}
+      >
+        {copied ? (
+          <Check size={14} aria-hidden />
+        ) : (
+          <Copy size={14} aria-hidden />
+        )}
+        <span className="action-label">{copied ? "Copied" : "Copy"}</span>
+      </button>
+    </span>
   );
 
   if (readOnly) {
@@ -78,7 +106,7 @@ export function MarkdownEditor({
       <div className="markdown-editor">
         <div className="markdown-editor-bar">
           <span className="markdown-editor-label">Preview</span>
-          {copyButton}
+          {meta}
         </div>
 
         <MarkdownPreview value={value} />
@@ -94,7 +122,7 @@ export function MarkdownEditor({
           <TabsTrigger value="preview">Preview</TabsTrigger>
         </TabsList>
 
-        {copyButton}
+        {meta}
       </div>
 
       <TabsContent value="write">

@@ -3,13 +3,14 @@
 import {
   EXISTING_TAGS_LABEL,
   EXPLAIN_PROMPT,
+  OPTIMIZE_PROMPT,
   SUMMARY_PROMPT,
   TAG_PROMPT,
 } from "@/lib/ai/prompts";
 import { runStructured } from "@/lib/ai/run";
 import { budgetExceededMessage, checkSpend, recordSpend } from "@/lib/ai/spend";
 import { truncateForAi } from "@/lib/ai/truncate";
-import { isCodeType } from "@/constants/item-types";
+import { isCodeType, isPromptType } from "@/constants/item-types";
 import { explanationSourceHash } from "@/lib/ai/explanation-cache";
 import {
   cacheExplanation,
@@ -25,11 +26,13 @@ import {
   codeExplanationSchema,
   explainRequestSchema,
   itemSummarySchema,
+  optimizedPromptSchema,
   suggestedTagsSchema,
 } from "@/lib/validations/ai";
 import { firstIssueMessage } from "@/lib/validations/auth";
 import type { z } from "zod";
 import type { AiActionResult } from "@/types/ai";
+import type { OptimizedPrompt } from "@/lib/validations/ai";
 
 const SIGNED_OUT = "Your session has ended. Sign in again.";
 const AI_TURNED_OFF =
@@ -40,13 +43,16 @@ const NOT_CODE = "Only snippets and commands can be explained.";
 /** Same reasoning as the draft schema's refine: a call that can only
  *  disappoint should not be billed. */
 const NOTHING_TO_EXPLAIN = "This item has no code to explain.";
+const NOT_PROMPT = "Only prompts can be optimized.";
+const NOTHING_TO_OPTIMIZE = "This prompt is empty.";
 
 const HOUR = 60 * 60 * 1000;
 
-/** Per feature, and across all four. See `guard` for why both. */
+/** Per feature, and across all of them. See `guard` for why both. */
 const TAG_LIMIT = 30;
 const SUMMARY_LIMIT = 30;
 const EXPLAIN_LIMIT = 30;
+const OPTIMIZE_LIMIT = 30;
 const COMBINED_LIMIT = 60;
 
 /**
@@ -349,6 +355,89 @@ export async function explainCode(
   ).catch(() => {});
 
   return { success: true, data: result.data.explanation };
+}
+
+/**
+ * Rewrites one of the caller's prompts, and says what it changed.
+ *
+ * **Refused for anything but a prompt.** `isPromptType` is its own set rather
+ * than `isMarkdownType`, which is also true for notes: a note is prose about
+ * something, where a prompt is an instruction to a model and the only kind of
+ * text "rewrite this so it works better" means anything for.
+ *
+ * `effort: "low"`, `verbosity: "medium"` — this is rewriting rather than
+ * analysis, so the output *is* the artifact and is where the tokens should go.
+ *
+ * **It writes nothing**, like every other AI action. The rewrite comes back
+ * beside the original, the user accepts it into the form's local state, and
+ * the existing `updateItem` saves it on their own Save. That matters more here
+ * than anywhere else: the thing being replaced is long, and a rewrite the user
+ * cannot compare against the original is a rewrite they cannot judge — which
+ * is why `AiOptimizablePrompt` shows both rather than replacing the field and
+ * offering undo. Undo restores a value they were never able to weigh.
+ *
+ * **This is the sharpest prompt-injection case in the app, and the defence is
+ * structural rather than textual.** The input is literally a prompt, so it
+ * will contain instructions; constrained to `{ optimized, notes }` the model
+ * cannot call a tool, take an action or emit anything else, and a person
+ * accepts the result before it reaches the database. An injection can make a
+ * rewrite bad. It cannot make it dangerous. See `OPTIMIZE_PROMPT` for why
+ * input sanitization is deliberately absent.
+ */
+export async function optimizePrompt(
+  input: unknown,
+): Promise<AiActionResult<OptimizedPrompt>> {
+  const gate = await guard(
+    input,
+    aiItemRequestSchema,
+    "optimize",
+    OPTIMIZE_LIMIT,
+  );
+
+  if (!gate.ok) {
+    return gate.failure;
+  }
+
+  const item = await getItemDetail(gate.user.id, gate.data.itemId);
+
+  if (!item) {
+    return { success: false, error: MISSING };
+  }
+
+  if (!isPromptType(item.type.slug)) {
+    return { success: false, error: NOT_PROMPT };
+  }
+
+  if (!item.content) {
+    // The draft schema's reasoning: a call that can only disappoint should not
+    // be billed.
+    return { success: false, error: NOTHING_TO_OPTIMIZE };
+  }
+
+  const result = await runStructured({
+    instructions: OPTIMIZE_PROMPT,
+    // The prompt and nothing else. The title is what the *user* calls it and
+    // says nothing about how it performs, and a description would only give
+    // the model something to paraphrase instead of reading the prompt.
+    //
+    // It goes in `input`, where the wrapper delimits it, and never into
+    // `instructions` — that separation is the injection boundary, and it is
+    // the one thing here worth asserting for its own sake.
+    input: truncateForAi(item.content),
+    schema: optimizedPromptSchema,
+    schemaName: "optimized_prompt",
+    effort: "low",
+    verbosity: "medium",
+    cacheKey: "devstash:optimize:v1",
+  });
+
+  if (!result.ok) {
+    return { success: false, error: result.error };
+  }
+
+  await recordSpend(result.usage).catch(() => {});
+
+  return { success: true, data: result.data };
 }
 
 /**

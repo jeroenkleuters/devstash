@@ -1,5 +1,6 @@
 "use client";
 
+import { AiOptimizablePrompt } from "@/components/ai/ai-optimizable-prompt";
 import { AiSummarySuggestion } from "@/components/ai/ai-summary-suggestion";
 import { AiTagSuggestions } from "@/components/ai/ai-tag-suggestions";
 import { CodeEditor } from "@/components/items/code-editor";
@@ -14,6 +15,7 @@ import {
   isBookType,
   isCodeType,
   isMarkdownType,
+  isPromptType,
   uploadKindFor,
 } from "@/constants/item-types";
 import { languageOptions } from "@/lib/code-language";
@@ -55,6 +57,10 @@ export function ItemFormFields({
   const descriptionLabel = isBook ? "Summary" : "Description";
   const showCode = showContent && isCodeType(typeSlug);
   const showMarkdown = showContent && isMarkdownType(typeSlug);
+  // Only a prompt is worth rewriting *as* a prompt — a note is markdown too,
+  // and "make this instruction clearer" means nothing for prose about
+  // something. Inside `showContent`, so the field it acts on is always there.
+  const showOptimize = showContent && isPromptType(typeSlug);
 
   return (
     <>
@@ -84,28 +90,28 @@ export function ItemFormFields({
 
       {showDescription && (
         <div className="item-form-field">
-          <Label htmlFor={`${idPrefix}-description`}>{descriptionLabel}</Label>
-          <Textarea
-            id={`${idPrefix}-description`}
-            name="description"
-            value={values.description}
-            onChange={(event) => setField("description", event.target.value)}
-            rows={2}
-          />
-
-          {/* Inside `showDescription`, so the types without the field get no
-              button by construction rather than by a second list of slugs
-              agreeing with the first. `itemId` is absent in the create dialog,
-              which is what makes it summarise what has been typed instead of a
-              stored row — `AiSummarySuggestion` picks the action from that,
-              exactly as the tag suggestions below do. */}
+          {/* Owns the label as well as the field, so the Suggest button can sit
+              on the label row rather than under the textarea. Inside
+              `showDescription`, so the types without the field get no button by
+              construction rather than by a second list of slugs agreeing with
+              the first. `itemId` is absent in the create dialog, which is what
+              makes it summarise what has been typed instead of a stored row. */}
           <AiSummarySuggestion
             itemId={itemId}
             draft={{ title: values.title, content: values.content }}
             value={values.description}
             label={descriptionLabel}
+            htmlFor={`${idPrefix}-description`}
             onAccept={(summary) => setField("description", summary)}
-          />
+          >
+            <Textarea
+              id={`${idPrefix}-description`}
+              name="description"
+              value={values.description}
+              onChange={(event) => setField("description", event.target.value)}
+              rows={2}
+            />
+          </AiSummarySuggestion>
         </div>
       )}
 
@@ -154,6 +160,16 @@ export function ItemFormFields({
               // into Language rather than what was last saved.
               language={values.language}
               fallbackLanguage={codeTypeLanguage(typeSlug)}
+              onChange={(next) => setField("content", next)}
+              ariaLabel="Content"
+            />
+          ) : showOptimize ? (
+            // The same Markdown editor, with Optimize in its bar — the button
+            // belongs where the actions on the content live, which is the
+            // frame's own title bar rather than a row underneath it.
+            <AiOptimizablePrompt
+              itemId={itemId}
+              value={values.content}
               onChange={(next) => setField("content", next)}
               ariaLabel="Content"
             />
