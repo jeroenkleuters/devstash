@@ -72,3 +72,16 @@ export type AiPreferences = {
 export type UpdateAiPreferencesResult =
   | { success: true }
   | { success: false; error: string };
+
+/**
+ * What an AI server action answers with.
+ *
+ * The house `{ success, data, error }` shape plus one flag: `budgetExceeded`
+ * marks the refusal that will keep happening until the month turns, so
+ * `BillingProvider` can hold it for the session and stop the AI buttons
+ * spending a round trip each to discover the same thing. Every other failure is
+ * worth retrying and carries no flag.
+ */
+export type AiActionResult<T> =
+  | { success: true; data: T }
+  | { success: false; error: string; budgetExceeded?: true };

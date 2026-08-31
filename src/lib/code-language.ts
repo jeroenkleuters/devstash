@@ -95,3 +95,89 @@ export function monacoLanguageId(
 export function languageLabel(id: string): string {
   return LABELS.get(id) ?? id.charAt(0).toUpperCase() + id.slice(1);
 }
+
+/**
+ * The language ids the item form offers.
+ *
+ * Deliberately a curated subset rather than everything Monaco knows: the field
+ * is a dropdown someone has to scan, and a list of every grammar shipped with
+ * the editor is worse at finding TypeScript than a list of forty. Every target
+ * in `ALIASES` is present, so no hint the app already translates can name
+ * something the list cannot express.
+ *
+ * Ordered by label rather than by id, since the label is what is read.
+ */
+const OFFERED_IDS = [
+  "bat",
+  "c",
+  "clojure",
+  "coffeescript",
+  "cpp",
+  "csharp",
+  "css",
+  "dart",
+  "dockerfile",
+  "fsharp",
+  "go",
+  "graphql",
+  "html",
+  "ini",
+  "java",
+  "javascript",
+  "json",
+  "julia",
+  "kotlin",
+  "less",
+  "lua",
+  "markdown",
+  "objective-c",
+  "perl",
+  "php",
+  "plaintext",
+  "powershell",
+  "python",
+  "r",
+  "ruby",
+  "rust",
+  "scala",
+  "scss",
+  "shell",
+  "sql",
+  "swift",
+  "typescript",
+  "xml",
+  "yaml",
+];
+
+export interface LanguageOption {
+  /** Stored verbatim in `Item.language`; the empty string means no hint. */
+  value: string;
+  label: string;
+}
+
+/**
+ * The options a language dropdown shows, given what the item currently holds.
+ *
+ * `current` is carried through even when the list does not offer it, because
+ * `Item.language` has always been free text: an item stored before this was a
+ * dropdown may hold `cobol`, or an alias like `ts`. A select that simply
+ * omitted it would report the first option as selected and quietly rewrite the
+ * value on the next save — so an unrecognised hint becomes its own option
+ * instead, kept exactly as stored.
+ */
+export function languageOptions(
+  current?: string | null,
+): readonly LanguageOption[] {
+  const options = OFFERED_IDS.map((id) => ({
+    value: id,
+    label: languageLabel(id),
+  })).sort((a, b) => a.label.localeCompare(b.label, "en"));
+
+  const hint = current?.trim() ?? "";
+
+  if (hint !== "" && !options.some((option) => option.value === hint)) {
+    options.unshift({ value: hint, label: hint });
+  }
+
+  return options;
+}

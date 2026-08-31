@@ -29,12 +29,17 @@ export type UpgradeReason =
   | { kind: "collections" }
   | { kind: "type"; label: string }
   /** Asked for outright from the settings card, rather than by hitting a gate. */
-  | { kind: "plan" };
+  | { kind: "plan" }
+  /** An AI feature the account is not on Pro for. Carries its own name. */
+  | { kind: "ai"; label: string };
 
 /** What Pro gives, listed once. */
 const BENEFITS = [
   "Unlimited items and collections",
   "File, image and book uploads",
+  // The marketing pricing section already promises these, so an upsell that
+  // omits them undersells the product it is selling.
+  "AI tags, summaries, code explanations and prompt rewriting",
   "Everything you have already saved stays as it is",
 ];
 
@@ -59,6 +64,11 @@ function headline(reason: UpgradeReason): { title: string; body: string } {
       return {
         title: "Upgrade",
         body: "Pick a plan and continue to checkout. Cancel any time.",
+      };
+    case "ai":
+      return {
+        title: `${reason.label} are a Pro feature`,
+        body: "Pro accounts can ask for tags, summaries, code explanations and prompt rewrites. Nothing is ever sent without you clicking.",
       };
   }
 }

@@ -1,16 +1,129 @@
-# Current Feature
+# Current Feature: AI auto-tagging (AI feature 3 of 6)
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
-<!-- Bullet points of what success looks like -->
+**The first feature that actually calls OpenAI.** A Sparkles button beside the
+Tags field in the item drawer's edit mode asks `gpt-5-nano` for tag suggestions,
+which appear as chips the user accepts individually or dismisses. It goes first
+and alone because **it proves the whole shape** — the gate ordering, the spend
+accounting, the suggest-and-accept loop and the upsell path all land here and
+every later AI feature reuses them unchanged. If the design is wrong, this is
+where it is cheapest to find out.
+
+- **`suggestTags` in `src/actions/ai.ts`**, the first of four and the home of the
+  shared preamble. **The order of its gates is the security property**, so the
+  tests assert the *absence* of the later calls rather than just the presence of
+  the refusal: session → **off switch** → Pro → shape → both rate limits → spend
+  cap → item read. Each position earns itself — the off switch before Pro because
+  selling an upgrade for a feature someone deliberately switched off is nonsense;
+  Pro before the limiter, the ordering `POST /api/upload` already comments on;
+  both limits before the spend cap, because the limiter's in-memory reject cache
+  answers a repeat offender with no round trip; and the cap before the item read,
+  so a caller in a loop is stopped before it costs even a query.
+- **The request names an item id, never content.** This is the decision the whole
+  action rests on: content in the payload would let any signed-in account spend
+  the OpenAI budget on arbitrary text, making the app a free proxy to a paid API.
+  An id is read through `getItemDetail(userId, itemId)` with `userId` in the
+  `where`, so it is provably the caller's own — the same shape `createItem` uses
+  for `typeSlug` and `startCheckout` for a plan.
+- **It writes nothing.** `suggestTags` returns `string[]` and touches no row; the
+  user accepts chips into the form's local state and the existing `updateItem`
+  saves them. Not a simplification — `updateItem` already owns the ownership
+  scoping, the payload-field rule and the tag `connectOrCreate`, so an AI action
+  that wrote tags would be a second write path to audit. **Zero new write paths.**
+- **The call:** title + description + content through `truncateForAi`, existing
+  tags sent so the model is told not to repeat them (cheaper than deduping after,
+  and better suggestions), `effort: "minimal"` / `verbosity: "low"` since this is
+  classification and reasoning tokens bill at the output rate, then
+  `recordSpend(usage)`.
+- **Output is validated, not trusted.** 8 suggestions max — deliberately under
+  the 20-tag ceiling in `itemFields`, since the item may already carry tags and a
+  set that could alone overflow the cap would make the merge lossy — each capped
+  at `TAG_MAX_LENGTH`. A 40-tag reply is a **failure**, not something to truncate:
+  truncating hides a prompt that has stopped working.
+- **The UI**: `idle → loading → suggested → (accepted | dismissed)`, with error
+  returning to idle. Loading puts a **skeleton in the Tags field** rather than a
+  spinner in the middle of nowhere — the placeholder is shaped like the answer.
+  Chips sit **beside the current value, never replacing it**, and each is
+  individually clickable, because accepting three of five is the common case.
+  **Save is still Save.**
+- **Optimistic updates are wrong here**, and that is worth stating: `useFlagToggle`
+  is optimistic because a star that waits reads as a click that did not register,
+  but there is nothing to be optimistic about when the value is unknown until the
+  model answers — pretending otherwise would mean inventing tags.
+- **Gating:** with AI off the button does not render at all; for a free account it
+  renders with `aria-disabled` and a lock, **never `disabled`**, because a truly
+  disabled button takes no click and the upsell would be unreachable. Clicking
+  raises a **fifth `UpgradeReason` member** (`{ kind: "ai"; label: string }`) —
+  the `headline()` switch is exhaustive, so adding a member without its copy is a
+  build error rather than a blank dialog. **`BENEFITS` mentions no AI and must**,
+  since the marketing pricing section already promises it.
+- **`budgetExceeded: true`** rides alongside the error so `BillingProvider` can
+  hold it for the session — once one call comes back over budget the AI buttons
+  go inert, so a second click does not spend a round trip discovering the same
+  thing.
+
+**No migration, no new dependency, no new ShadCN primitive.** Depends on feature
+1 (client, wrapper, ledger, schemas) and feature 2 (privacy page, off switch),
+both done.
+
+Spec: @context/features/ai-auto-tagging-spec.md · Reference: @docs/ai-integration-plan.md §5, §6, §7, §9
 
 ## Notes
 
-<!-- Additional context, constraints, or details from spec -->
+**This is where real money starts.** Everything before it was provable with
+`npm test`; this one reaches OpenAI, so the spend ledger, the $5 cap and the
+dashboard budget limit all get their first live exercise. `OPENAI_API_KEY`,
+`AI_MONTHLY_BUDGET_USD` and both Upstash variables are confirmed present and
+parsing.
+
+**A browser pass is explicitly warranted here**, even under the standing "stop at
+a green build" preference, and the spec names what to check: a real round trip
+against a seeded snippet, accepting three of five chips then saving and
+confirming they persisted, dismissing and confirming nothing was written, the
+free-account path raising the upsell rather than calling, and **a forced failure
+via `page.route()` on the server-action POST** confirming the button re-enables —
+the exact check that caught the stranded delete dialog.
+
+**The `.catch(() => null)` plus `setState("idle")` in a `finally`.** A failed
+*write* answers `{ success: false }`; a failed *request* **rejects**. This has
+shipped and been fixed **four** separate times in this project — the delete
+dialog, the edit form, the create form and the flag toggle — and feature 2 came
+close to a fifth. Get it right the first time.
+
+**Two things in the spec are already out of date, both checked rather than
+assumed.** `BillingProvider` **already carries `aiEnabled`** — feature 2 added it
+along with the comment explaining that an AI control renders *not at all* where a
+Pro-gated one renders inert — so only `budgetExceeded` is new there. And the spec
+says the unreachable string is "declared eight times… this is the ninth": it is
+now **17 files**, so the extraction it asks for is a mechanical 17-file diff
+rather than a tidy-up. **Worth deciding at `/feature start`** whether to do it
+here, do it as its own change, or add the 18th and move on — 17 unrelated files
+inside a feature about tagging is real scope creep.
+
+Everything else the spec names was verified to exist: `firstIssueMessage`
+(`lib/validations/auth.ts`), `tooManyAttemptsMessage`, `retryAfterSeconds` and
+`tooManyAttemptsResponse` (`lib/rate-limit.ts`), and the four current
+`UpgradeReason` members.
+
+**Testing:** mock `@/lib/prisma`, `@/auth` and **`@/lib/openai`** — no test may
+reach OpenAI. The components are out of scope by configuration, so the `.catch`
+and the loading states rest on the browser. **Mutation-check the ownership
+scoping** — hardcode a different user id in the `getItemDetail` call, confirm
+exactly one test fails, and revert **from a copy**, since `git checkout` does
+nothing for an untracked file. `vi.clearAllMocks()` in `beforeEach` is what makes
+every "was not called" assertion mean anything.
+
+**Still open from features 1 and 2, neither blocking:** the OpenAI dashboard
+budget limit remains the only control that actually stops the money, and the four
+prompts in `prompts.ts` have **never been sent to a model** — this feature is
+where the tagging one first earns or loses its keep, so expect to iterate on it
+rather than trust it as written. The privacy page's two remaining review items
+(OpenAI retention wording, qualified review) are deferred deliberately.
 
 ## History
 

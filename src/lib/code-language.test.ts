@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_LANGUAGE,
   languageLabel,
+  languageOptions,
   monacoLanguageId,
 } from "@/lib/code-language";
 
@@ -61,5 +62,51 @@ describe("languageLabel", () => {
   it("title-cases an id it has no entry for", () => {
     expect(languageLabel("rust")).toBe("Rust");
     expect(languageLabel("elixir")).toBe("Elixir");
+  });
+});
+
+describe("languageOptions", () => {
+  it("offers every alias target, so no hint the app translates is unsayable", () => {
+    const values = new Set(languageOptions().map((option) => option.value));
+
+    for (const id of ["typescript", "javascript", "shell", "csharp", "cpp"]) {
+      expect(values).toContain(id);
+    }
+  });
+
+  it("labels an id the way the editor header does", () => {
+    const typescript = languageOptions().find(
+      (option) => option.value === "typescript",
+    );
+
+    expect(typescript?.label).toBe("TypeScript");
+  });
+
+  it("orders by label rather than by id", () => {
+    const labels = languageOptions().map((option) => option.label);
+
+    expect(labels).toEqual([...labels].sort((a, b) => a.localeCompare(b, "en")));
+  });
+
+  it("keeps a stored hint the list does not offer, so a save cannot rewrite it", () => {
+    const options = languageOptions("cobol");
+
+    expect(options[0]).toEqual({ value: "cobol", label: "cobol" });
+  });
+
+  it("does not duplicate a stored hint the list already offers", () => {
+    const rust = languageOptions("rust").filter(
+      (option) => option.value === "rust",
+    );
+
+    expect(rust).toHaveLength(1);
+  });
+
+  it("adds nothing for an empty or whitespace-only hint", () => {
+    const base = languageOptions().length;
+
+    expect(languageOptions("")).toHaveLength(base);
+    expect(languageOptions("   ")).toHaveLength(base);
+    expect(languageOptions(null)).toHaveLength(base);
   });
 });

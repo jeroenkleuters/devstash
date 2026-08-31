@@ -221,3 +221,30 @@ export async function recordSpend(
     console.error("Could not record AI spend — the increment is lost.", cause);
   }
 }
+
+/**
+ * What to tell someone whose call the cap refused.
+ *
+ * Names the number and when it lifts, because "AI is unavailable" invites a
+ * retry that will be refused the same way — and because the cap is a decision
+ * the owner made rather than a fault, so saying so plainly is more use than a
+ * generic failure.
+ *
+ * The reset is the first of next month in UTC, matching `spendKey`.
+ */
+export function budgetExceededMessage(
+  check: SpendCheck,
+  now: Date = new Date(),
+): string {
+  const reset = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1),
+  );
+
+  const when = reset.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "long",
+    timeZone: "UTC",
+  });
+
+  return `AI is paused for this month. The $${check.budgetUsd.toFixed(2)} budget has been used. It resets on ${when}.`;
+}

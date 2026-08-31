@@ -145,6 +145,7 @@ export function ItemDrawerEdit({
             typeSlug={detail.type.slug}
             contentType={detail.contentType}
             contentRows={12}
+            itemId={detail.id}
           />
         </form>
       </div>

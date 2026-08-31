@@ -23,6 +23,18 @@ interface BillingContextValue extends ClientUsageSnapshot {
    * is on screen, and is what keeps a stale page from being the only guard.
    */
   aiEnabled: boolean;
+  /**
+   * Whether this month's AI budget is gone.
+   *
+   * Held for the session rather than re-asked, because the answer cannot change
+   * until the month turns: once one call has come back over budget, every AI
+   * button goes inert instead of spending a round trip each to discover the
+   * same thing. It starts false and is only ever set by an action's reply — the
+   * page never reads the ledger itself.
+   */
+  budgetExceeded: boolean;
+  /** Called by an AI feature whose call was refused for budget. */
+  setBudgetExceeded: () => void;
   /** Opens the upsell, naming what the visitor just reached for. */
   requestUpgrade: (reason: UpgradeReason) => void;
 }
@@ -55,10 +67,18 @@ export function BillingProvider({
   children: ReactNode;
 }) {
   const [reason, setReason] = useState<UpgradeReason | null>(null);
+  const [budgetExceeded, setBudgetExceeded] = useState(false);
 
   return (
     <BillingContext.Provider
-      value={{ isPro, aiEnabled, ...usage, requestUpgrade: setReason }}
+      value={{
+        isPro,
+        aiEnabled,
+        budgetExceeded,
+        setBudgetExceeded: () => setBudgetExceeded(true),
+        ...usage,
+        requestUpgrade: setReason,
+      }}
     >
       {children}
 
