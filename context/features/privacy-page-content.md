@@ -8,9 +8,9 @@
 
 ## Before publishing
 
-1. **Decide the contact address.** `privacy@…` below is a placeholder. Publishing
-   an address is a decision about what appears on a public page — pick one
-   deliberately rather than inheriting a personal one.
+1. ~~**Decide the contact address.**~~ Settled on 2026-08-31 — the live page at
+   `/privacy` carries it. This file's §8 below still shows the placeholder; the
+   page is the published text.
 2. **Verify the OpenAI retention and training claims** against their current
    data-usage terms at the moment of writing. It is the only part of this page
    describing someone else's policy, and it is the part that dates. Do not copy

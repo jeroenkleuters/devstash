@@ -19,13 +19,12 @@ export const metadata: Metadata = {
  * a disclosure, and it should read like one.
  *
  * The copy is the draft at `context/features/privacy-page-content.md`, which
- * was written against the code rather than from a template. Three things there
- * are still the owner's to settle before this is linked anywhere public: the
- * contact address below is a placeholder, the OpenAI retention paragraph in §2
- * needs checking against their current data-usage terms (it is the one claim
- * here describing someone else's policy, and the one that dates), and a rights
- * section is not something to ship from an AI-assisted draft unreviewed — GDPR
- * applies, since there are EU users.
+ * was written against the code rather than from a template. Two things there
+ * are still open, both deferred deliberately while the app has no real users:
+ * the OpenAI retention paragraph in §2 needs checking against their current
+ * data-usage terms — it is the one claim here describing someone else's policy,
+ * and the one that dates — and a rights section is not something to ship from
+ * an AI-assisted draft unreviewed, GDPR applying once there are EU users.
  */
 export default function PrivacyPage() {
   return (
