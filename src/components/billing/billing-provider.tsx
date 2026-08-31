@@ -10,6 +10,19 @@ import type { ClientUsageSnapshot } from "@/lib/usage-limits";
 
 interface BillingContextValue extends ClientUsageSnapshot {
   isPro: boolean;
+  /**
+   * Whether the account wants AI features offered at all.
+   *
+   * Rides the same path `isPro` takes because it answers the same kind of
+   * question for the same controls — but it is a stronger answer: a gated
+   * control renders inert and offers an upgrade, while an AI control with this
+   * false **does not render at all**. An off switch that leaves disabled
+   * buttons scattered around has not really turned anything off.
+   *
+   * The server check every AI action makes is the rule; this only decides what
+   * is on screen, and is what keeps a stale page from being the only guard.
+   */
+  aiEnabled: boolean;
   /** Opens the upsell, naming what the visitor just reached for. */
   requestUpgrade: (reason: UpgradeReason) => void;
 }
@@ -32,10 +45,12 @@ const BillingContext = createContext<BillingContextValue | null>(null);
  */
 export function BillingProvider({
   isPro,
+  aiEnabled,
   usage,
   children,
 }: {
   isPro: boolean;
+  aiEnabled: boolean;
   usage: ClientUsageSnapshot;
   children: ReactNode;
 }) {
@@ -43,7 +58,7 @@ export function BillingProvider({
 
   return (
     <BillingContext.Provider
-      value={{ isPro, ...usage, requestUpgrade: setReason }}
+      value={{ isPro, aiEnabled, ...usage, requestUpgrade: setReason }}
     >
       {children}
 

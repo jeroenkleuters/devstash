@@ -5,9 +5,12 @@ import { MarketingBrand } from "@/components/marketing/brand";
 /**
  * The prototype's footer named Changelog, Documentation, Privacy and four
  * other pages that do not exist. Rather than link them to 404s — which is what
- * "View all collections" did for weeks — the Product column keeps the two
- * anchors that are real and the rest are dropped until there is somewhere to
- * point them.
+ * "View all collections" did for weeks — the columns carry only what is real
+ * and the rest stay dropped until there is somewhere to point them.
+ *
+ * Privacy is back: the page exists as of the AI controls feature, which is the
+ * condition that entry set for restoring it. Terms is still absent, being a
+ * different document that has not been written.
  */
 export function MarketingFooter() {
   return (
@@ -24,6 +27,7 @@ export function MarketingFooter() {
             <h4>Product</h4>
             <Link href="#features">Features</Link>
             <Link href="#pricing">Pricing</Link>
+            <Link href="/privacy">Privacy</Link>
           </div>
           <div>
             <h4>Get started</h4>

@@ -182,3 +182,22 @@ export async function updateUploadPreferences(
 
   return count > 0;
 }
+
+/**
+ * Replaces the account's AI settings.
+ *
+ * Takes the whole set for the reason its two siblings do: merging a partial one
+ * into whatever the column happens to hold would make the result depend on what
+ * was stored rather than on what was sent.
+ */
+export async function updateAiPreferences(
+  userId: string,
+  preferences: AiPreferences,
+): Promise<boolean> {
+  const { count } = await prisma.user.updateMany({
+    where: { id: userId },
+    data: { aiPreferences: preferences },
+  });
+
+  return count > 0;
+}

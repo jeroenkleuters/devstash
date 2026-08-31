@@ -2864,6 +2864,19 @@ a.pagination-page:hover {
   }
 }
 
+/* A link inside a settings sub-line. Underlined rather than coloured, so it
+   reads as part of the sentence rather than as a second control competing with
+   the switch beside it. */
+.settings-row-link {
+  color: var(--foreground);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.settings-row-link:hover {
+  color: var(--marketing-accent, var(--type-snippet));
+}
+
 /* ---------- Loading skeletons ----------
    Placeholders reuse the real component's classes for their box model, so these
    rules only size the block standing in for content. Text lines sit inside the
@@ -4663,5 +4676,131 @@ button.sidebar-link {
 @media (max-width: 30rem) {
   .upgrade-plans {
     grid-template-columns: 1fr;
+  }
+}
+
+/* ---------------------------------------------------------------- legal page
+
+   The privacy page, and any prose page that follows it. It lives inside the
+   `(marketing)` group so it inherits that nav and footer, but it is a
+   disclosure rather than a marketing page and deliberately does not read like
+   one: no gradients, no accent headings, a narrower measure than the 72rem
+   shell so the prose stays readable. */
+
+.marketing .legal {
+  width: 100%;
+  /* Narrower than `--shell` on purpose: this is body text, and 72rem of it is
+     a wall. Roughly 80 characters at this size. */
+  max-width: 44rem;
+  margin: 0 auto;
+  /* The nav is fixed and 4rem tall, so the top padding clears it. */
+  padding: 7rem 1.5rem 5rem;
+}
+
+.marketing .legal-header {
+  padding-bottom: 2rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.marketing .legal h1 {
+  margin: 0 0 0.75rem;
+  font-size: 2rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.marketing .legal-lede {
+  margin: 0;
+  color: var(--muted-foreground);
+  line-height: 1.7;
+}
+
+.marketing .legal-section {
+  margin-top: 2.5rem;
+}
+
+.marketing .legal h2 {
+  margin: 0 0 1rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.marketing .legal h3 {
+  margin: 1.75rem 0 0.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.marketing .legal p {
+  margin: 0 0 1rem;
+  color: var(--muted-foreground);
+  line-height: 1.7;
+}
+
+.marketing .legal strong {
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+.marketing .legal ul {
+  margin: 0 0 1rem;
+  padding-left: 1.25rem;
+  color: var(--muted-foreground);
+  line-height: 1.7;
+}
+
+.marketing .legal li {
+  margin-bottom: 0.5rem;
+}
+
+.marketing .legal a {
+  color: var(--marketing-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.marketing .legal code {
+  padding: 0.125rem 0.375rem;
+  border-radius: var(--radius-sm);
+  background: var(--muted);
+  color: var(--foreground);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.875em;
+}
+
+/* The table is the one thing here wider than the measure, so it scrolls itself
+   rather than the page — the same rule the markdown preview uses. */
+.marketing .legal-table-scroll {
+  overflow-x: auto;
+  margin-bottom: 1rem;
+}
+
+.marketing .legal-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+}
+
+.marketing .legal-table th,
+.marketing .legal-table td {
+  padding: 0.625rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted-foreground);
+  text-align: left;
+  vertical-align: top;
+}
+
+.marketing .legal-table th {
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+@media (max-width: 47.99rem) {
+  .marketing .legal {
+    padding: 6rem 1rem 4rem;
+  }
+
+  .marketing .legal h1 {
+    font-size: 1.625rem;
   }
 }
