@@ -4,7 +4,7 @@ import { Check, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { summarizeItem } from "@/actions/ai";
+import { summarizeDraft, summarizeItem } from "@/actions/ai";
 import { AiSuggestButton } from "@/components/ai/ai-suggest-button";
 import { useBilling } from "@/components/billing/billing-provider";
 import { Button } from "@/components/ui/button";
@@ -12,14 +12,16 @@ import { UNREACHABLE } from "@/constants/messages";
 
 interface AiSummarySuggestionProps {
   /**
-   * The item being summarised.
+   * The item being summarised, when there is one.
    *
-   * Required, unlike the tag suggestions' optional id: `summarizeItem` names an
-   * item and there is no draft path, so this renders in the drawer's edit mode
-   * and not in the create dialog. A summary of something not yet written is a
-   * different feature and is not in this spec.
+   * Present in the drawer and absent in the create dialog, and that is what
+   * picks the action — the same shape `AiTagSuggestions` has: an existing item
+   * is named by id so the server reads its own row, while a draft has no row
+   * and sends what has been typed.
    */
-  itemId: string;
+  itemId?: string;
+  /** What has been typed so far, for the draft path. */
+  draft: { title: string; content: string };
   /** What the field holds now — shown alongside, because accepting replaces it. */
   value: string;
   /** What the field is called for this type, so the copy can say it. */
@@ -44,6 +46,7 @@ interface AiSummarySuggestionProps {
  */
 export function AiSummarySuggestion({
   itemId,
+  draft,
   value,
   label,
   onAccept,
@@ -55,6 +58,14 @@ export function AiSummarySuggestion({
 
   const replacing = value.trim() !== "";
 
+  /**
+   * A draft with nothing in it has nothing to summarise. Checked here as well
+   * as in the schema so an empty form does not spend a round trip — and one of
+   * the caller's own hourly attempts — to be told so.
+   */
+  const empty =
+    !itemId && draft.title.trim() === "" && draft.content.trim() === "";
+
   async function run() {
     setBusy(true);
     setError(null);
@@ -63,7 +74,10 @@ export function AiSummarySuggestion({
       // A failed *write* answers `{ success: false }`; a failed *request*
       // rejects. Without this the rejection is unhandled and the button stays
       // busy for good — the defect this project has shipped four times.
-      const result = await summarizeItem({ itemId }).catch(() => null);
+      const result = await (itemId
+        ? summarizeItem({ itemId })
+        : summarizeDraft({ ...draft, description: "", tags: [] })
+      ).catch(() => null);
 
       if (!result?.success) {
         if (result && "budgetExceeded" in result && result.budgetExceeded) {
@@ -97,8 +111,13 @@ export function AiSummarySuggestion({
       <div className="ai-suggestions-bar">
         <AiSuggestButton
           label="AI summaries"
-          title={`Suggest a ${label.toLowerCase()} for this item`}
+          title={
+            empty
+              ? "Add a title or some content first"
+              : `Suggest a ${label.toLowerCase()} for this item`
+          }
           busy={busy}
+          disabled={empty}
           onSuggest={run}
         />
       </div>

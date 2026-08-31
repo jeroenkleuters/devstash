@@ -1,12 +1,56 @@
-# Current Feature
+# Current Feature: AI summary in the create dialog
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
+- `summarizeDraft` in `src/actions/ai.ts`, mirroring `suggestTagsForDraft`:
+  takes `aiDraftRequestSchema` (which already exists), runs the **same shared
+  `guard`** so the gate ordering is inherited rather than restated, counts
+  against the same `ai:summary` 30/hour window under the shared 60/hour
+  ceiling, and writes nothing
+- `AiSummarySuggestion` takes `itemId` as **optional** and picks the action
+  from it, the shape `AiTagSuggestions` already has — an existing item is named
+  by id so the server reads its own row, a draft sends what has been typed
+- `src/components/items/item-form-fields.tsx` drops the `itemId &&` gate, so
+  the button appears beside Description in the create dialog as well as in the
+  drawer's edit mode. Still inside `showDescription`, so File and Image get
+  nothing — Book keeps the field and its **"Summary"** label, and the button's
+  copy follows `descriptionLabel` as it already does
+- A draft with neither a title nor content is refused **in the component** as
+  well as in the schema, so an empty form does not spend a round trip and one
+  of the caller's own hourly attempts to be told so — the guard
+  `AiTagSuggestions` already carries
+- Tests over the new action, and the shared gate tests left parameterised
+- `npm test`, `npx tsc --noEmit`, `npx eslint src` and `npm run build` clean
+- No migration, no new dependency, no new ShadCN primitive
+
 ## Notes
+
+Loaded inline. This closes the line the AI summaries entry left open: "there is
+no draft path, so the button appears in the drawer's edit mode and not in the
+create dialog, where there is no row to summarise — which means the moment
+someone has just written the content is the one moment they cannot ask."
+
+**The trade was confirmed before implementing**: a draft has no stored row, so
+the content crosses the wire rather than being read back from the caller's own
+rows. That is the same trade `suggestTagsForDraft` already makes, and the
+reasoning recorded there applies unchanged — a caller who wanted arbitrary text
+billed could already create an item, ask about it and delete it, so what bounds
+the cost is the shared preamble (Pro only, both windows, the spend cap and
+truncation) rather than where the text came from. What id-over-content really
+buys is ownership scoping, and there is no stored row here to scope to.
+
+Books were considered as a narrower scope and rejected: a summary at creation is
+most obviously wanted there, but restricting it would mean two rules for one
+field, and the field is already gated by `showDescription`.
+
+Most of the wiring exists. `AiTagSuggestions` is the working precedent for every
+part of this, down to the empty-draft guard and the action pick inside `run()`,
+so the honest risk is drift between the two components rather than anything
+novel.
 
 ## History
 

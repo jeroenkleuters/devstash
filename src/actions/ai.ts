@@ -187,12 +187,51 @@ export async function summarizeItem(
     return { success: false, error: MISSING };
   }
 
+  return summarize(item);
+}
+
+/**
+ * The same, for an item that does not exist yet.
+ *
+ * **The draft path the summaries feature deliberately left out**, and adding it
+ * closes the one moment it could not serve: someone who has just written the
+ * content is exactly who wants a summary of it, and until now that was the one
+ * moment they could not ask.
+ *
+ * The trade is `suggestTagsForDraft`'s, unchanged — the content crosses the
+ * wire because there is no row to read it back from, and what bounds the cost
+ * is the preamble this shares rather than where the text came from. Ownership
+ * scoping is not weakened, because there is no stored row involved to scope to.
+ */
+export async function summarizeDraft(
+  input: unknown,
+): Promise<AiActionResult<string>> {
+  const gate = await guard(
+    input,
+    aiDraftRequestSchema,
+    "summary",
+    SUMMARY_LIMIT,
+  );
+
+  if (!gate.ok) {
+    return gate.failure;
+  }
+
+  return summarize(gate.data);
+}
+
+/** The call itself, once something has been resolved to summarise. */
+async function summarize(source: {
+  title: string;
+  content: string | null;
+}): Promise<AiActionResult<string>> {
   const result = await runStructured({
     instructions: SUMMARY_PROMPT,
     // No existing tags and no current description: the model is being asked
     // what the item *is*, and feeding it a description it is about to replace
-    // invites it to paraphrase that instead of reading the item.
-    input: describeItem({ ...item, description: null, tags: [] }),
+    // invites it to paraphrase that instead of reading the item. That holds
+    // for a draft too, where the field may already hold something typed.
+    input: describeItem({ ...source, description: null, tags: [] }),
     schema: itemSummarySchema,
     schemaName: "item_summary",
     effort: "low",

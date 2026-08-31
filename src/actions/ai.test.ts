@@ -4,6 +4,7 @@ import {
   explainCode,
   suggestTags,
   suggestTagsForDraft,
+  summarizeDraft,
   summarizeItem,
 } from "@/actions/ai";
 import { checkSpend, recordSpend } from "@/lib/ai/spend";
@@ -731,5 +732,150 @@ const ending = 2;`,
 
     expect(result.success).toBe(false);
     expect(recordSpendMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("summarizeDraft — the create dialog's path", () => {
+  const DRAFT = {
+    title: "useThrottle",
+    description: "Limits how often a value updates",
+    content: "export function useThrottle() {}",
+    tags: ["react"],
+  };
+
+  beforeEach(() => {
+    parse.mockResolvedValue({
+      output_parsed: { summary: "A React hook that throttles a value." },
+      usage: usage(),
+    });
+  });
+
+  it("summarises what has been typed, with no row to read", async () => {
+    const result = await summarizeDraft(DRAFT);
+
+    expect(result).toEqual({
+      success: true,
+      data: "A React hook that throttles a value.",
+    });
+    // The whole point of this path: nothing is read, because nothing is stored.
+    expect(getItemDetailMock).not.toHaveBeenCalled();
+  });
+
+  /**
+   * The same strip the id path makes, and for the same reason: the description
+   * is about to be replaced, so feeding the model the one it would overwrite
+   * invites it to paraphrase that instead of reading the item. A draft's field
+   * may already hold something typed, which is exactly the case that matters.
+   */
+  it("does not send the description it is about to replace", async () => {
+    await summarizeDraft(DRAFT);
+
+    const sent = parse.mock.calls[0][0].input as string;
+
+    expect(sent).toContain("useThrottle");
+    expect(sent).toContain("export function useThrottle()");
+    expect(sent).not.toContain("Limits how often a value updates");
+    expect(sent).not.toContain("Existing tags");
+  });
+
+  it("runs the same gates, in the same order", async () => {
+    getCurrentUserMock.mockResolvedValue({
+      id: "user-1",
+      isPro: false,
+      aiPreferences: { enabled: true },
+    } as never);
+
+    const result = await summarizeDraft(DRAFT);
+
+    expect(result).toEqual({
+      success: false,
+      error: "AI suggestions need a Pro subscription.",
+    });
+    expect(rateLimitMock).not.toHaveBeenCalled();
+    expect(parse).not.toHaveBeenCalled();
+  });
+
+  /**
+   * The same window as the id path, not one of its own: a draft summary and a
+   * stored-item summary cost the same call, and giving the draft its own budget
+   * would double what one account can spend on summaries in an hour.
+   */
+  it("counts against the same windows as the id path", async () => {
+    await summarizeDraft(DRAFT);
+
+    expect(rateLimitMock).toHaveBeenCalledWith(
+      "ai:summary:user-1",
+      30,
+      60 * 60 * 1000,
+    );
+    expect(rateLimitMock).toHaveBeenCalledWith(
+      "ai:all:user-1",
+      60,
+      60 * 60 * 1000,
+    );
+  });
+
+  it("refuses over budget with the flag", async () => {
+    checkSpendMock.mockResolvedValue({
+      allowed: false,
+      spentUsd: 5,
+      budgetUsd: 5,
+    });
+
+    const result = await summarizeDraft(DRAFT);
+
+    expect(result).toMatchObject({ success: false, budgetExceeded: true });
+    expect(parse).not.toHaveBeenCalled();
+  });
+
+  it("refuses an empty draft without calling the model", async () => {
+    const result = await summarizeDraft({
+      title: "",
+      description: "",
+      content: "   ",
+      tags: [],
+    });
+
+    expect(result.success).toBe(false);
+    expect(parse).not.toHaveBeenCalled();
+  });
+
+  it("accepts a draft with only content, or only a title", async () => {
+    const [content, title] = await Promise.all([
+      summarizeDraft({
+        title: "",
+        description: "",
+        content: "const x = 1;",
+        tags: [],
+      }),
+      summarizeDraft({
+        title: "A note",
+        description: "",
+        content: "",
+        tags: [],
+      }),
+    ]);
+
+    expect(content.success).toBe(true);
+    expect(title.success).toBe(true);
+  });
+
+  it("uses the same effort as the id path", async () => {
+    await summarizeDraft(DRAFT);
+
+    const call = parse.mock.calls[0][0];
+
+    expect(call.reasoning).toEqual({ effort: "low" });
+    expect(call.prompt_cache_key).toBe("devstash:summary:v1");
+  });
+
+  it("records what the call reported spending", async () => {
+    await summarizeDraft(DRAFT);
+
+    expect(recordSpendMock).toHaveBeenCalledWith({
+      input: 100,
+      cached: 10,
+      output: 20,
+    });
   });
 });
