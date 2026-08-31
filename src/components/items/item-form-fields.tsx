@@ -1,5 +1,6 @@
 "use client";
 
+import { AiSummarySuggestion } from "@/components/ai/ai-summary-suggestion";
 import { AiTagSuggestions } from "@/components/ai/ai-tag-suggestions";
 import { CodeEditor } from "@/components/items/code-editor";
 import { ItemCollectionsField } from "@/components/items/item-collections-field";
@@ -48,6 +49,10 @@ export function ItemFormFields({
   const showDescription = uploadKindFor(typeSlug) === undefined || isBook;
   const showUrl = contentType === "URL" || isBook;
   const showLanguage = LANGUAGE_TYPE_SLUGS.has(typeSlug);
+  // A book's is a Summary rather than a Description — it is the point of
+  // the type, not a note about it. Named once so the label, the button's
+  // title and the accept button's copy all say the same word.
+  const descriptionLabel = isBook ? "Summary" : "Description";
   const showCode = showContent && isCodeType(typeSlug);
   const showMarkdown = showContent && isMarkdownType(typeSlug);
 
@@ -65,11 +70,21 @@ export function ItemFormFields({
         />
       </div>
 
+      {isBook && (
+        <div className="item-form-field">
+          <Label htmlFor={`${idPrefix}-author`}>Author</Label>
+          <Input
+            id={`${idPrefix}-author`}
+            name="author"
+            value={values.author}
+            onChange={(event) => setField("author", event.target.value)}
+          />
+        </div>
+      )}
+
       {showDescription && (
         <div className="item-form-field">
-          <Label htmlFor={`${idPrefix}-description`}>
-            {isBook ? "Summary" : "Description"}
-          </Label>
+          <Label htmlFor={`${idPrefix}-description`}>{descriptionLabel}</Label>
           <Textarea
             id={`${idPrefix}-description`}
             name="description"
@@ -77,6 +92,19 @@ export function ItemFormFields({
             onChange={(event) => setField("description", event.target.value)}
             rows={2}
           />
+
+          {/* Inside `showDescription`, so the types without the field get no
+              button by construction rather than by a second list of slugs
+              agreeing with the first. Only where there is an item to summarise:
+              `summarizeItem` names one, and the create dialog has no row. */}
+          {itemId && (
+            <AiSummarySuggestion
+              itemId={itemId}
+              value={values.description}
+              label={descriptionLabel}
+              onAccept={(summary) => setField("description", summary)}
+            />
+          )}
         </div>
       )}
 
@@ -161,18 +189,6 @@ export function ItemFormFields({
             // A book's link is optional — a cover dropped on the listing
             // becomes a book with no link, and the drawer adds one later.
             required={urlRequired && !isBook}
-          />
-        </div>
-      )}
-
-      {isBook && (
-        <div className="item-form-field">
-          <Label htmlFor={`${idPrefix}-author`}>Author</Label>
-          <Input
-            id={`${idPrefix}-author`}
-            name="author"
-            value={values.author}
-            onChange={(event) => setField("author", event.target.value)}
           />
         </div>
       )}

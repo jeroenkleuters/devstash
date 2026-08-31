@@ -1,6 +1,10 @@
 "use server";
 
-import { EXISTING_TAGS_LABEL, TAG_PROMPT } from "@/lib/ai/prompts";
+import {
+  EXISTING_TAGS_LABEL,
+  SUMMARY_PROMPT,
+  TAG_PROMPT,
+} from "@/lib/ai/prompts";
 import { runStructured } from "@/lib/ai/run";
 import { budgetExceededMessage, checkSpend, recordSpend } from "@/lib/ai/spend";
 import { truncateForAi } from "@/lib/ai/truncate";
@@ -10,6 +14,7 @@ import { rateLimit, tooManyAttemptsMessage } from "@/lib/rate-limit";
 import {
   aiDraftRequestSchema,
   aiItemRequestSchema,
+  itemSummarySchema,
   suggestedTagsSchema,
 } from "@/lib/validations/ai";
 import { firstIssueMessage } from "@/lib/validations/auth";
@@ -24,8 +29,9 @@ const MISSING = "That item no longer exists.";
 
 const HOUR = 60 * 60 * 1000;
 
-/** Per feature, and across all four. See `preamble` for why both. */
+/** Per feature, and across all four. See `guard` for why both. */
 const TAG_LIMIT = 30;
+const SUMMARY_LIMIT = 30;
 const COMBINED_LIMIT = 60;
 
 /**
@@ -133,6 +139,66 @@ async function suggest(source: {
   await recordSpend(result.usage).catch(() => {});
 
   return { success: true, data: result.data.tags };
+}
+
+/**
+ * Summarises one of the caller's items into a sentence or three.
+ *
+ * **The same shape as `suggestTags` and deliberately so** — the id rather than
+ * the content, the shared `guard`, and nothing written. What differs is only
+ * where the answer goes and what it costs.
+ *
+ * **Accepting it *replaces* the Description field**, which is the one
+ * behavioural difference from tags: tags merge into what is already there, a
+ * description overwrites it. That is a UI concern rather than one this action
+ * can enforce, and `AiSummarySuggestion` is what shows the existing value
+ * alongside the offer so nothing is lost silently.
+ *
+ * `effort: "low"` rather than tagging's `"minimal"`: this has to actually read
+ * the item to say what it is for, where classification does not. Still `low`
+ * and not higher, because reasoning tokens bill at the *output* rate and there
+ * is nothing here to reason about beyond comprehension.
+ */
+export async function summarizeItem(
+  input: unknown,
+): Promise<AiActionResult<string>> {
+  const gate = await guard(
+    input,
+    aiItemRequestSchema,
+    "summary",
+    SUMMARY_LIMIT,
+  );
+
+  if (!gate.ok) {
+    return gate.failure;
+  }
+
+  const item = await getItemDetail(gate.user.id, gate.data.itemId);
+
+  if (!item) {
+    return { success: false, error: MISSING };
+  }
+
+  const result = await runStructured({
+    instructions: SUMMARY_PROMPT,
+    // No existing tags and no current description: the model is being asked
+    // what the item *is*, and feeding it a description it is about to replace
+    // invites it to paraphrase that instead of reading the item.
+    input: describeItem({ ...item, description: null, tags: [] }),
+    schema: itemSummarySchema,
+    schemaName: "item_summary",
+    effort: "low",
+    verbosity: "low",
+    cacheKey: "devstash:summary:v1",
+  });
+
+  if (!result.ok) {
+    return { success: false, error: result.error };
+  }
+
+  await recordSpend(result.usage).catch(() => {});
+
+  return { success: true, data: result.data.summary };
 }
 
 /** What a gate refused, or the caller and their validated request. */

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { suggestTags, suggestTagsForDraft } from "@/actions/ai";
+import { suggestTags, suggestTagsForDraft, summarizeItem } from "@/actions/ai";
 import { checkSpend, recordSpend } from "@/lib/ai/spend";
 import { AI_CHARACTER_BUDGET } from "@/lib/ai/truncate";
 import { getItemDetail } from "@/lib/db/items";
@@ -89,17 +89,23 @@ beforeEach(() => {
   });
 });
 
-describe("suggestTags — the gates, in order", () => {
-  it("suggests tags for a Pro account with AI on", async () => {
-    const result = await suggestTags({ itemId: "item-1" });
-
-    expect(result).toEqual({ success: true, data: ["hooks", "typescript"] });
-  });
-
+/**
+ * The preamble is **one shared function**, so testing it once per action would
+ * be testing the same code three times. Both id-taking actions run it with the
+ * same request shape, so the refusals are parameterised and only what actually
+ * differs — the per-feature limiter key — is passed in.
+ *
+ * `suggestTagsForDraft` is not in here: it takes a different schema, so its
+ * shape gate is genuinely its own and it keeps its own block below.
+ */
+describe.each([
+  ["suggestTags", suggestTags, "ai:tags:user-1"],
+  ["summarizeItem", summarizeItem, "ai:summary:user-1"],
+] as const)("%s — the shared gates, in order", (_name, action, featureKey) => {
   it("refuses a signed-out caller", async () => {
     getCurrentUserMock.mockResolvedValue(null);
 
-    const result = await suggestTags({ itemId: "item-1" });
+    const result = await action({ itemId: "item-1" });
 
     expect(result).toEqual({
       success: false,
@@ -120,7 +126,7 @@ describe("suggestTags — the gates, in order", () => {
       aiPreferences: { enabled: false },
     } as never);
 
-    const result = await suggestTags({ itemId: "item-1" });
+    const result = await action({ itemId: "item-1" });
 
     expect(result.success).toBe(false);
     expect(result.success === false && result.error).toContain(
@@ -142,7 +148,7 @@ describe("suggestTags — the gates, in order", () => {
       aiPreferences: { enabled: true },
     } as never);
 
-    const result = await suggestTags({ itemId: "item-1" });
+    const result = await action({ itemId: "item-1" });
 
     expect(result).toEqual({
       success: false,
@@ -153,7 +159,7 @@ describe("suggestTags — the gates, in order", () => {
   });
 
   it("refuses a malformed request before the limiters", async () => {
-    const result = await suggestTags({});
+    const result = await action({});
 
     expect(result.success).toBe(false);
     expect(rateLimitMock).not.toHaveBeenCalled();
@@ -163,7 +169,7 @@ describe("suggestTags — the gates, in order", () => {
   it("refuses a rate-limited caller without checking the budget", async () => {
     rateLimitMock.mockResolvedValue({ success: false, remaining: 0, reset: 0 });
 
-    const result = await suggestTags({ itemId: "item-1" });
+    const result = await action({ itemId: "item-1" });
 
     expect(result.success).toBe(false);
     expect(result.success === false && result.error).toContain("Too many");
@@ -171,14 +177,10 @@ describe("suggestTags — the gates, in order", () => {
     expect(getItemDetailMock).not.toHaveBeenCalled();
   });
 
-  it("checks a per-feature and a combined window", async () => {
-    await suggestTags({ itemId: "item-1" });
+  it("checks its own window and the combined one", async () => {
+    await action({ itemId: "item-1" });
 
-    expect(rateLimitMock).toHaveBeenCalledWith(
-      "ai:tags:user-1",
-      30,
-      60 * 60 * 1000,
-    );
+    expect(rateLimitMock).toHaveBeenCalledWith(featureKey, 30, 60 * 60 * 1000);
     expect(rateLimitMock).toHaveBeenCalledWith(
       "ai:all:user-1",
       60,
@@ -197,7 +199,7 @@ describe("suggestTags — the gates, in order", () => {
       budgetUsd: 5,
     });
 
-    const result = await suggestTags({ itemId: "item-1" });
+    const result = await action({ itemId: "item-1" });
 
     expect(result).toMatchObject({ success: false, budgetExceeded: true });
     expect(result.success === false && result.error).toContain("paused");
@@ -208,7 +210,7 @@ describe("suggestTags — the gates, in order", () => {
   it("answers MISSING for an item that is not the caller's", async () => {
     getItemDetailMock.mockResolvedValue(null);
 
-    const result = await suggestTags({ itemId: "someone-elses" });
+    const result = await action({ itemId: "someone-elses" });
 
     expect(result).toEqual({
       success: false,
@@ -473,5 +475,87 @@ describe("suggestTagsForDraft — the create dialog's path", () => {
 
     expect(result.success).toBe(false);
     expect(parse).not.toHaveBeenCalled();
+  });
+});
+
+describe("summarizeItem — the call and the answer", () => {
+  beforeEach(() => {
+    parse.mockResolvedValue({
+      output_parsed: { summary: "A React hook that delays a value." },
+      usage: usage(),
+    });
+  });
+
+  it("answers the summary as a plain string", async () => {
+    const result = await summarizeItem({ itemId: "item-1" });
+
+    expect(result).toEqual({
+      success: true,
+      data: "A React hook that delays a value.",
+    });
+  });
+
+  it("reads the item as the session's user, never the payload's", async () => {
+    await summarizeItem({ itemId: "item-1", userId: "someone-else" });
+
+    expect(getItemDetailMock).toHaveBeenCalledWith("user-1", "item-1");
+  });
+
+  /**
+   * `low` rather than tagging's `minimal`: this has to read the item to say
+   * what it is for, where classification does not. Reasoning bills at the
+   * output rate, so the gap between the two is real money.
+   */
+  it("uses low effort, not the tagging action's minimal", async () => {
+    await summarizeItem({ itemId: "item-1" });
+
+    const call = parse.mock.calls[0][0];
+
+    expect(call.reasoning).toEqual({ effort: "low" });
+    expect(call.text.verbosity).toBe("low");
+  });
+
+  /**
+   * The description is about to be replaced, so feeding the model the one it
+   * would overwrite invites it to paraphrase that instead of reading the item.
+   * Existing tags go for the same reason: nothing here is being avoided.
+   */
+  it("does not send the description it is about to replace", async () => {
+    await summarizeItem({ itemId: "item-1" });
+
+    const sent = parse.mock.calls[0][0].input as string;
+
+    expect(sent).toContain("useDebounce");
+    expect(sent).toContain("export function useDebounce");
+    expect(sent).not.toContain("A hook that delays a value");
+    expect(sent).not.toContain("Existing tags");
+  });
+
+  it("records what the call reported spending", async () => {
+    await summarizeItem({ itemId: "item-1" });
+
+    expect(recordSpendMock).toHaveBeenCalledWith({
+      input: 100,
+      cached: 10,
+      output: 20,
+    });
+  });
+
+  /**
+   * A summary too long for the Description field never reaches this action as
+   * a value: `zodTextFormat` puts the cap in the request and the SDK's own
+   * `parse` rejects a reply that breaks it, so it arrives as a throw. The cap
+   * itself is tested against `DESCRIPTION_MAX_LENGTH` where the schema lives.
+   */
+  it("answers rather than throwing when the reply breaks the cap", async () => {
+    parse.mockRejectedValue(
+      Object.assign(new Error("schema"), { name: "ZodError" }),
+    );
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await summarizeItem({ itemId: "item-1" });
+
+    expect(result.success).toBe(false);
+    expect(recordSpendMock).not.toHaveBeenCalled();
   });
 });

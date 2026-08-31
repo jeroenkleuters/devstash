@@ -99,7 +99,13 @@ export const itemSummarySchema = z.object({
   summary: z.string().trim().min(1).max(DESCRIPTION_MAX_LENGTH),
 });
 
-export type ItemSummary = z.infer<typeof itemSummarySchema>;
+/**
+ * Named `SuggestedSummary` rather than `ItemSummary`, which is already the row
+ * summary `@/lib/db/items` exports and passes around ten components. Two
+ * unrelated types under one name is legal and confusing, and this is the one
+ * with no consumers yet, so it is the one that moves.
+ */
+export type SuggestedSummary = z.infer<typeof itemSummarySchema>;
 
 /**
  * An explanation is read rather than stored, so its cap is about the bill and
