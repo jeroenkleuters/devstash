@@ -1,13 +1,44 @@
-# Current Feature
+# Current Feature: Image Lightbox
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
+- Clicking an image in the item drawer opens it full-screen in a popup over the app, at its natural size rather than the box the drawer gives it.
+- The popup zooms: wheel and pinch, plus explicit zoom in / zoom out / reset controls, with the level shown.
+- While zoomed past fit, the image can be dragged to pan, and it cannot be dragged so far that it leaves the viewport.
+- Escape, the backdrop and a close button all dismiss it, and focus returns to whatever opened it.
+- Covers every image the app shows at size: Image items and Book covers, both of which render through the same `ItemFile` branch of `item-drawer.tsx`.
+- Behaves at 390px and under `prefers-reduced-motion`, with no horizontal overflow on the page behind it.
+
 ## Notes
 
+Presentation only. No migration, no new query, no server change: the popup shows
+the same `/api/items/[id]/file` response the drawer already renders, which is the
+full-size original rather than a thumbnail.
+
+Decisions to settle at `/feature start`:
+
+1. **Does a gallery tile open the lightbox, or keep opening the drawer?**
+   `/items/images` tiles currently open the drawer, and that is the only route
+   from the gallery to the item — its tags, collections, download and delete all
+   live there. Recommend the tile keeps opening the drawer and the lightbox opens
+   from the drawer preview, so nothing is taken away; a separate zoom affordance
+   on the tile is the alternative if the gallery should reach the picture in one
+   click.
+2. **Hand-rolled, or a dependency?** Recommend hand-rolled on the ShadCN `dialog`
+   primitive already in `components/ui/`: wheel-zoom, drag-pan and clamping is a
+   contained amount of transform maths, where `yet-another-react-lightbox` and
+   `react-medium-image-zoom` each bring their own stylesheet that the
+   no-utility-classes rule and the `--type-*` token palette would have to fight.
+3. **Zoom range and step.** Proposal: fit to 5x, continuous on the wheel, a fixed
+   step on the buttons, double-click toggling between fit and 2x.
+4. **What can be tested.** `vitest.config.mts` collects only `src/lib/**` and
+   `src/actions/**`, so a component alone is untestable by configuration.
+   Recommend the clamp and pan-bounds maths goes in `src/lib/` so the suite can
+   assert it, with the interaction left to the browser.
 ## History
 
 <!-- Keep this updated. Earliest to latest -->

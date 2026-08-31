@@ -5269,3 +5269,208 @@ button.sidebar-link {
     transition: none;
   }
 }
+
+/* --------------------------------------------------------- image lightbox
+   The thumbnail is the trigger, so the button carries no chrome of its own —
+   it only has to be a hit target the size of the picture inside it. */
+
+.image-lightbox-trigger {
+  position: relative;
+  display: inline-flex;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
+}
+
+.image-lightbox-trigger:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* Shown on hover so the picture reads as something that opens, rather than
+   leaving the cursor to be the only clue. */
+.image-lightbox-hint {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: var(--radius-md);
+  background: color-mix(in oklab, var(--background) 70%, transparent);
+  color: var(--foreground);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.image-lightbox-trigger:hover .image-lightbox-hint,
+.image-lightbox-trigger:focus-visible .image-lightbox-hint {
+  opacity: 1;
+}
+
+/* The dialog fills the viewport, which is also why it paints its own dark
+   ground: the primitive's overlay sits behind it and is never seen. The
+   centring transform the primitive applies is left alone — the enter animation
+   composes with it, and fighting it would only move the same box. */
+.image-lightbox {
+  width: 100vw;
+  max-width: 100vw;
+  height: 100dvh;
+  padding: 0;
+  gap: 0;
+  grid-template-rows: auto 1fr;
+  border-radius: 0;
+  background: color-mix(in oklab, black 88%, transparent);
+  box-shadow: none;
+}
+
+.image-lightbox-bar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid color-mix(in oklab, white 10%, transparent);
+  color: var(--foreground);
+}
+
+.image-lightbox-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+}
+
+.image-lightbox-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: auto;
+}
+
+.image-lightbox-level {
+  min-width: 3.25rem;
+  text-align: center;
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted-foreground);
+}
+
+/* `touch-action: none` so a drag pans the picture instead of scrolling the
+   page, and so a two-finger pinch reaches the component rather than being
+   swallowed by the browser's own zoom. */
+.image-lightbox-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  min-height: 0;
+  touch-action: none;
+}
+
+.image-lightbox-stage[data-pannable="true"] {
+  cursor: grab;
+}
+
+.image-lightbox-stage[data-dragging="true"] {
+  cursor: grabbing;
+}
+
+/* The element is stretched to the stage and the picture fitted inside it, which
+   is why it is taken out of flow: the stage draws its height from the grid row
+   rather than from a `height` of its own, so against it a percentage height —
+   and `max-height: 100%` with it — resolves to nothing at all, and a tall image
+   was laid out at full width and ran four screens deep. Measured, not guessed:
+   a 3804x9200 cover rendered 1039x2513 in a 1039x604 stage. `inset` needs no
+   percentage to resolve, so it holds either way.
+
+   `scale-down` and not `contain` so a picture smaller than the stage is shown at
+   its own size: that cap is what `containSize` in `@/lib/image-zoom` applies to
+   the pan bounds, and the two have to agree, or the image can be dragged past an
+   edge that is not where the bounds think it is. */
+.image-lightbox-image {
+  position: absolute;
+  inset: 0;
+  /* Both, and neither is redundant: an `img` is a replaced element, so `inset`
+     alone leaves it at its intrinsic size, and the percentages only resolve
+     because the containing block is now a positioned ancestor with a used
+     height rather than the stage's own `auto` one. */
+  width: 100%;
+  height: 100%;
+  object-fit: scale-down;
+  transform-origin: center;
+  -webkit-user-select: none;
+  user-select: none;
+  transition: transform 0.15s ease-out;
+}
+
+/* A drag has to track the pointer exactly, so the easing that makes a button
+   press feel smooth is what makes a drag feel late. */
+.image-lightbox-stage[data-dragging="true"] .image-lightbox-image {
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .image-lightbox-hint {
+    transition: none;
+  }
+
+  .image-lightbox-image {
+    transition: none;
+  }
+}
+
+/* Sits over the stage rather than in the bar, so it is beside the picture it
+   describes — and under the controls, which keep the bar to themselves. It is a
+   control in its own right: pressing it brings that part of the picture into
+   view, and the box can be dragged. `touch-action: none` for the same reason
+   the stage takes it — the drag has to reach the component rather than being
+   read as a scroll. */
+.image-lightbox-minimap {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 1;
+  width: 9rem;
+  max-width: 30vw;
+  overflow: hidden;
+  border: 1px solid color-mix(in oklab, white 25%, transparent);
+  border-radius: var(--radius-sm);
+  background: color-mix(in oklab, black 60%, transparent);
+  cursor: pointer;
+  touch-action: none;
+}
+
+.image-lightbox-minimap[data-dragging="true"] {
+  cursor: grabbing;
+}
+
+.image-lightbox-minimap img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  opacity: 0.6;
+}
+
+/* `pointer-events: none` so every press lands on the minimap itself, which is
+   what decides whether it was inside the box or outside it — the box catching
+   its own presses would only mean asking the same question twice. */
+.image-lightbox-minimap-view {
+  position: absolute;
+  border: 1px solid var(--foreground);
+  border-radius: 1px;
+  background: color-mix(in oklab, white 15%, transparent);
+  box-shadow: 0 0 0 9999px color-mix(in oklab, black 35%, transparent);
+  pointer-events: none;
+}
+
+@media (max-width: 30rem) {
+  .image-lightbox-minimap {
+    width: 5.5rem;
+  }
+}

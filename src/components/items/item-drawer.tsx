@@ -12,6 +12,7 @@ import {
 import { useState } from "react";
 
 import { AiExplainableCode } from "@/components/ai/ai-explainable-code";
+import { ImageLightbox } from "@/components/items/image-lightbox";
 import { MarkdownEditor } from "@/components/items/markdown-editor";
 import { ItemDrawerActions } from "@/components/items/item-drawer-actions";
 import { ItemDrawerEdit } from "@/components/items/item-drawer-edit";
@@ -286,9 +287,9 @@ function ItemLink({ url }: { url: string | null }) {
  * name and size for anything else, and a download either way.
  *
  * Both are served by `/api/items/[id]/file` rather than from R2 directly — the
- * bucket is private, and the item's own ownership check is what opens it. A
- * plain `<img>` and not `next/image`: the route is same-origin and per-account,
- * so there is nothing for the optimizer to cache and no remote host to allow.
+ * bucket is private, and the item's own ownership check is what opens it. The
+ * picture is the thumbnail and the trigger at once: `ImageLightbox` opens the
+ * same source full screen, where it can be zoomed and panned.
  */
 function ItemFile({ detail }: { detail: ItemDetail }) {
   if (!detail.fileUrl) {
@@ -301,15 +302,11 @@ function ItemFile({ detail }: { detail: ItemDetail }) {
   return (
     <div className="item-drawer-file">
       {isImage && (
-        // `next/image` cannot serve this: its optimizer fetches the source
-        // server-side without the visitor's cookies, and this route answers 401
-        // without a session. There is nothing to optimize either — the response
-        // is per-account and uncacheable.
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          className="item-drawer-image"
+        <ImageLightbox
           src={source}
           alt={detail.description ?? detail.title}
+          title={detail.title}
+          imageClassName="item-drawer-image"
         />
       )}
 
