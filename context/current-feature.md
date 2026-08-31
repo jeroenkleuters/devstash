@@ -1,13 +1,50 @@
-# Current Feature
+# Current Feature: Fix — Lightbox Sizing on Mobile
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
+- The image lightbox fills exactly the visible area on a phone: the toolbar
+  reachable at the top, the picture not running under the address bar or the
+  gesture bar, and nothing scrolled off.
+- Confirmed on a Samsung S22, which is where it was reported.
+- No change to how it behaves on desktop, where it currently measures correct.
+
 ## Notes
 
+Reported against a Samsung S22. Two causes are plausible and the fix covers both,
+since neither can be ruled out without the device.
+
+1. **Centred against the wrong viewport.** The ShadCN `dialog` positions itself
+   `fixed; top: 50%; left: 50%` and pulls back by half its own size. A fixed
+   element measures percentages against the *layout* viewport, which tracks the
+   large viewport — the one with the address bar hidden — while the box is sized
+   `100dvh`, the dynamic viewport, which shrinks when the address bar is showing.
+   Centring a short box inside a taller one pushes half the difference off each
+   end: the toolbar goes up under the address bar and the picture goes down under
+   the gesture bar.
+2. **`dvh` not understood.** An unparseable unit drops the whole declaration, so
+   `height` falls back to `auto`, the dialog is sized by its content, and the
+   picture keeps its intrinsic size. That is the same failure the desktop version
+   already had for a different reason, and Samsung Internet only understood these
+   units from v21. There is no fallback declaration today.
+
+The fix: anchor the dialog to the top left rather than centring it, and give the
+height a plain `vh` fallback under an `svh` — `svh` being the height that fits
+whatever the address bar is doing, where `dvh` is whatever it happens to be doing
+right now.
+
+The centring is undone with `translate: none`, not `transform: none` — Tailwind
+v4 states those utilities through the `translate` property, which is why the
+dialog measured `transform: none` while sitting off-centre.
+
+**Not verifiable here:** there is no S22 to test on, and a desktop browser has no
+address bar that steals height, so the emulator cannot reproduce the report. What
+can be checked is that the box still measures the full viewport with nothing
+centred, on desktop and at phone widths, and that the fallback order survives the
+build.
 ## History
 
 <!-- Keep this updated. Earliest to latest -->
