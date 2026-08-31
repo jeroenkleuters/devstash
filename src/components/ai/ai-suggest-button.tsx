@@ -13,6 +13,12 @@ interface AiSuggestButtonProps {
   busy: boolean;
   /** Nothing to work on yet — inert, but still explains itself on hover. */
   disabled?: boolean;
+  /**
+   * What the button says when idle. "Suggest" is right for the two features
+   * that offer a value to accept; explaining offers nothing to accept, so it
+   * says "Explain" instead.
+   */
+  action?: string;
   onSuggest: () => void;
 }
 
@@ -42,6 +48,7 @@ export function AiSuggestButton({
   title,
   busy,
   disabled = false,
+  action = "Suggest",
   onSuggest,
 }: AiSuggestButtonProps) {
   const { aiEnabled, isPro, budgetExceeded, requestUpgrade } = useBilling();
@@ -90,7 +97,7 @@ export function AiSuggestButton({
       ) : (
         <Sparkles size={14} aria-hidden />
       )}
-      <span className="action-label">{busy ? "Thinking…" : "Suggest"}</span>
+      <span className="action-label">{busy ? "Thinking…" : action}</span>
     </Button>
   );
 }

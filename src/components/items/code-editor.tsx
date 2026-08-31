@@ -7,6 +7,7 @@ import Editor, {
 } from "@monaco-editor/react";
 import { Check, Copy } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { toast } from "sonner";
 
 import { useEditorPreferences } from "@/components/editor/editor-preferences-provider";
@@ -42,6 +43,31 @@ interface CodeEditorProps {
   onChange?: (value: string) => void;
   /** Names the editor for screen readers, since Monaco has no `<label>` to pair with. */
   ariaLabel?: string;
+  /**
+   * A tab strip for the left of the bar, taking the traffic lights' place.
+   *
+   * The dots are decoration and the tabs are a control, so when there is more
+   * than one view of this frame the control wins the space rather than the two
+   * competing for it.
+   */
+  tabs?: ReactNode;
+  /** Extra controls for the right of the bar, between the language and Copy. */
+  barExtra?: ReactNode;
+  /**
+   * A second view sharing the frame — rendered in place of the editor while it
+   * is present. Pass nothing (or `null`) when the editor should show.
+   *
+   * Monaco is **hidden rather than unmounted**, so switching back neither
+   * refetches it from the CDN nor re-runs the opening-height estimate.
+   */
+  altView?: ReactNode;
+  /**
+   * What Copy puts on the clipboard, when that is not the editor's own value.
+   *
+   * Exists so one button can follow whichever view is showing rather than a
+   * second one appearing inside `altView`.
+   */
+  copyValue?: string;
 }
 
 /**
@@ -61,6 +87,10 @@ export function CodeEditor({
   readOnly = false,
   onChange,
   ariaLabel,
+  tabs,
+  barExtra,
+  altView,
+  copyValue,
 }: CodeEditorProps) {
   const { preferences } = useEditorPreferences();
   const lineHeight = lineHeightFor(preferences.fontSize);
@@ -174,9 +204,12 @@ export function CodeEditor({
     ],
   );
 
+  /** The visible view's text, so one button serves both tabs. */
+  const copyable = copyValue ?? value;
+
   async function copy() {
     try {
-      await navigator.clipboard.writeText(value);
+      await navigator.clipboard.writeText(copyable);
 
       setCopied(true);
       if (copiedTimer.current) clearTimeout(copiedTimer.current);
@@ -191,54 +224,68 @@ export function CodeEditor({
   return (
     <div className="code-editor">
       <div className="code-editor-bar">
-        <span className="code-editor-dots" aria-hidden>
-          <span />
-          <span />
-          <span />
-        </span>
+        {tabs ?? (
+          <span className="code-editor-dots" aria-hidden>
+            <span />
+            <span />
+            <span />
+          </span>
+        )}
 
         <span className="code-editor-meta">
           <span className="code-editor-language">
             {languageLabel(languageId)}
           </span>
 
+          {barExtra}
+
           <button
             type="button"
             className="code-editor-copy"
             onClick={copy}
-            disabled={value === ""}
+            disabled={copyable === ""}
             data-copied={copied}
             title={copied ? "Copied" : "Copy"}
-            aria-label={copied ? "Copied" : "Copy code"}
+            // Matches the visible label rather than naming the code: with a
+            // second view sharing the frame, Copy follows whichever is showing.
+            aria-label={copied ? "Copied" : "Copy"}
           >
             {copied ? (
               <Check size={14} aria-hidden />
             ) : (
               <Copy size={14} aria-hidden />
             )}
+            <span className="action-label">{copied ? "Copied" : "Copy"}</span>
           </button>
         </span>
       </div>
 
-      <Editor
-        height={height}
-        language={languageId}
-        value={value}
-        theme={preferences.theme}
-        beforeMount={handleBeforeMount}
-        onMount={handleMount}
-        onChange={(next) => onChange?.(next ?? "")}
-        options={options}
-        loading={
-          readOnly ? (
-            <pre className="code-editor-fallback">
-              <code>{value}</code>
-            </pre>
-          ) : (
-            <p className="code-editor-loading">Loading editor…</p>
-          )
-        }
-      />
+      {/* `hidden` rather than a conditional render: unmounting Monaco to show
+          the other view would refetch it from the CDN and re-run the opening
+          height estimate on every tab switch. */}
+      <div hidden={Boolean(altView)}>
+        <Editor
+          height={height}
+          language={languageId}
+          value={value}
+          theme={preferences.theme}
+          beforeMount={handleBeforeMount}
+          onMount={handleMount}
+          onChange={(next) => onChange?.(next ?? "")}
+          options={options}
+          loading={
+            readOnly ? (
+              <pre className="code-editor-fallback">
+                <code>{value}</code>
+              </pre>
+            ) : (
+              <p className="code-editor-loading">Loading editor…</p>
+            )
+          }
+        />
+      </div>
+
+      {altView}
     </div>
   );
 }
