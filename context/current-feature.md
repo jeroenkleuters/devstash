@@ -1,13 +1,39 @@
-# Current Feature
+# Current Feature: Fix — Lightbox Wider Than the Screen
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
+- The lightbox never exceeds the screen width, whatever the item is called.
+- Both extremes fit at 100%: an image far too tall for the screen, and one far
+  too wide.
+- Zoom, pan and the minimap keep working, and desktop is unchanged.
+
 ## Notes
 
+Reported on a Samsung S22 in Chrome: the image was wider than the screen from
+the moment the popup opened.
+
+**Reproduced at 360px, and the image was never the cause.** The dialog is a grid
+whose column was left implicit, so it was an `auto` track — and an `auto` track
+grows to the max-content of its widest item and is free to exceed its container.
+The widest item is the toolbar, whose max-content includes the untruncated title.
+A long filename made the column 822px on a 360px screen; the stage inherited it,
+and the image, being `width: 100%` of the stage, hung 462px off the side.
+
+`min-width: 0` on the title could never have helped: tracks are sized before the
+bar's flex children are given any chance to shrink.
+
+It stayed hidden because the title on the test items here is short (140px) and
+because a desktop viewport is wide enough for any plausible title to fit — so
+every earlier measurement, on both orientations, passed.
+
+The fix is to state the column as `minmax(0, 1fr)` so it cannot exceed the
+container, `min-width: 0` on the bar so the title shrinks to its ellipsis, and
+`overflow: hidden` on the dialog as a backstop for anything that tries the same
+thing later.
 ## History
 
 <!-- Keep this updated. Earliest to latest -->

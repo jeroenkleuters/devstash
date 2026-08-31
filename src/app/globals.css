@@ -5341,7 +5341,20 @@ button.sidebar-link {
 
   padding: 0;
   gap: 0;
+
+  /* The column is stated, and `minmax(0, …)` is the whole point of stating it.
+     Left implicit it is an `auto` track, which grows to the max-content of its
+     widest item — the bar, whose max-content includes the untruncated title —
+     and a track is free to exceed its container. The stage inherits that width
+     and the image, being `width: 100%` of the stage, then hangs off the side of
+     the screen: measured at 360px, a long title made the dialog 822px wide.
+     `min-width: 0` on the title cannot help, because tracks are sized before
+     the bar's flex children are given a chance to shrink. `overflow: hidden` is
+     the backstop for anything else that ever tries the same thing. */
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto 1fr;
+  overflow: hidden;
+
   border-radius: 0;
   background: color-mix(in oklab, black 88%, transparent);
   box-shadow: none;
@@ -5350,6 +5363,9 @@ button.sidebar-link {
 .image-lightbox-bar {
   display: flex;
   align-items: center;
+  /* So the title can be shrunk to its ellipsis rather than holding the row
+     open at the width of the whole filename. */
+  min-width: 0;
   gap: 1rem;
   padding: 0.5rem 0.75rem;
   border-bottom: 1px solid color-mix(in oklab, white 10%, transparent);
