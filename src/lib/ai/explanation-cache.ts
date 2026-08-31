@@ -33,3 +33,32 @@ export function explanationSourceHash(
     .update(`${hint.length}:${hint}${content}`)
     .digest("hex");
 }
+
+/** What a stored explanation has to carry for the check below. */
+export interface StoredExplanation {
+  explanation: string;
+  sourceHash: string;
+  model: string;
+}
+
+/**
+ * The stored explanation, if it still describes the code it was written about.
+ *
+ * **One function, two callers, deliberately.** The action asks before spending
+ * money and the drawer asks before showing anything, and if the two compared
+ * these fields separately they would eventually disagree — the drawer would
+ * display an answer the action had already decided was stale. Both requirements
+ * live here: the digest, so an edit invalidates it, and the model, so switching
+ * models does not keep serving answers the new one never produced.
+ */
+export function freshExplanation(
+  row: StoredExplanation | null | undefined,
+  sourceHash: string,
+  model: string,
+): string | null {
+  if (!row || row.sourceHash !== sourceHash || row.model !== model) {
+    return null;
+  }
+
+  return row.explanation;
+}

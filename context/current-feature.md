@@ -1,12 +1,65 @@
-# Current Feature
+# Current Feature: Regenerate, and a cached explanation on open
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
+- **Pressing Explain again regenerates.** Once an explanation exists the bar
+  button reads **Regenerate**, and pressing it asks the model afresh rather than
+  returning the cached answer, overwriting the stored row on success
+- A regenerate is a **real paid call**, so it runs the full `allowSpend` — both
+  hourly windows and the spend cap. Only the *cache read* is skipped, never the
+  limits; that is the whole difference from a first ask
+- The request carries the intent (`regenerate: true`), so a caller cannot get a
+  fresh answer by accident and the server decides what that costs
+- **A cached explanation is present when the drawer opens.** The tabs are there
+  from the first render and the answer is already in the Explain tab
+- **The drawer still opens on Code**, decided from a question at load: you
+  opened a snippet to see the snippet, and landing on prose about it would be a
+  surprise. The tab is one click away
+- The explanation comes back **with the item detail, in the same query**, rather
+  than as a second round trip — `getItemDetail` already runs for the drawer, and
+  the row is a `@unique` join
+- **A stale cached row reads as no explanation.** The digest and the model are
+  checked in the mapping, so an item edited since it was explained shows no tab
+  rather than an answer describing code that is gone
+- `npm test`, `npx tsc --noEmit`, `npx eslint src` and `npm run build` clean
+- No migration — `ItemExplanation` already carries everything this needs. No new
+  dependency, no new ShadCN primitive
+
 ## Notes
+
+Loaded inline. Both halves are the follow-ups the cache entry itself named as
+open: "nothing lets a user force a fresh answer — with a cache, Explain on
+unchanged code can now never re-ask", and pre-populating the tab, which was
+declined when the tab feature landed and is now wanted.
+
+**Where the validity check moves is the part to get right.** `getCachedExplanation`
+compares the digest and the model in `src/lib/db/explanations.ts` today. With
+the detail query also returning the row, that comparison has to happen in the
+mapping too — so it belongs in **one** place both call, or the two will drift
+and the drawer will show an answer the action would have refused to serve.
+
+**The payload grows** for a code item with a cached explanation: up to the
+4,000-character cap, on every drawer open. That is the cost of the feature
+rather than a defect, and it is bounded — but it is worth knowing that
+`getItemDetail` is also what `suggestTags`, `summarizeItem` and `explainCode`
+read, so the join runs for them too even though none of them uses it. If that
+ever matters, a separate select for the AI actions is the fix, not dropping the
+join.
+
+**`ItemDetail` gains a field**, which is a client-facing type, so expect the
+route, the drawer state and `AiExplainableCode`'s props to move together — the
+component currently owns the explanation entirely in its own state, and it will
+now start from whatever the detail carried.
+
+**Two things deliberately not in scope.** There is still no eviction: an item
+edited and never re-explained keeps a stale row forever, which now reads as
+absent but still occupies storage. And nothing shows *when* an explanation was
+generated, which a Regenerate button arguably invites — `createdAt` is on the
+row if that turns out to be wanted.
 
 ## History
 

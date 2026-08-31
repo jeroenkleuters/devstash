@@ -1032,3 +1032,77 @@ describe("explainCode — the cache", () => {
     expect(result).toEqual({ success: true, data: ANSWER });
   });
 });
+
+describe("explainCode — regenerating", () => {
+  const ANSWER = "A fresh explanation.";
+
+  beforeEach(() => {
+    parse.mockResolvedValue({
+      output_parsed: { explanation: ANSWER },
+      usage: usage(),
+    });
+    getCachedExplanationMock.mockResolvedValue("A cached explanation.");
+  });
+
+  it("asks the model again rather than serving what is stored", async () => {
+    const result = await explainCode({ itemId: "item-1", regenerate: true });
+
+    expect(result).toEqual({ success: true, data: ANSWER });
+    expect(getCachedExplanationMock).not.toHaveBeenCalled();
+  });
+
+  /**
+   * The whole rule: only the *read* is skipped. Asking again is a real call, so
+   * it costs both windows and the budget exactly as a first ask does — anything
+   * else would make Regenerate a way around the limits.
+   */
+  it("still spends an attempt and checks the budget", async () => {
+    await explainCode({ itemId: "item-1", regenerate: true });
+
+    expect(rateLimitMock).toHaveBeenCalledWith(
+      "ai:explain:user-1",
+      30,
+      60 * 60 * 1000,
+    );
+    expect(checkSpendMock).toHaveBeenCalled();
+    expect(recordSpendMock).toHaveBeenCalled();
+  });
+
+  it("is refused when rate limited, like any other call", async () => {
+    rateLimitMock.mockResolvedValue({ success: false, remaining: 0, reset: 0 });
+
+    const result = await explainCode({ itemId: "item-1", regenerate: true });
+
+    expect(result.success).toBe(false);
+    expect(parse).not.toHaveBeenCalled();
+  });
+
+  it("replaces the stored answer with the fresh one", async () => {
+    await explainCode({ itemId: "item-1", regenerate: true });
+
+    expect(cacheExplanationMock).toHaveBeenCalledWith(
+      "item-1",
+      ANSWER,
+      explanationSourceHash("export function useDebounce() {}", "typescript"),
+      "gpt-5-nano",
+    );
+  });
+
+  /**
+   * Omitting the flag must mean "serve what you have". Defaulting the other way
+   * would make every ordinary click a paid call.
+   */
+  it("serves the cache when the flag is absent", async () => {
+    const result = await explainCode({ itemId: "item-1" });
+
+    expect(result).toEqual({ success: true, data: "A cached explanation." });
+    expect(parse).not.toHaveBeenCalled();
+  });
+
+  it("serves the cache when the flag is explicitly false", async () => {
+    const result = await explainCode({ itemId: "item-1", regenerate: false });
+
+    expect(result).toEqual({ success: true, data: "A cached explanation." });
+    expect(parse).not.toHaveBeenCalled();
+  });
+});

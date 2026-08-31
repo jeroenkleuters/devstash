@@ -1,3 +1,4 @@
+import { freshExplanation } from "@/lib/ai/explanation-cache";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -26,15 +27,21 @@ export async function getCachedExplanation(
 ): Promise<string | null> {
   const row = await prisma.itemExplanation.findUnique({
     where: { itemId },
-    select: { explanation: true, sourceHash: true, model: true },
+    select: explanationCacheSelect,
   });
 
-  if (!row || row.sourceHash !== sourceHash || row.model !== model) {
-    return null;
-  }
-
-  return row.explanation;
+  // The comparison itself lives in `freshExplanation`, which the drawer's
+  // query also runs — two copies of this rule would eventually disagree, and
+  // the drawer would show an answer this action had decided was stale.
+  return freshExplanation(row, sourceHash, model);
 }
+
+/** The fields the freshness check needs, shared with the item detail query. */
+export const explanationCacheSelect = {
+  explanation: true,
+  sourceHash: true,
+  model: true,
+} as const;
 
 /**
  * Stores an explanation, replacing whatever was there.

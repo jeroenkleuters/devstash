@@ -33,6 +33,17 @@ export const aiItemRequestSchema = z.object({
 export type AiItemRequest = z.infer<typeof aiItemRequestSchema>;
 
 /**
+ * The explain request, which alone can ask for a *fresh* answer.
+ *
+ * `regenerate` skips the **cache read** and nothing else: the call still runs
+ * both hourly windows and the spend cap, because a regenerate is a real paid
+ * call. It defaults to false, so a caller cannot spend money by omission.
+ */
+export const explainRequestSchema = aiItemRequestSchema.extend({
+  regenerate: z.boolean().default(false),
+});
+
+/**
  * How much of a draft a request may carry.
  *
  * Generous — five times the truncation budget — because a real snippet being

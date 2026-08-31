@@ -249,6 +249,7 @@ function ItemContent({ detail }: { detail: ItemDetail }) {
         value={detail.content}
         language={detail.language}
         fallbackLanguage={codeTypeLanguage(detail.type.slug)}
+        cached={detail.explanation}
       />
     );
   }

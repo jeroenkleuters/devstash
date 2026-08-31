@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { explanationSourceHash } from "@/lib/ai/explanation-cache";
+import {
+  explanationSourceHash,
+  freshExplanation,
+} from "@/lib/ai/explanation-cache";
 
 const CODE = "export function useDebounce() {}";
 
@@ -58,5 +61,36 @@ describe("explanationSourceHash", () => {
     expect(explanationSourceHash(CODE, "typescript")).toMatch(
       /^[0-9a-f]{64}$/,
     );
+  });
+});
+
+describe("freshExplanation", () => {
+  const ROW = {
+    explanation: "It debounces a value.",
+    sourceHash: "abc",
+    model: "gpt-5-nano",
+  };
+
+  it("returns the explanation when the digest and the model both match", () => {
+    expect(freshExplanation(ROW, "abc", "gpt-5-nano")).toBe(ROW.explanation);
+  });
+
+  /** An edit changes the digest, so the answer no longer describes the code. */
+  it("discards it when the digest has moved on", () => {
+    expect(freshExplanation(ROW, "def", "gpt-5-nano")).toBeNull();
+  });
+
+  /**
+   * Switching models must not keep serving answers the new one never produced
+   * — the point of storing the model alongside the digest.
+   */
+  it("discards it when a different model wrote it", () => {
+    expect(freshExplanation(ROW, "abc", "gpt-5-mini")).toBeNull();
+  });
+
+  /** No row at all, and the shape Prisma returns for an absent relation. */
+  it("takes an absent row either way round", () => {
+    expect(freshExplanation(null, "abc", "gpt-5-nano")).toBeNull();
+    expect(freshExplanation(undefined, "abc", "gpt-5-nano")).toBeNull();
   });
 });
