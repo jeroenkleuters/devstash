@@ -7,8 +7,13 @@ import {
   summarizeDraft,
   summarizeItem,
 } from "@/actions/ai";
+import { explanationSourceHash } from "@/lib/ai/explanation-cache";
 import { checkSpend, recordSpend } from "@/lib/ai/spend";
 import { AI_CHARACTER_BUDGET } from "@/lib/ai/truncate";
+import {
+  cacheExplanation,
+  getCachedExplanation,
+} from "@/lib/db/explanations";
 import { getItemDetail } from "@/lib/db/items";
 import { getCurrentUser } from "@/lib/db/user";
 import { rateLimit } from "@/lib/rate-limit";
@@ -27,6 +32,10 @@ vi.mock("@/lib/openai", () => ({
 
 vi.mock("@/lib/db/user", () => ({ getCurrentUser: vi.fn() }));
 vi.mock("@/lib/db/items", () => ({ getItemDetail: vi.fn() }));
+vi.mock("@/lib/db/explanations", () => ({
+  getCachedExplanation: vi.fn(),
+  cacheExplanation: vi.fn(),
+}));
 
 vi.mock("@/lib/rate-limit", () => ({
   rateLimit: vi.fn(),
@@ -45,6 +54,8 @@ const getItemDetailMock = vi.mocked(getItemDetail);
 const rateLimitMock = vi.mocked(rateLimit);
 const checkSpendMock = vi.mocked(checkSpend);
 const recordSpendMock = vi.mocked(recordSpend);
+const getCachedExplanationMock = vi.mocked(getCachedExplanation);
+const cacheExplanationMock = vi.mocked(cacheExplanation);
 
 const PRO_USER = {
   id: "user-1",
@@ -92,6 +103,10 @@ beforeEach(() => {
     budgetUsd: 5,
   });
   getItemDetailMock.mockResolvedValue(ITEM);
+  // No cached answer unless a test says so, so every existing case still
+  // exercises the path that calls the model.
+  getCachedExplanationMock.mockResolvedValue(null);
+  cacheExplanationMock.mockResolvedValue(undefined);
   recordSpendMock.mockResolvedValue(undefined);
   parse.mockResolvedValue({
     output_parsed: { tags: ["hooks", "typescript"] },
@@ -185,7 +200,7 @@ describe.each([
     expect(result.success).toBe(false);
     expect(result.success === false && result.error).toContain("Too many");
     expect(checkSpendMock).not.toHaveBeenCalled();
-    expect(getItemDetailMock).not.toHaveBeenCalled();
+    expect(parse).not.toHaveBeenCalled();
   });
 
   it("checks its own window and the combined one", async () => {
@@ -199,11 +214,8 @@ describe.each([
     );
   });
 
-  /**
-   * The cap stops a caller in a loop before it costs a database query, let
-   * alone an API call.
-   */
-  it("refuses over budget with the flag, without reading the item", async () => {
+  /** The cap stops a caller in a loop before anything is sent to the model. */
+  it("refuses over budget with the flag", async () => {
     checkSpendMock.mockResolvedValue({
       allowed: false,
       spentUsd: 5,
@@ -214,7 +226,6 @@ describe.each([
 
     expect(result).toMatchObject({ success: false, budgetExceeded: true });
     expect(result.success === false && result.error).toContain("paused");
-    expect(getItemDetailMock).not.toHaveBeenCalled();
     expect(parse).not.toHaveBeenCalled();
   });
 
@@ -877,5 +888,147 @@ describe("summarizeDraft — the create dialog's path", () => {
       cached: 10,
       output: 20,
     });
+  });
+});
+
+/**
+ * The shared block above dropped its "does not read the item" assertions,
+ * because `explainCode` deliberately no longer has that property — it reads the
+ * item and consults the cache *before* the limiters, so a cached answer costs
+ * no attempt. The two actions that still read after the gates keep the check
+ * here rather than losing it.
+ */
+describe.each([
+  ["suggestTags", suggestTags],
+  ["summarizeItem", summarizeItem],
+] as const)("%s — the item is read last", (_name, action) => {
+  it("does not read the item when rate limited", async () => {
+    rateLimitMock.mockResolvedValue({ success: false, remaining: 0, reset: 0 });
+
+    await action({ itemId: "item-1" });
+
+    expect(getItemDetailMock).not.toHaveBeenCalled();
+  });
+
+  it("does not read the item when over budget", async () => {
+    checkSpendMock.mockResolvedValue({
+      allowed: false,
+      spentUsd: 5,
+      budgetUsd: 5,
+    });
+
+    await action({ itemId: "item-1" });
+
+    expect(getItemDetailMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("explainCode — the cache", () => {
+  const ANSWER = "It debounces a value.";
+
+  beforeEach(() => {
+    parse.mockResolvedValue({
+      output_parsed: { explanation: ANSWER },
+      usage: usage(),
+    });
+  });
+
+  /**
+   * The hash covers the code and the language hint and nothing else, so the
+   * lookup is by what was explained rather than by which item it belongs to.
+   */
+  it("looks the answer up by a digest of the code and the hint", async () => {
+    await explainCode({ itemId: "item-1" });
+
+    expect(getCachedExplanationMock).toHaveBeenCalledWith(
+      "item-1",
+      explanationSourceHash(
+        "export function useDebounce() {}",
+        "typescript",
+      ),
+      "gpt-5-nano",
+    );
+  });
+
+  /**
+   * The whole point: a hit costs nothing, so it must not spend one of the
+   * caller's hourly attempts, and it must not reach the model.
+   */
+  it("serves a hit without the limiters, the budget or the model", async () => {
+    getCachedExplanationMock.mockResolvedValue("A cached explanation.");
+
+    const result = await explainCode({ itemId: "item-1" });
+
+    expect(result).toEqual({ success: true, data: "A cached explanation." });
+    expect(rateLimitMock).not.toHaveBeenCalled();
+    expect(checkSpendMock).not.toHaveBeenCalled();
+    expect(parse).not.toHaveBeenCalled();
+    expect(recordSpendMock).not.toHaveBeenCalled();
+  });
+
+  /**
+   * A hit is still behind the account checks: switching AI off, or lapsing to
+   * free, stops the feature whether or not an answer is already stored.
+   */
+  it("does not serve a hit to an account with AI switched off", async () => {
+    getCachedExplanationMock.mockResolvedValue("A cached explanation.");
+    getCurrentUserMock.mockResolvedValue({
+      id: "user-1",
+      isPro: true,
+      aiPreferences: { enabled: false },
+    } as never);
+
+    const result = await explainCode({ itemId: "item-1" });
+
+    expect(result.success).toBe(false);
+    expect(getCachedExplanationMock).not.toHaveBeenCalled();
+  });
+
+  /** A non-code item is refused before the cache is even consulted. */
+  it("does not consult the cache for a type that is not code", async () => {
+    getItemDetailMock.mockResolvedValue({
+      ...(ITEM as object),
+      type: { slug: "notes" },
+    } as never);
+
+    await explainCode({ itemId: "item-1" });
+
+    expect(getCachedExplanationMock).not.toHaveBeenCalled();
+  });
+
+  it("stores a fresh answer under the same digest and model", async () => {
+    await explainCode({ itemId: "item-1" });
+
+    expect(cacheExplanationMock).toHaveBeenCalledWith(
+      "item-1",
+      ANSWER,
+      explanationSourceHash(
+        "export function useDebounce() {}",
+        "typescript",
+      ),
+      "gpt-5-nano",
+    );
+  });
+
+  it("does not store anything when the call failed", async () => {
+    parse.mockResolvedValue({ output_parsed: null, usage: usage() });
+
+    const result = await explainCode({ itemId: "item-1" });
+
+    expect(result.success).toBe(false);
+    expect(cacheExplanationMock).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Best effort, for the reason `recordSpend` is: the visitor already has the
+   * answer and the money is already spent, so a failed write must not turn that
+   * into an error they see.
+   */
+  it("still answers when storing the result fails", async () => {
+    cacheExplanationMock.mockRejectedValue(new Error("down"));
+
+    const result = await explainCode({ itemId: "item-1" });
+
+    expect(result).toEqual({ success: true, data: ANSWER });
   });
 });

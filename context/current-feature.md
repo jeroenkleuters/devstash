@@ -1,12 +1,73 @@
-# Current Feature
+# Current Feature: Explain result cache
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
+- **One migration**, adding an `ItemExplanation` model: `itemId` unique, the
+  explanation as `@db.Text`, the invalidation key, the model id it was produced
+  by, and `createdAt`. `onDelete: Cascade` from `Item`, so deleting an item
+  takes its explanation with it
+- **Invalidated by a hash of exactly what was sent to the model** — the content
+  and the language hint — not by `Item.updatedAt`. A new pure helper in
+  `src/lib/ai/`, which is the only genuinely testable thing this feature adds
+- **Also invalidated when the model changes.** The row records `AI_MODEL`, and a
+  hit requires it to match, so switching models does not serve answers the new
+  one did not write. Same argument as the content hash: cache what produced it
+- `explainCode` reads the cache **after the item is read and after the type and
+  content checks**, but **before the rate limits and the spend cap** — a hit
+  costs nothing, so it must not spend one of the caller's hourly attempts. A
+  miss falls through to the existing path and writes the row on success
+- Storing is **best-effort**: a failed cache write must not turn an explanation
+  the visitor already has into an error they see, the way `recordSpend` already
+  swallows its own failures
+- **No UI change at all.** Explain still needs a click and the tabs behave
+  exactly as now; the round trip is simply fast and free
+- `npm test`, `npx tsc --noEmit`, `npx eslint src` and `npm run build` clean
+- No new dependency, no new ShadCN primitive
+
 ## Notes
+
+Loaded inline. Closes the "nothing caches a result, so asking twice about
+unchanged code pays twice" line the explain entries have carried since the
+feature landed.
+
+**Three decisions were taken from questions at load.**
+
+1. **The key is a content hash, not `updatedAt`** — and this is the one that
+   would have been a real bug. This project's own history records that
+   favouriting or pinning an item **moves `updatedAt`**, because Prisma
+   maintains it on every write; keying on it would throw away a paid-for answer
+   every time someone starred the snippet, renamed it or added a tag. Hashing
+   what was actually sent invalidates when the code changes and never otherwise.
+2. **A separate `ItemExplanation` model, not columns on `Item`.** `itemSelect`
+   is shared by every dashboard, list and search query, and this project has
+   already refused to widen it once for exactly this reason — a `@db.Text` blob
+   on `Item` is one careless `select` away from being shipped to the browser for
+   every row. A separate row also cascades cleanly and cannot be selected by
+   accident.
+3. **No UI change.** Explain still needs a click. Pre-populating the tab on open
+   would need the detail route to return the explanation, and it would make the
+   drawer look different for items you happen to have asked about before.
+
+**Redis was considered and rejected** for storage: `rateLimit` fails open by
+design here, so the cache would be lossy in exactly the outage where it is most
+wanted, and a row survives a deploy and a month boundary where a TTL does not.
+
+**Where the lookup sits in `guard` is the part to get right.** A hit must not
+consume a rate-limit attempt, so the cache is checked after the item is resolved
+and before the limiters — which means `explainCode` can no longer run the whole
+shared preamble in one call and then read the item. Expect the gate to be split,
+and expect the tests to assert the *absence* of the limiter and spend calls on a
+hit, the way the existing gate tests assert ordering by absence.
+
+**One thing to decide while implementing rather than now:** whether an
+explanation row should be readable by anyone but its owner. It is reached only
+through `getItemDetail`, which already puts the session's user in the `where`,
+so the item read is the scoping — but the cache read must not become a second
+path that skips it.
 
 ## History
 
