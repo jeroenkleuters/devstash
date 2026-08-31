@@ -18,6 +18,7 @@ function detail(overrides: Partial<ItemDetail> = {}): ItemDetail {
     language: null,
     author: null,
     isFavorite: false,
+    explanation: null,
     isPinned: false,
     type: { id: "type-1", slug: "snippets", name: "Snippet", icon: "Code" },
     tags: [],

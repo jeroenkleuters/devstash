@@ -37,6 +37,13 @@ export interface ItemDetail {
   author: string | null;
   isFavorite: boolean;
   isPinned: boolean;
+  /**
+   * A cached AI explanation of this item's code, when one exists and still
+   * applies. Null for every non-code type, for code never explained, and for
+   * code edited since — the freshness check runs server-side, so anything that
+   * arrives here is safe to show.
+   */
+  explanation: string | null;
   type: ItemTypeSummary;
   tags: string[];
   collections: ItemCollectionSummary[];

@@ -23,6 +23,7 @@ import {
   aiDraftRequestSchema,
   aiItemRequestSchema,
   codeExplanationSchema,
+  explainRequestSchema,
   itemSummarySchema,
   suggestedTagsSchema,
 } from "@/lib/validations/ai";
@@ -277,7 +278,7 @@ export async function explainCode(
 ): Promise<AiActionResult<string>> {
   // `authorize` rather than the whole `guard`: the cache is consulted before
   // the rate limits, so a hit does not spend one of the caller's attempts.
-  const gate = await authorize(input, aiItemRequestSchema);
+  const gate = await authorize(input, explainRequestSchema);
 
   if (!gate.ok) {
     return gate.failure;
@@ -302,7 +303,12 @@ export async function explainCode(
   // is still correct. The item was read with the session's user in the `where`,
   // which is what makes this id safe to hand to the cache.
   const sourceHash = explanationSourceHash(item.content, item.language);
-  const cached = await getCachedExplanation(item.id, sourceHash, AI_MODEL);
+
+  // Only the *read* is skipped when regenerating. Everything below still runs,
+  // because asking again is a real call and costs what a first ask costs.
+  const cached = gate.data.regenerate
+    ? null
+    : await getCachedExplanation(item.id, sourceHash, AI_MODEL);
 
   if (cached) {
     return { success: true, data: cached };

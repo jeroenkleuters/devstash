@@ -9,6 +9,12 @@ import {
   type ItemTypeSummary,
 } from "@/lib/db/item-types";
 import { pageOffset } from "@/lib/pagination";
+import {
+  explanationSourceHash,
+  freshExplanation,
+} from "@/lib/ai/explanation-cache";
+import { explanationCacheSelect } from "@/lib/db/explanations";
+import { AI_MODEL } from "@/lib/openai";
 import { prisma } from "@/lib/prisma";
 import type { CreateItemInput, UpdateItemInput } from "@/lib/validations/item";
 import type { ItemContentType, ItemDetail } from "@/types/item";
@@ -264,6 +270,9 @@ const itemDetailSelect = {
     select: { collection: { select: { id: true, name: true } } },
     orderBy: { collection: { name: "asc" } },
   },
+  // So the drawer can show a cached explanation without a second round trip.
+  // `toDetail` decides whether it still applies; a stale one reads as none.
+  explanation: { select: explanationCacheSelect },
 } as const;
 
 /**
@@ -597,15 +606,28 @@ function toDetail({
   itemType,
   tags,
   collections,
+  explanation,
+  content,
+  language,
   createdAt,
   updatedAt,
   ...rest
 }: ItemDetailRow): ItemDetail {
   return {
     ...rest,
+    content,
+    language,
     type: itemType,
     tags: tags.map((tag) => tag.name),
     collections: collections.map(({ collection }) => collection),
+    // Checked here rather than trusted: the row may describe code that has
+    // since been edited, or an answer a model we no longer use produced. The
+    // same function the action calls before spending anything decides.
+    explanation: freshExplanation(
+      explanation,
+      explanationSourceHash(content ?? "", language),
+      AI_MODEL,
+    ),
     createdAt: createdAt.toISOString(),
     updatedAt: updatedAt.toISOString(),
   };

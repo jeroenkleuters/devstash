@@ -15,6 +15,12 @@ interface AiExplainableCodeProps {
   value: string;
   language: string | null;
   fallbackLanguage?: string;
+  /**
+   * A cached explanation the detail query already returned, if there is one
+   * that still applies. It arrives with the item rather than being fetched, so
+   * the tab is there from the first render.
+   */
+  cached: string | null;
 }
 
 /**
@@ -46,8 +52,12 @@ export function AiExplainableCode({
   value,
   language,
   fallbackLanguage,
+  cached,
 }: AiExplainableCodeProps) {
-  const [explanation, setExplanation] = useState<string | null>(null);
+  // Seeded from the cache rather than empty. Only the initial value is taken:
+  // this is remounted per item (the caller keys it), so there is no stale
+  // props-into-state problem to solve.
+  const [explanation, setExplanation] = useState<string | null>(cached);
   const [showing, setShowing] = useState<"code" | "explanation">("code");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,7 +71,12 @@ export function AiExplainableCode({
       // A failed *write* answers `{ success: false }`; a failed *request*
       // rejects. Without this the rejection is unhandled and the button stays
       // busy for good — the defect this project has shipped four times.
-      const result = await explainCode({ itemId }).catch(() => null);
+      // Asking again means asking the model again — the server skips only the
+      // cache read, never the limits, so this costs what a first ask costs.
+      const result = await explainCode({
+        itemId,
+        regenerate: explanation !== null,
+      }).catch(() => null);
 
       if (!result?.success) {
         if (result && "budgetExceeded" in result && result.budgetExceeded) {
@@ -124,8 +139,12 @@ export function AiExplainableCode({
           aiEnabled ? (
             <AiSuggestButton
               label="AI code explanations"
-              title="Explain what this code does"
-              action="Explain"
+              title={
+                explanation === null
+                  ? "Explain what this code does"
+                  : "Ask again for a fresh explanation"
+              }
+              action={explanation === null ? "Explain" : "Regenerate"}
               busy={busy}
               onSuggest={run}
             />
