@@ -1,12 +1,76 @@
-# Current Feature
+# Current Feature: Explain as a tab in the code editor frame
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
+- The AI explain button is labelled **Explain**, not "Suggest", and lives **in
+  the code editor's title bar** rather than in a block underneath it — sitting
+  between the language label and Copy, as `explain-results-1.png` shows
+- **Before a result**: the bar is unchanged apart from the new button — traffic
+  lights on the left, `LANGUAGE · Explain · Copy` on the right
+- **After a result**: the traffic lights are **replaced by two tabs**, `Code`
+  and `Explain`, with the explanation rendered in the frame's body — per
+  `explain-results-2.png`. The right-hand group is unchanged and stays visible
+  on both tabs, so the explanation can be re-asked from the Explain tab
+- **Copy follows the visible tab** — the code on Code, the explanation on
+  Explain. The panel's own Copy button goes, there being only one copy
+  affordance in the screenshots
+- **No dismiss.** There is no × on the tab and no Dismiss button; switching back
+  to Code is enough, and the tab lives as long as the drawer is open on that
+  item. The existing clearing still applies — Radix unmounts `SheetContent` on
+  close, and the mount is keyed on the item id
+- The Copy button gains a visible **"Copy"** label, which the screenshots show
+  and it does not have today
+- Monaco **stays mounted** behind the explanation rather than unmounting on tab
+  switch, so switching back neither reloads it nor re-runs the height estimate
+- Read-only drawer view only. The edit form's code editor gets no Explain
+  button — explaining is a view-mode action and the form has no room for it
+- `npm test`, `npx tsc --noEmit`, `npx eslint src` and `npm run build` clean
+- No migration, no new dependency, no new ShadCN primitive
+
 ## Notes
+
+Loaded inline against @context/screenshots/explain-results-1.png and
+@context/screenshots/explain-results-2.png, which is what settled both of the
+questions asked at load — the screenshots show one Copy button and no dismiss
+affordance of any kind.
+
+**Nothing about the action changes.** `explainCode`, its gates, its prompt and
+its tests are untouched; this is entirely where the button sits and where the
+answer is rendered.
+
+**`CodeEditor` must stay AI-agnostic.** It is a presentational frame used by
+both the drawer and the edit form, and it should not learn what an explanation
+is. The plan is optional `ReactNode` slots — something like `tabs` (replacing
+the dots when present), `barExtra` (the Explain button) and `altView` (replacing
+the editor body while selected) — plus a `copyValue` override so Copy can follow
+the visible tab. Four optional props is on the edge of too many; bundling them
+into one object was considered and rejected as harder to read, but if a fifth
+ever appears that is the point to reconsider.
+
+The state (which tab, the explanation) then lives in the component that composes
+them, which is today's `AiExplanationPanel` restructured from a block under the
+code into a wrapper around it. `ItemContent` in `item-drawer.tsx` renders that
+instead of `CodeEditor` for code types.
+
+**Two smaller consequences worth expecting:**
+
+- `AiSuggestButton` hardcodes the word "Suggest". It needs an optional label
+  prop rather than a global rename — tags and summaries keep "Suggest", and only
+  this one says "Explain".
+- The busy state is the button's existing spinner and "Thinking…". **No tab
+  appears until there is a result**, which is what the request asks for
+  literally, and it makes `.ai-explanation-pending` dead — it is currently
+  grouped with `.ai-summary-pending`, so those rules need ungrouping rather than
+  deleting, and the summary skeleton must keep working.
+
+The bar is about 2rem tall and the button is a ShadCN ghost `Button`, so it will
+need shrinking to fit. A `.code-editor-bar`-scoped override is the house way,
+and wins without `!important` because our rules are unlayered against Tailwind's
+`utilities` layer.
 
 ## History
 
