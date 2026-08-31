@@ -6,6 +6,7 @@ import { useRef, useState, type DragEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { createItem } from "@/actions/items";
+import { CameraButton } from "@/components/items/camera-button";
 import { Button } from "@/components/ui/button";
 import {
   uploadConstraint,
@@ -13,6 +14,11 @@ import {
   type UploadKind,
 } from "@/lib/file-constraints";
 import { titleFromFileName } from "@/lib/file-title";
+import {
+  convertHeicToJpeg,
+  HEIC_CONVERSION_FAILED,
+  isHeicFile,
+} from "@/lib/heic";
 import {
   uploadFile,
   UploadError,
@@ -31,7 +37,13 @@ const NOT_ATTEMPTED = "Not uploaded — the batch stopped first.";
 const UNTITLED = "Untitled";
 
 /** Where one dropped file has got to. */
-type DropStatus = "waiting" | "uploading" | "creating" | "done" | "failed";
+type DropStatus =
+  | "waiting"
+  | "converting"
+  | "uploading"
+  | "creating"
+  | "done"
+  | "failed";
 
 interface DroppedFile {
   id: number;
@@ -154,10 +166,37 @@ export function ItemDropZone({ kind, typeSlug, children }: ItemDropZoneProps) {
         continue;
       }
 
+      // Left unvalidated by `describe` because it is not what gets uploaded:
+      // a camera photo may be HEIC, which is converted to JPEG here and only
+      // then held to the rules.
+      let chosen = file;
+
+      if (isHeicFile(file)) {
+        update(entry.id, { status: "converting" });
+
+        try {
+          chosen = await convertHeicToJpeg(file);
+        } catch {
+          update(entry.id, { status: "failed", error: HEIC_CONVERSION_FAILED });
+          continue;
+        }
+
+        const problem = validateUpload(kind, {
+          name: chosen.name,
+          type: chosen.type,
+          size: chosen.size,
+        });
+
+        if (problem) {
+          update(entry.id, { status: "failed", error: problem });
+          continue;
+        }
+      }
+
       update(entry.id, { status: "uploading", progress: 0 });
 
       try {
-        const stored = await uploadFile(kind, file, (progress) =>
+        const stored = await uploadFile(kind, chosen, (progress) =>
           update(entry.id, { progress }),
         );
 
@@ -295,6 +334,10 @@ export function ItemDropZone({ kind, typeSlug, children }: ItemDropZoneProps) {
                   <span className="item-drop-note">{file.progress}%</span>
                 )}
 
+                {file.status === "converting" && (
+                  <span className="item-drop-note">Converting…</span>
+                )}
+
                 {file.status === "creating" && (
                   <span className="item-drop-note">Saving…</span>
                 )}
@@ -305,6 +348,21 @@ export function ItemDropZone({ kind, typeSlug, children }: ItemDropZoneProps) {
               </li>
             ))}
           </ul>
+        </div>
+      )}
+
+      {/* A phone cannot drop a file, so the zone would otherwise offer it
+          nothing at all. Hidden where there is no camera — see `CameraButton`. */}
+      {kind === "image" && (
+        <div className="item-drop-capture">
+          <CameraButton
+            onCapture={(file) => {
+              if (!running) {
+                void run([file]);
+              }
+            }}
+            disabled={running}
+          />
         </div>
       )}
 
@@ -349,6 +407,12 @@ function carriesFiles(event: DragEvent<HTMLDivElement>) {
 
 /** A file starting state: already refused, or waiting its turn. */
 function describe(kind: UploadKind, file: File) {
+  // Nothing to say about it yet: it is converted first, and the JPEG that
+  // comes back is what the rules apply to.
+  if (isHeicFile(file)) {
+    return { status: "waiting" as const };
+  }
+
   const problem = validateUpload(kind, {
     name: file.name,
     type: file.type,

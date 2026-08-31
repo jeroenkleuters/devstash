@@ -1,4 +1,4 @@
-# Current Feature
+# Current Feature: Capture an Image From the Phone Camera
 
 ## Status
 
@@ -6,8 +6,39 @@ Not Started
 
 ## Goals
 
+- On a phone, creating an Image item can take a photo there and then, rather
+  than only picking one that already exists.
+- The photo goes through the upload path that already exists — presigned PUT
+  straight to R2, the same size cap and the same validation — so nothing about
+  storage or security changes.
+- Nothing changes on desktop, where there is no camera to offer.
+- The same holds for a Book cover, which uses the identical upload component.
+
 ## Notes
 
+**The most likely reason the camera never appears today.** `acceptAttribute` in
+`src/lib/file-constraints.ts` returns the extension list alone — `.png,.jpg,…` —
+and Android's picker keys off MIME types, so an extension-only `accept` gives
+Chrome nothing to match a camera against and it falls back to a file browser.
+Adding the image MIME types the constraint already holds is likely most of the
+fix on its own, and it changes nothing on desktop.
+
+Beyond that, a dedicated control is what makes it obvious rather than hidden
+behind an OS sheet: a second `<input type="file">` carrying `capture="environment"`,
+which opens the rear camera directly.
+
+**HEIC is the trap worth knowing about before this ships.** With Samsung's
+"High efficiency pictures" turned on, the camera writes `.heic`, which is not in
+the accepted extension list and would be refused after the photo was taken —
+the worst possible moment. Accepting it is not the easy fix it looks like: no
+browser can display HEIC, so the gallery tile, the drawer preview and the
+lightbox would all show a broken image. Converting it would mean decoding in the
+browser or a server-side pipeline, which is its own feature.
+
+**Deliberately not `getUserMedia`.** A live in-app preview means a permission
+prompt, a video element, canvas capture, orientation handling and a photo worse
+than the one the phone's own camera app takes. The file input hands the whole
+job to that app and comes back with a full-resolution JPEG.
 ## History
 
 <!-- Keep this updated. Earliest to latest -->
