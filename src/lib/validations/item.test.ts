@@ -298,3 +298,92 @@ describe("presignUploadSchema", () => {
     expect(presign({ name: "   " }).success).toBe(false);
   });
 });
+
+/**
+ * The payload `ItemDropZone` builds by hand for each dropped file.
+ *
+ * Kept as a literal rather than derived from `EMPTY_ITEM_FORM_VALUES`, because
+ * the drop zone does not use that object either — spreading it here would make
+ * these tests agree with a shape the component never sees, which is exactly the
+ * drift they exist to catch.
+ */
+function dropPayload(overrides: Record<string, unknown> = {}) {
+  return {
+    typeSlug: "files",
+    title: "r2 erasure one",
+    description: "",
+    content: "",
+    url: "",
+    language: "",
+    author: "",
+    tags: [],
+    collectionIds: [],
+    file: { key: "uploads/user-1/abc.txt", name: "r2-erasure-one.txt" },
+    ...overrides,
+  };
+}
+
+describe("createItemSchema — the bulk drop payload", () => {
+  /**
+   * A regression guard, not a formality. The drop zone builds its payload by
+   * hand, so a field added to `itemFields` does not reach it the way it reaches
+   * the two forms through `ItemFormValues` — and the optional text fields are
+   * `.nullable()` rather than `.optional()`, so a missing one is `undefined`
+   * and fails the parse.
+   *
+   * That is not a harmless validation error: the object is already in R2 by the
+   * time `createItem` runs, so every failure orphans a file. It shipped once,
+   * when the book feature added `author`.
+   *
+   * If this test breaks after a field is added to `itemFields`, the fix is to
+   * send it from `item-drop-zone.tsx` — not to relax the assertion.
+   */
+  it("parses, so a dropped file becomes an item", () => {
+    const result = createItemSchema.safeParse(dropPayload());
+
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects the payload with any optional text field omitted", () => {
+    for (const field of ["description", "content", "url", "language", "author"]) {
+      const incomplete = dropPayload();
+      delete (incomplete as Record<string, unknown>)[field];
+
+      expect(
+        createItemSchema.safeParse(incomplete).success,
+        `omitting ${field} should fail until the schema makes it optional`,
+      ).toBe(false);
+    }
+  });
+
+  it("normalizes the empty strings to null rather than storing them", () => {
+    const result = createItemSchema.safeParse(dropPayload());
+
+    if (!result.success) throw new Error("expected the drop payload to parse");
+
+    expect(result.data.description).toBeNull();
+    expect(result.data.content).toBeNull();
+    expect(result.data.url).toBeNull();
+    expect(result.data.language).toBeNull();
+    expect(result.data.author).toBeNull();
+  });
+
+  it("keeps the uploaded file, which is what makes it a file item", () => {
+    const result = createItemSchema.safeParse(dropPayload());
+
+    if (!result.success) throw new Error("expected the drop payload to parse");
+
+    expect(result.data.file).toEqual({
+      key: "uploads/user-1/abc.txt",
+      name: "r2-erasure-one.txt",
+    });
+  });
+
+  it("refuses a file type carrying no file", () => {
+    // The other half of the same failure: an upload that did not happen must
+    // not become a title-only row.
+    expect(createItemSchema.safeParse(dropPayload({ file: null })).success).toBe(
+      false,
+    );
+  });
+});

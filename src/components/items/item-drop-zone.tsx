@@ -173,6 +173,13 @@ export function ItemDropZone({ kind, typeSlug, children }: ItemDropZoneProps) {
         // The action answers a failed *write* with `{ success: false }`, but a
         // failed *request* rejects instead — so without this catch one dropped
         // connection would reject out of the loop and abandon the rest.
+        // Every optional text field is spelled out, empty. They are
+        // `.nullable()` rather than `.optional()` in `createItemSchema`, so an
+        // omitted one is not "nothing to say" — it is `undefined`, which fails
+        // the parse *after* the object is already in R2 and orphans it. This
+        // payload is hand-built rather than taken from `ItemFormValues`, so
+        // adding a field to `itemFields` will not update it: the drop-zone
+        // cases in `src/lib/validations/item.test.ts` are what catch that.
         const result = await createItem({
           typeSlug,
           title: titleFromFileName(stored.name) || UNTITLED,
@@ -180,6 +187,7 @@ export function ItemDropZone({ kind, typeSlug, children }: ItemDropZoneProps) {
           content: "",
           url: "",
           language: "",
+          author: "",
           tags: [],
           collectionIds: [],
           file: { key: stored.key, name: stored.name },

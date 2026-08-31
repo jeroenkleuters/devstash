@@ -17,6 +17,7 @@
     "db:test": "tsx scripts/test-db.ts",
     "db:prune": "tsx scripts/prune-users.ts",
     "r2:sweep": "tsx scripts/sweep-orphans.ts",
+    "dev:reset-uploads": "tsx scripts/reset-dev-uploads.ts",
     "db:studio": "prisma studio"
   },
   "dependencies": {
