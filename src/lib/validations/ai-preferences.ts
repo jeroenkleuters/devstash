@@ -12,6 +12,12 @@ import type { AiPreferences } from "@/types/ai";
  * costs nothing until a button is pressed: nothing in this app calls OpenAI in
  * the background, so "enabled" is permission to act on a click, not consent to
  * anything happening on its own.
+ *
+ * **The condition attached to that argument:** if any AI feature ever runs
+ * without a click — auto-tagging on save, say — this default must be revisited
+ * in the same change. The counter-argument, that a privacy-affecting default
+ * shipped on is a default nobody chose, is real and loses *only* because there
+ * is no background processing. The moment content can leave on its own, it wins.
  */
 export const DEFAULT_AI_PREFERENCES: AiPreferences = {
   enabled: true,

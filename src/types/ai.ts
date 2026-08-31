@@ -63,3 +63,12 @@ export type AiResult<T> = AiSuccess<T> | AiFailure;
 export type AiPreferences = {
   enabled: boolean;
 };
+
+/**
+ * What `saveAiPreferences` answers with. No `data` half: the caller sent the
+ * whole set and already holds it, so the only thing left to say is whether it
+ * was stored — the same shape `UpdateUploadPreferencesResult` has.
+ */
+export type UpdateAiPreferencesResult =
+  | { success: true }
+  | { success: false; error: string };

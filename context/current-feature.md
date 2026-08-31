@@ -1,16 +1,113 @@
-# Current Feature
+# Current Feature: Privacy page & the AI off switch (AI feature 2 of 6)
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
-<!-- Bullet points of what success looks like -->
+The two things that must exist **before anything in this app calls OpenAI**: a
+page saying what gets sent and where, and a switch that stops it. They ship
+together deliberately — a disclosure saying *"we send your content to OpenAI"* is
+a weaker document than one that also says *"and here is the switch that stops
+it"*. **This feature still makes no AI calls**; feature 3 is the first thing that
+reaches OpenAI, and the ordering is the point: **no call ever precedes the page
+describing it.** The odd consequence, worth naming so it does not read as an
+oversight: for one commit the app has a privacy page and a settings switch for
+features that do not exist yet. That is the right way round.
+
+- **`/privacy`** — a server component in the existing `(marketing)` route group,
+  **public and deliberately not in the proxy matcher**, since a visitor deciding
+  whether to sign up must be able to read it. Plain prose in the app's own type
+  styles; it is not a marketing page and should not read like one. Copy is
+  drafted at @context/features/privacy-page-content.md.
+- **Restore the Privacy footer link.** The homepage feature deleted seven footer
+  links rather than point them at 404s, with a note to bring Privacy back when
+  the page existed. This is when.
+- **`src/components/settings/settings-ai.tsx`** — the card, following the
+  `.settings-row` shape: title and sub-line left, control right. The control is
+  the same native checkbox drawn as a switch the editor card uses, so **no new
+  primitive** and the browser keeps its own keyboard and touch behaviour.
+- **`saveAiPreferences`** in `src/actions/ai-preferences.ts`, following
+  `saveUploadPreferences` and `saveEditorPreferences` exactly: account from the
+  session and **never** the payload, strict schema in, `{ success, data, error }`
+  out, **not** rate limited (matching the item/collection/editor actions rather
+  than the profile ones, which are throttled because each attempt costs a
+  bcrypt), and optimistic on the client with the previous value restored on
+  failure.
+- **The client must use `.catch(() => null)`.** A failed *write* answers
+  `{ success: false }` but a failed *request* **rejects**, and without the catch
+  the control is left mid-transition. **This defect has shipped and been fixed
+  four times in this project. Do not make it five.**
+- **Enforcement, server-side, before the Pro check** — someone who deliberately
+  switched a feature off should not be sold an upgrade for it. There is no action
+  to enforce it in yet; feature 3 adds the first.
+- **Client-side, with AI off the buttons do not render at all** rather than
+  rendering inert — an off switch that leaves disabled buttons scattered around
+  has not really turned anything off. `aiEnabled` rides the same
+  `BillingProvider` path `isPro` already takes, which makes the server check
+  belt-and-braces for a stale page, as it should be.
+
+**No migration** (`User.aiPreferences` landed in feature 1 — this feature is that
+column's first writer), no new dependency, no new ShadCN primitive.
+
+Spec: @context/features/ai-controls-spec.md · Reference: @docs/ai-integration-plan.md §10 and §11
 
 ## Notes
 
-<!-- Additional context, constraints, or details from spec -->
+**The spec is partly stale, in our favour.** Its Part A item 3 and its whole
+"deletion gap" section describe `deleteAccount` orphaning R2 objects — **that was
+fixed on 2026-08-30**, §7 of the privacy copy is already rewritten to say files
+are deleted, and the pre-publish checklist item demanding the fix is gone. Three
+items remain there, not four.
+
+**All three are yours, not code**, and they are what gates publishing rather than
+building: a real contact address (the draft carries a `privacy@…` placeholder),
+the **OpenAI retention and training claims verified against their current
+data-usage terms at the moment of writing** — the one claim on the page
+describing someone else's policy and the one that dates, and explicitly not to be
+copied from the draft or from the plan — and a review by someone qualified, GDPR
+applying since DevStash has EU users. The spec's own escape hatch: if the copy is
+not ready, ship the page with headings and the six required points in plain
+sentences rather than block, because it is easier to improve a live page than to
+explain an undisclosed month.
+
+**The six points the page must cover**, so it cannot ship missing one: which
+features send content and which do not (nothing in the background — content
+leaves only on a click, and only for the item that button sits on); what is sent
+(title, description, content, truncated — not the email, not other items, not
+collection names); where it goes (OpenAI, `gpt-5-nano`, for the call's duration);
+what OpenAI does with it; how to stop it, naming the switch and linking
+`/settings`; and that **uploaded files are never sent** — only a book's metadata
+could be, never the cover image itself.
+
+**`DEFAULT_AI_PREFERENCES` already defaults on**, decided in feature 1: every AI
+action is user-initiated, so **the click is the consent** and the switch is a
+standing *"do not even offer it"*. The counter-argument — a privacy-affecting
+default nobody chose — is real, and loses **only** because there is no background
+processing. The spec asks for that condition to be recorded as a comment on the
+constant: **if any AI feature ever runs without a click, this default must be
+revisited in the same change.** Worth checking the comment I wrote in feature 1
+already says this, and adding it if not.
+
+**One detail the spec has out of date:** it places the card "third, after Account
+and Editor", but `/settings` currently renders Account, **Billing**, Editor and
+Upload. Fourth or fifth is the real choice — worth confirming at `/feature start`.
+
+**Testing:** `vitest.config.mts` collects `src/actions/**`, so the action is
+reachable; the page and the card are not, by configuration, and the existing
+suite passing unchanged is what covers them. **Mutation-check the session
+scoping** — hardcode a different id, confirm exactly one test fails, revert, and
+note `git checkout` does nothing for a file that is still untracked, so restore
+from a copy.
+
+**Worth checking by hand, since none of it is unit-testable:** `/privacy` renders
+signed out, the footer link resolves rather than 404ing, the switch persists
+across a reload, and the card reads correctly at 390px where `.settings-row`
+wraps the control under the text.
+
+**Not in scope:** a Terms page — different document, different content, and the
+footer can carry Privacy alone.
 
 ## History
 

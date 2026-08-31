@@ -46,7 +46,11 @@ export async function AppShell({ children }: { children: ReactNode }) {
     <SidebarProvider>
       {/* Wraps the sidebar as well as the body: the Pro type rows up there are
           gated too, and one provider means one upsell dialog for both. */}
-      <BillingProvider isPro={user.isPro} usage={usage}>
+      <BillingProvider
+        isPro={user.isPro}
+        aiEnabled={user.aiPreferences.enabled}
+        usage={usage}
+      >
         <Suspense fallback={<SidebarSkeleton />}>
           <SidebarWithData />
         </Suspense>

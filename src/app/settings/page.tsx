@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { SIGN_IN_PATH } from "@/auth.config";
 import { SettingsAccount } from "@/components/settings/settings-account";
+import { SettingsAi } from "@/components/settings/settings-ai";
 import { SettingsBilling } from "@/components/settings/settings-billing";
 import { SettingsEditor } from "@/components/settings/settings-editor";
 import { SettingsUpload } from "@/components/settings/settings-upload";
@@ -49,6 +50,7 @@ export default async function SettingsPage({
       />
       <SettingsEditor />
       <SettingsUpload preferences={user.uploadPreferences} />
+      <SettingsAi preferences={user.aiPreferences} />
     </>
   );
 }
