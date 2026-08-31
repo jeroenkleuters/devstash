@@ -120,8 +120,13 @@ export function MarkdownEditor({
  * Raw HTML is left disabled — `react-markdown` ignores it unless `rehype-raw`
  * is added, and it must stay that way: item content is user-authored and
  * stored, so rendering embedded HTML would be a stored-XSS path.
+ *
+ * Exported because the AI explanation panel renders through it. That refusal
+ * is doing more work there than here: a model's answer is untrusted content
+ * from a remote service, and it is the one thing in this app rendered as a
+ * paragraph of markdown rather than put in an input's value.
  */
-function MarkdownPreview({ value }: { value: string }) {
+export function MarkdownPreview({ value }: { value: string }) {
   if (!value.trim()) {
     return <p className="markdown-editor-empty">Nothing to preview.</p>;
   }

@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { suggestTags, suggestTagsForDraft, summarizeItem } from "@/actions/ai";
+import {
+  explainCode,
+  suggestTags,
+  suggestTagsForDraft,
+  summarizeItem,
+} from "@/actions/ai";
 import { checkSpend, recordSpend } from "@/lib/ai/spend";
 import { AI_CHARACTER_BUDGET } from "@/lib/ai/truncate";
 import { getItemDetail } from "@/lib/db/items";
@@ -52,6 +57,10 @@ const ITEM = {
   description: "A hook that delays a value",
   content: "export function useDebounce() {}",
   tags: ["react"],
+  // `explainCode` reads both: the slug decides whether the item can be
+  // explained at all, and the hint goes into the prompt when present.
+  type: { slug: "snippets" },
+  language: "typescript",
 } as never;
 
 function usage(over: Record<string, unknown> = {}) {
@@ -101,6 +110,7 @@ beforeEach(() => {
 describe.each([
   ["suggestTags", suggestTags, "ai:tags:user-1"],
   ["summarizeItem", summarizeItem, "ai:summary:user-1"],
+  ["explainCode", explainCode, "ai:explain:user-1"],
 ] as const)("%s — the shared gates, in order", (_name, action, featureKey) => {
   it("refuses a signed-out caller", async () => {
     getCurrentUserMock.mockResolvedValue(null);
@@ -554,6 +564,170 @@ describe("summarizeItem — the call and the answer", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
 
     const result = await summarizeItem({ itemId: "item-1" });
+
+    expect(result.success).toBe(false);
+    expect(recordSpendMock).not.toHaveBeenCalled();
+  });
+});
+
+
+describe("explainCode — the call and the answer", () => {
+  const ANSWER = "It debounces a value.\n\n- Returns the delayed value.";
+
+  beforeEach(() => {
+    parse.mockResolvedValue({
+      output_parsed: { explanation: ANSWER },
+      usage: usage(),
+    });
+  });
+
+  it("answers the explanation as a plain string, writing nothing", async () => {
+    const result = await explainCode({ itemId: "item-1" });
+
+    expect(result).toEqual({ success: true, data: ANSWER });
+  });
+
+  it("reads the item as the session's user, never the payload's", async () => {
+    await explainCode({ itemId: "item-1", userId: "someone-else" });
+
+    expect(getItemDetailMock).toHaveBeenCalledWith("user-1", "item-1");
+  });
+
+  /**
+   * The refusal happens after the item is read — the type is not in the
+   * request — but before the model is called, so a note costs a query and not
+   * a cent. `isCodeType` is the same predicate that decides which types get
+   * the Monaco editor, so there is no second list to keep in step.
+   */
+  it("refuses a type that is not code, without calling the model", async () => {
+    getItemDetailMock.mockResolvedValue({
+      ...(ITEM as object),
+      type: { slug: "notes" },
+    } as never);
+
+    const result = await explainCode({ itemId: "item-1" });
+
+    expect(result).toEqual({
+      success: false,
+      error: "Only snippets and commands can be explained.",
+    });
+    expect(parse).not.toHaveBeenCalled();
+  });
+
+  it("refuses an item with no content, since the call could only disappoint", async () => {
+    getItemDetailMock.mockResolvedValue({
+      ...(ITEM as object),
+      content: "",
+    } as never);
+
+    const result = await explainCode({ itemId: "item-1" });
+
+    expect(result).toEqual({
+      success: false,
+      error: "This item has no code to explain.",
+    });
+    expect(parse).not.toHaveBeenCalled();
+  });
+
+  it("sends the code and the language hint", async () => {
+    await explainCode({ itemId: "item-1" });
+
+    const sent = parse.mock.calls[0][0].input as string;
+
+    expect(sent).toContain("Language: typescript");
+    expect(sent).toContain("export function useDebounce()");
+  });
+
+  /**
+   * A hint is a free-text field a person may have left empty, so its absence
+   * has to read as no hint rather than as an empty one.
+   */
+  it("omits the language line cleanly when the item carries none", async () => {
+    getItemDetailMock.mockResolvedValue({
+      ...(ITEM as object),
+      language: null,
+    } as never);
+
+    await explainCode({ itemId: "item-1" });
+
+    const sent = parse.mock.calls[0][0].input as string;
+
+    expect(sent).not.toContain("Language:");
+    // The wrapper wraps the input in `<content>` delimiters, so the code is
+    // the first thing inside them rather than the first thing in the string.
+    expect(sent).toContain("<content>\nCode:");
+  });
+
+  /**
+   * The head, not the middle: a file's imports and top-level structure are
+   * where an explanation starts, and a window from the middle is the least
+   * useful slice available.
+   */
+  it("truncates from the head, keeping the opening", async () => {
+    getItemDetailMock.mockResolvedValue({
+      ...(ITEM as object),
+      language: null,
+      content: `const opening = 1;
+${"x".repeat(AI_CHARACTER_BUDGET * 2)}
+const ending = 2;`,
+    } as never);
+
+    await explainCode({ itemId: "item-1" });
+
+    const sent = parse.mock.calls[0][0].input as string;
+
+    expect(sent).toContain("const opening = 1;");
+    expect(sent).not.toContain("const ending = 2;");
+    expect(sent).toContain("[… truncated]");
+  });
+
+  /**
+   * The highest of the four, and the one action that differs: the others
+   * produce a value to accept, where the quality of this answer *is* the
+   * product.
+   */
+  it("uses medium effort and medium verbosity", async () => {
+    await explainCode({ itemId: "item-1" });
+
+    const call = parse.mock.calls[0][0];
+
+    expect(call.reasoning).toEqual({ effort: "medium" });
+    expect(call.text.verbosity).toBe("medium");
+    expect(call.prompt_cache_key).toBe("devstash:explain:v1");
+  });
+
+  it("records what the call reported spending", async () => {
+    await explainCode({ itemId: "item-1" });
+
+    expect(recordSpendMock).toHaveBeenCalledWith({
+      input: 100,
+      cached: 10,
+      output: 20,
+    });
+  });
+
+  /**
+   * An over-long explanation never reaches this action as a value:
+   * `zodTextFormat` puts the cap in the request and the SDK's own `parse`
+   * rejects a reply that breaks it, so it arrives as a throw. The cap itself
+   * is tested where the schema lives.
+   */
+  it("answers rather than throwing when the reply breaks the cap", async () => {
+    parse.mockRejectedValue(
+      Object.assign(new Error("schema"), { name: "ZodError" }),
+    );
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await explainCode({ itemId: "item-1" });
+
+    expect(result.success).toBe(false);
+    expect(recordSpendMock).not.toHaveBeenCalled();
+  });
+
+  it("answers a message when the model returns nothing usable", async () => {
+    parse.mockResolvedValue({ output_parsed: null, usage: usage() });
+
+    const result = await explainCode({ itemId: "item-1" });
 
     expect(result.success).toBe(false);
     expect(recordSpendMock).not.toHaveBeenCalled();

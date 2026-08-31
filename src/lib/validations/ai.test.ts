@@ -120,12 +120,22 @@ describe("codeExplanationSchema", () => {
     );
   });
 
+  /**
+   * The cap is 4,000 characters — a decision rather than an accident. Nothing
+   * stores an explanation, so the cap is about the bill and the reading rather
+   * than a column, and a long-form essay is not what someone opening a snippet
+   * they wrote six months ago wants. 20,000 is the length the spec names as a
+   * refusal; 100,000 is what a runaway answer looks like.
+   */
   it("is bounded, so one answer cannot be unbounded output", () => {
-    const result = codeExplanationSchema.safeParse({
-      explanation: "x".repeat(100_000),
-    });
-
-    expect(result.success).toBe(false);
+    expect(
+      codeExplanationSchema.safeParse({ explanation: "x".repeat(20_000) })
+        .success,
+    ).toBe(false);
+    expect(
+      codeExplanationSchema.safeParse({ explanation: "x".repeat(100_000) })
+        .success,
+    ).toBe(false);
   });
 });
 

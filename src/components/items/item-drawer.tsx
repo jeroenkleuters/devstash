@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
+import { AiExplanationPanel } from "@/components/ai/ai-explanation-panel";
 import { CodeEditor } from "@/components/items/code-editor";
 import { MarkdownEditor } from "@/components/items/markdown-editor";
 import { ItemDrawerActions } from "@/components/items/item-drawer-actions";
@@ -166,6 +167,16 @@ function ItemDrawerBody({ detail }: { detail: ItemDetail }) {
       <section className="item-drawer-section">
         <h3 className="item-drawer-label">Content</h3>
         <ItemContent detail={detail} />
+
+        {/* Only for the types that hold code, gated on the same predicate that
+            already decides which types get the Monaco editor — explaining a
+            note is not a feature. Keyed on the item so clicking a second card,
+            which swaps `detail` without remounting the drawer, cannot leave the
+            previous item's explanation on screen; closing clears it too, Radix
+            unmounting `SheetContent`. */}
+        {isCodeType(detail.type.slug) && detail.content && (
+          <AiExplanationPanel key={detail.id} itemId={detail.id} />
+        )}
       </section>
 
       <hr className="item-drawer-divider" />

@@ -4980,18 +4980,21 @@ button.sidebar-link {
   color: var(--foreground);
 }
 
-.ai-summary-actions {
+.ai-summary-actions,
+.ai-explanation-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.25rem;
 }
 
-/* Shaped like the answer and sized to it — two lines of the same type as
+/* Shaped like the answer and sized to it — lines of the same type as
    `.ai-summary-text`, so the block does not resize when the prose lands.
    `1lh` is one line of that element rather than a guessed pixel height, the
-   unit the dashboard skeletons already rely on. */
-.ai-summary-pending {
+   unit the dashboard skeletons already rely on. Shared with the explanation
+   panel, which is the same shape with a line more. */
+.ai-summary-pending,
+.ai-explanation-pending {
   display: flex;
   flex-direction: column;
   gap: 0.375rem;
@@ -5013,21 +5016,55 @@ button.sidebar-link {
   }
 }
 
-.ai-summary-pending span {
+.ai-summary-pending span,
+.ai-explanation-pending span {
   height: 1lh;
   border-radius: var(--radius-sm);
   background: var(--border);
   animation: ai-summary-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
-.ai-summary-pending span:last-child {
+.ai-summary-pending span:last-child,
+.ai-explanation-pending span:last-child {
   width: 65%;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ai-summary-pending span {
+  .ai-summary-pending span,
+  .ai-explanation-pending span {
     animation: none;
   }
+}
+
+/* The explanation. Same block as the summary offer, in the snippet blue rather
+   than the prompt purple, since it belongs to a code item — and with no accept
+   button, because there is no field it goes in.
+
+   `.markdown-preview` supplies the typography: the answer is markdown from the
+   model and renders through the same component the note and prompt previews
+   use, raw HTML included out. Its first and last children lose their outer
+   margins so the prose sits flush inside the padding. */
+.ai-explanation {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--type-snippet);
+  border-radius: var(--radius-md);
+  background: var(--muted);
+}
+
+.ai-explanation .markdown-preview {
+  font-size: 0.8125rem;
+}
+
+.ai-explanation .markdown-preview > :first-child {
+  margin-top: 0;
+}
+
+.ai-explanation .markdown-preview > :last-child {
+  margin-bottom: 0;
 }
 
 .ai-suggestions-error {
