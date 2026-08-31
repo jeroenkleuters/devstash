@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   DESCRIPTION_MAX_LENGTH,
   TAG_MAX_LENGTH,
+  TITLE_MAX_LENGTH,
 } from "@/lib/validations/item";
 
 /**
@@ -30,6 +31,46 @@ export const aiItemRequestSchema = z.object({
 });
 
 export type AiItemRequest = z.infer<typeof aiItemRequestSchema>;
+
+/**
+ * How much of a draft a request may carry.
+ *
+ * Generous — five times the truncation budget — because a real snippet being
+ * written can be long and refusing it would be worse than trimming it. What
+ * this stops is a multi-megabyte body: the payload is bounded before anything
+ * reads it, and `truncateForAi` then bounds what is actually sent.
+ */
+const DRAFT_MAX_LENGTH = 120_000;
+
+/** What a draft may claim it already carries, matching the item tag ceiling. */
+const MAX_TAGS_SENT = 20;
+
+/**
+ * What an item being *written* sends, since it has no row to be read from.
+ *
+ * This is the one place content crosses the wire rather than being read back
+ * from the caller's own rows, and it exists because the create dialog is the
+ * moment someone most wants tags. The trade is deliberate and narrow: it is
+ * behind the identical preamble as the id path — Pro only, both rate limits,
+ * the spend cap — so what it can cost is bounded by those rather than by where
+ * the text came from. Ownership scoping is not weakened, because there is no
+ * stored row involved to scope to.
+ *
+ * A draft with neither a title nor content is refused: there is nothing to
+ * suggest from, and a call that can only disappoint should not be billed.
+ */
+export const aiDraftRequestSchema = z
+  .object({
+    title: z.string().trim().max(TITLE_MAX_LENGTH).default(""),
+    description: z.string().trim().max(DESCRIPTION_MAX_LENGTH).default(""),
+    content: z.string().max(DRAFT_MAX_LENGTH).default(""),
+    tags: z.array(z.string().max(TAG_MAX_LENGTH)).max(MAX_TAGS_SENT).default([]),
+  })
+  .refine((draft) => draft.title !== "" || draft.content.trim() !== "", {
+    error: "Add a title or some content first.",
+  });
+
+export type AiDraftRequest = z.infer<typeof aiDraftRequestSchema>;
 
 /** At most 8, because an output cap is also an output-token cap. */
 export const MAX_SUGGESTED_TAGS = 8;

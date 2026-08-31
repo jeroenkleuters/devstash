@@ -1,5 +1,6 @@
 "use client";
 
+import { AiTagSuggestions } from "@/components/ai/ai-tag-suggestions";
 import { CodeEditor } from "@/components/items/code-editor";
 import { ItemCollectionsField } from "@/components/items/item-collections-field";
 import { MarkdownEditor } from "@/components/items/markdown-editor";
@@ -14,6 +15,7 @@ import {
   isMarkdownType,
   uploadKindFor,
 } from "@/constants/item-types";
+import { languageOptions } from "@/lib/code-language";
 import type { ItemContentType, ItemDetail } from "@/types/item";
 
 /**
@@ -36,6 +38,7 @@ export function ItemFormFields({
   contentType,
   urlRequired = false,
   contentRows,
+  itemId,
 }: ItemFormFieldsProps) {
   const isBook = isBookType(typeSlug);
   const showContent = contentType === "TEXT";
@@ -74,6 +77,32 @@ export function ItemFormFields({
             onChange={(event) => setField("description", event.target.value)}
             rows={2}
           />
+        </div>
+      )}
+
+      {/* Above Content, because it decides how the editor below it highlights:
+          picking the language first and then writing reads in the order it
+          takes effect, where a field underneath asks for it after the fact. */}
+      {showLanguage && (
+        <div className="item-form-field">
+          <Label htmlFor={`${idPrefix}-language`}>Language</Label>
+          <select
+            id={`${idPrefix}-language`}
+            name="language"
+            className="item-form-select"
+            value={values.language}
+            onChange={(event) => setField("language", event.target.value)}
+          >
+            {/* No hint, rather than a language named "none" — the editor then
+                falls back to what the type implies, shell for a command and
+                plain text for a snippet. */}
+            <option value="">Not set</option>
+            {languageOptions(values.language).map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </div>
       )}
 
@@ -148,19 +177,6 @@ export function ItemFormFields({
         </div>
       )}
 
-      {showLanguage && (
-        <div className="item-form-field">
-          <Label htmlFor={`${idPrefix}-language`}>Language</Label>
-          <Input
-            id={`${idPrefix}-language`}
-            name="language"
-            value={values.language}
-            onChange={(event) => setField("language", event.target.value)}
-            placeholder="typescript"
-          />
-        </div>
-      )}
-
       <div className="item-form-field">
         <Label htmlFor={`${idPrefix}-tags`}>Tags</Label>
         <Input
@@ -171,6 +187,22 @@ export function ItemFormFields({
           placeholder="react, hooks"
         />
         <p className="item-form-hint">Separate tags with commas.</p>
+
+        {/* Rendered for both forms: the drawer names the item it is editing,
+            while the create dialog has no row yet and sends what has been
+            typed instead. `AiTagSuggestions` picks the action from that. */}
+        <AiTagSuggestions
+          itemId={itemId}
+          draft={{
+            title: values.title,
+            description: values.description,
+            content: values.content,
+          }}
+          value={values.tags}
+          onAccept={(tag) =>
+            setField("tags", values.tags.trim() ? `${values.tags}, ${tag}` : tag)
+          }
+        />
       </div>
 
       <ItemCollectionsField
@@ -224,6 +256,13 @@ interface ItemFormFieldsProps {
   urlRequired?: boolean;
   /** Starting height of the plain content textarea. */
   contentRows: number;
+  /**
+   * The item being edited, when there is one.
+   *
+   * Absent in the create dialog, where the suggestions run against what has
+   * been typed instead of a stored row — see `suggestTagsForDraft`.
+   */
+  itemId?: string;
 }
 
 /** The fields `setField` writes — every one whose input holds text. */

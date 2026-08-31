@@ -1607,6 +1607,46 @@ a.pagination-page:hover {
   color: var(--muted-foreground);
 }
 
+/* The Language dropdown. There is no ShadCN select primitive installed, and a
+   native control keeps the browser's own keyboard, touch and screen-reader
+   behaviour — the same reasoning `.settings-select` records. Sized and coloured
+   to the `input` primitive rather than to `.settings-select`, because its
+   neighbours in this form are that primitive and a dropdown a different height
+   from the field above it reads as a mistake. */
+.item-form-select {
+  width: 100%;
+  height: 2rem;
+  padding: 0 0.625rem;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  /* Opaque, not `transparent`. A native select still paints the platform
+     widget behind whatever we set, and on Windows a transparent background
+     lets that widget's own white through — which against `--foreground` in
+     dark mode is white text on white. `.settings-select` sets an opaque token
+     for the same reason. */
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 0.875rem;
+  transition: border-color 150ms, box-shadow 150ms;
+}
+
+/* Focus is stated the way the `input` primitive states it — the border turns
+   `--ring` and a soft ring is drawn as a box-shadow, with no outline at all —
+   so a focused dropdown matches the focused text field above it rather than
+   taking `.settings-select`'s solid outline. Note this is *not* what stops the
+   ring being clipped: a box-shadow paints outside the border box just as an
+   outline does. Room for it comes from the scrollport padding on
+   `.item-create-body`. */
+.item-form-select:focus-visible {
+  outline: none;
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 50%, transparent);
+}
+
+.item-form-select:hover:not(:focus-visible) {
+  border-color: var(--muted-foreground);
+}
+
 /* The one field that is code rather than prose. `field-sizing-content` on the
    primitive would otherwise grow the box to the whole snippet. */
 .item-form-content {
@@ -1703,6 +1743,17 @@ a.pagination-page:hover {
   gap: 1.125rem;
   max-height: min(60vh, 30rem);
   overflow-y: auto;
+  /* `overflow-y: auto` makes overflow-x compute to `auto` as well — the two
+     axes cannot disagree — so this is a scrollport on both, and a focus ring
+     drawn outside a full-width field was clipped flush against its left and
+     right edges. That is why a focused control looked like its border did not
+     fit the panel; it applies to every field here, not only the select. The
+     padding gives the ring room inside the scrollport, and the matching
+     negative inline margin puts the fields back on the dialog's own edge, so
+     nothing moves. The drawer needs none of this: `.item-drawer-body` already
+     carries 1.5rem of padding. */
+  padding: 0.25rem;
+  margin-inline: -0.25rem;
 }
 
 .item-type-picker {
@@ -4802,5 +4853,123 @@ button.sidebar-link {
 
   .marketing .legal h1 {
     font-size: 1.625rem;
+  }
+}
+
+/* ------------------------------------------------------- AI suggestions
+
+   The suggest-and-accept loop, beside the Tags field in the item drawer. The
+   chips sit *below* the field rather than replacing it: the value is the
+   user's, and an accepted suggestion is appended to it. */
+
+.ai-suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.ai-suggestions-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* Sized down from the primitive so it reads as an affordance on the field
+   rather than a second action competing with Save. Unlayered, so it wins over
+   Tailwind's utilities without `!important`. */
+.ai-suggest-button,
+.ai-suggestions-dismiss {
+  height: 1.75rem;
+  padding: 0 0.5rem;
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+}
+
+.ai-suggest-button:hover,
+.ai-suggestions-dismiss:hover {
+  color: var(--foreground);
+}
+
+/* The locked state is aria-disabled rather than disabled — the click has to
+   land for the upsell to open — so the dimming is stated here instead of
+   inherited from :disabled. */
+.ai-suggest-button[aria-disabled="true"] {
+  opacity: 0.6;
+}
+
+.ai-suggest-button[data-locked] {
+  cursor: pointer;
+}
+
+.ai-suggestions-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.ai-suggestion-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.1875rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--muted);
+  color: var(--foreground);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.ai-suggestion-chip:hover {
+  border-color: var(--type-prompt);
+  background: color-mix(in oklab, var(--type-prompt) 12%, var(--muted));
+}
+
+.ai-suggestion-chip:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* Shaped like the answer, not a spinner: three chip-sized blocks where the
+   suggestions will land. Width varies so it does not read as a progress bar. */
+.ai-suggestion-pending {
+  width: 4.5rem;
+  height: 1.625rem;
+  border-color: transparent;
+  animation: ai-suggestion-pulse 1.4s ease-in-out infinite;
+  cursor: default;
+}
+
+.ai-suggestion-pending:nth-child(2) {
+  width: 5.75rem;
+}
+
+.ai-suggestion-pending:nth-child(3) {
+  width: 3.75rem;
+}
+
+@keyframes ai-suggestion-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.ai-suggestions-error {
+  margin: 0;
+  color: var(--destructive);
+  font-size: 0.8125rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-suggestion-pending {
+    animation: none;
+  }
+
+  .ai-suggestion-chip {
+    transition: none;
   }
 }
