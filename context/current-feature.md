@@ -1,16 +1,78 @@
-# Current Feature
+# Current Feature: AI Explain This Code (AI feature 5 of 6)
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
-<!-- Bullet points of what success looks like -->
+- An **Explain** button in the item drawer's **view mode**, offered only for code
+  types (`isCodeType` — snippets and commands), asking `gpt-5-nano` what the code
+  does
+- `explainCode` in `src/actions/ai.ts`, reusing the shared `guard` preamble
+  unchanged (session -> off switch -> Pro -> shape -> both rate limits -> spend
+  cap -> item read), with its own per-feature hourly window under the shared
+  combined ceiling
+- Refuses a non-code type before calling the model — a note id answers rather
+  than spending
+- The call sends the code plus the language hint when present, through
+  `truncateForAi` **taking the head**; `reasoning.effort: "medium"` and
+  `text.verbosity: "medium"` (the highest of the four, deliberately);
+  `prompt_cache_key: "devstash:explain:v1"`
+- **No accept step and no write** — the answer is displayed, optionally copied,
+  never merged into the item
+- New `src/components/ai/ai-explanation-panel.tsx`: opens under the code block
+  without replacing it, renders through the existing `MarkdownPreview` (raw HTML
+  stays disabled), a **Copy** button reusing `copyText`, a paragraph-shaped
+  loading skeleton at `height: 1lh` per line, dismissible, and **cleared when the
+  drawer closes or a different item opens**
+- The three not-enabled states inherited from `AiSuggestButton`: AI off renders
+  nothing, free renders `aria-disabled` with a lock and raises the upsell, budget
+  spent renders inert
+- The `.catch(() => null)` plus `finally` a rejected *request* needs
+- No streaming, no result cache — both deliberate, both recorded
+- Tests: the shared gate tests parameterised over all three actions; plus the
+  non-code refusal, head truncation, the language hint present and absent,
+  `effort: "medium"`, an over-long explanation failing the output schema, and
+  `output_parsed: null` answering a message
+- No migration, no new dependency, no new ShadCN primitive
+- `npm test`, `npx tsc --noEmit`, `npx eslint src` and `npm run build` clean
 
 ## Notes
 
-<!-- Additional context, constraints, or details from spec -->
+Spec: @context/features/ai-explain-code-spec.md · Reference:
+@docs/ai-integration-plan.md §5.3. The gate ordering, the `.catch` rule and the
+gating pattern come from @context/features/ai-auto-tagging-spec.md and are not
+restated in the spec.
+
+**Three things in the spec are already stale — feature 1 shipped more than the
+spec assumes.** Flagging rather than silently deviating:
+
+1. **`EXPLAIN_PROMPT` already exists** in `src/lib/ai/prompts.ts` and reads
+   exactly as the spec asks — purpose first, then what is worth knowing, no
+   line-by-line narration. Nothing to write; worth iterating on once it has been
+   sent to a model.
+2. **The output schema already exists** as `codeExplanationSchema` in
+   `src/lib/validations/ai.ts`, not the `explanationOutputSchema` the spec names
+   — and it caps at **4,000 characters, not the spec's 8,000**. Recommendation:
+   keep 4,000. It is the shipped number, it bounds cost harder, and nothing
+   depends on 8,000. The spec's "a 20,000-character explanation fails the output
+   schema" test passes either way.
+3. **`MarkdownPreview` is private** to `src/components/items/markdown-editor.tsx`
+   — it will need exporting, which the spec's file table does not list.
+
+Also worth knowing before implementing:
+
+- `runStructured` does **not** re-validate the parse — `zodTextFormat` puts the
+  cap in the request and the SDK's own `parse` rejects a violation as a **throw**.
+  So the over-long-explanation case is a *schema* test in
+  `src/lib/validations/ai.test.ts`, and the action-level test covers the throw
+  path. (The same correction feature 4 had to make.)
+- The panel must render `MarkdownPreview` — model output is untrusted content and
+  this is the one AI feature that renders a paragraph of it. **Do not add
+  `rehype-raw`.**
+- **Record the measured latency** when this is verified in the browser. That
+  number is what decides whether the streaming follow-up is worth building.
 
 ## History
 

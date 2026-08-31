@@ -2,18 +2,21 @@
 
 import {
   EXISTING_TAGS_LABEL,
+  EXPLAIN_PROMPT,
   SUMMARY_PROMPT,
   TAG_PROMPT,
 } from "@/lib/ai/prompts";
 import { runStructured } from "@/lib/ai/run";
 import { budgetExceededMessage, checkSpend, recordSpend } from "@/lib/ai/spend";
 import { truncateForAi } from "@/lib/ai/truncate";
+import { isCodeType } from "@/constants/item-types";
 import { getItemDetail } from "@/lib/db/items";
 import { getCurrentUser } from "@/lib/db/user";
 import { rateLimit, tooManyAttemptsMessage } from "@/lib/rate-limit";
 import {
   aiDraftRequestSchema,
   aiItemRequestSchema,
+  codeExplanationSchema,
   itemSummarySchema,
   suggestedTagsSchema,
 } from "@/lib/validations/ai";
@@ -26,12 +29,17 @@ const AI_TURNED_OFF =
   "AI features are switched off for this account. Turn them on in Settings.";
 const AI_PRO_REQUIRED = "AI suggestions need a Pro subscription.";
 const MISSING = "That item no longer exists.";
+const NOT_CODE = "Only snippets and commands can be explained.";
+/** Same reasoning as the draft schema's refine: a call that can only
+ *  disappoint should not be billed. */
+const NOTHING_TO_EXPLAIN = "This item has no code to explain.";
 
 const HOUR = 60 * 60 * 1000;
 
 /** Per feature, and across all four. See `guard` for why both. */
 const TAG_LIMIT = 30;
 const SUMMARY_LIMIT = 30;
+const EXPLAIN_LIMIT = 30;
 const COMBINED_LIMIT = 60;
 
 /**
@@ -199,6 +207,95 @@ export async function summarizeItem(
   await recordSpend(result.usage).catch(() => {});
 
   return { success: true, data: result.data.summary };
+}
+
+/**
+ * Explains one of the caller's code items.
+ *
+ * **The one AI feature with no accept step**, because there is no field the
+ * answer belongs in: it is read, optionally copied, and never written. That
+ * also makes it the only one that could gain streaming later without a
+ * redesign — the panel displays a result rather than merging one.
+ *
+ * **Refused for anything but a code type**, and refused *before* the model is
+ * called. `isCodeType` is the same predicate that already decides which types
+ * get the Monaco editor, so there is no second list to keep in step, and
+ * explaining a note is not a feature worth billing for.
+ *
+ * `effort` and `verbosity` are both `"medium"` — the highest of the four
+ * features, and deliberately. The others produce a value to accept, where the
+ * quality of this answer *is* the product; reasoning tokens bill at the output
+ * rate, so this is the one place that cost is worth paying.
+ */
+export async function explainCode(
+  input: unknown,
+): Promise<AiActionResult<string>> {
+  const gate = await guard(
+    input,
+    aiItemRequestSchema,
+    "explain",
+    EXPLAIN_LIMIT,
+  );
+
+  if (!gate.ok) {
+    return gate.failure;
+  }
+
+  const item = await getItemDetail(gate.user.id, gate.data.itemId);
+
+  if (!item) {
+    return { success: false, error: MISSING };
+  }
+
+  if (!isCodeType(item.type.slug)) {
+    return { success: false, error: NOT_CODE };
+  }
+
+  if (!item.content) {
+    return { success: false, error: NOTHING_TO_EXPLAIN };
+  }
+
+  const result = await runStructured({
+    instructions: EXPLAIN_PROMPT,
+    // Spelled out rather than passing `item`: narrowing `item.content` above
+    // does not narrow the object it belongs to.
+    input: describeCode({ content: item.content, language: item.language }),
+    schema: codeExplanationSchema,
+    schemaName: "code_explanation",
+    effort: "medium",
+    verbosity: "medium",
+    cacheKey: "devstash:explain:v1",
+  });
+
+  if (!result.ok) {
+    return { success: false, error: result.error };
+  }
+
+  await recordSpend(result.usage).catch(() => {});
+
+  return { success: true, data: result.data.explanation };
+}
+
+/**
+ * The code as the model sees it: the code, and the language hint when the item
+ * carries one.
+ *
+ * No title and no description — an explanation is supposed to come from reading
+ * the code, and a title saying what the snippet is for is exactly the thing a
+ * model will paraphrase instead of doing the work. The hint goes in because
+ * `Item.language` is free text a person chose, and it disambiguates syntax that
+ * several languages share.
+ *
+ * Truncated as one block, so the hint cannot be pushed out by a long file, and
+ * `truncateForAi` takes the **head** — a file's imports and top-level structure
+ * are where an explanation starts.
+ */
+function describeCode(item: { content: string; language: string | null }): string {
+  const parts = item.language ? [`Language: ${item.language}`] : [];
+
+  parts.push(`Code:\n${item.content}`);
+
+  return truncateForAi(parts.join("\n\n"));
 }
 
 /** What a gate refused, or the caller and their validated request. */
