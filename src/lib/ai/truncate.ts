@@ -8,8 +8,14 @@
  */
 
 /**
- * Roughly 6,000 tokens, which is far more than any of these features needs to
- * do its job and far less than a large file.
+ * The ceiling, and what explain and optimize send: roughly 6,000 tokens, far
+ * less than a large file.
+ *
+ * Those two are the features that genuinely want the whole artifact — an
+ * explanation of half a file is an explanation of a different file, and a
+ * rewrite that never saw the end of a prompt drops its requirements. The two
+ * that do not need it have their own smaller budgets below; every one of them
+ * is a bound on the *input*, so a smaller one is faster and cheaper both.
  *
  * Counted in **characters, not tokens**, deliberately: a tokenizer is another
  * dependency and another thing to keep in step with the model, and the budget
@@ -18,6 +24,25 @@
  * fine for a ceiling and would not be for a billing figure.
  */
 export const AI_CHARACTER_BUDGET = 24_000;
+
+/**
+ * What tagging sends.
+ *
+ * Classification: the opening of an item says what it is about, and the eight
+ * words that come back cannot use more. Sending the full budget was paying for
+ * prefill — in latency as well as in tokens — that could not change the answer.
+ */
+export const TAG_CHARACTER_BUDGET = 3_000;
+
+/**
+ * What summarising sends.
+ *
+ * Larger than tagging because a summary has to say what the item is *for*,
+ * which sometimes only becomes clear past the first screen, and still far short
+ * of the ceiling because it is two or three sentences and not a reading of the
+ * whole file.
+ */
+export const SUMMARY_CHARACTER_BUDGET = 6_000;
 
 /** Appended so the model knows it is seeing part of something. */
 export const TRUNCATION_MARKER = "\n\n[… truncated]";
