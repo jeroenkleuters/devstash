@@ -1877,7 +1877,13 @@ a.pagination-page:hover {
   font-size: 0.75rem;
 }
 
-.file-upload-spinner {
+/* The one spinning thing in the app. Named `.spinner` rather than the
+   `.file-upload-spinner` it started as: it is worn by the upload zone, the
+   bulk drop zone, the AI suggest button and the GitHub sign-in button, and
+   only one of those is an upload. Same move `.dashboard-topbar-action-label`
+   made when a third button started sharing it. Lives here rather than beside
+   the upload rules for the same reason. */
+.spinner {
   animation: spin 1s linear infinite;
 }
 
@@ -3173,7 +3179,7 @@ a.pagination-page:hover {
 
   /* The percentage and the bar already say an upload is running, so the spin
      is decoration. */
-  .file-upload-spinner {
+  .spinner {
     animation: none;
   }
 

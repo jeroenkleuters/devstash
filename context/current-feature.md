@@ -1,12 +1,47 @@
-# Current Feature
+# Current Feature: Spinners on the sign-in buttons
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
+- Both buttons in `src/components/auth/sign-in-form.tsx` show a spinner while
+  their submission is in flight, and stay inert so neither can be submitted
+  twice. The GitHub mark gives way to the spinner; the credentials button gains
+  one. **Neither label changes** — the spinner is the only moving part
+- Uses **`useFormStatus`**, not a second `useActionState`: `signInWithGitHub`
+  redirects rather than returning a state, so there is nothing for an action
+  state to hold — and `useFormStatus` must be read from a child of the form,
+  which means the button becomes its own small client component
+- The spinner is the existing `Loader2` + `.spinner` idiom (renamed from `file-upload-spinner`, which now has four consumers and only one of them an upload) the
+  AI buttons and the upload zone already use, so there is one spinning thing
+  in the app rather than two
+- `npm test`, `npx tsc --noEmit`, `npx eslint src` and `npm run build` clean
+- No migration, no new dependency, no new ShadCN primitive
+
 ## Notes
+
+Loaded inline, not from a spec file. The request was "show a spinner on login,
+logout"; scope was narrowed to **the GitHub button alone** on being asked.
+
+What the other two do today, and why they are out of scope:
+
+- **Credentials sign in** was declined at load and then asked for: it already
+  had `isPending` from `useActionState`, disabling and relabelling to
+  "Signing in…". It now shows the spinner **instead of** that relabel — the
+  button keeps saying what it does, and the moving thing is what says it is
+  working. The GitHub button was changed to match, so both keep their label
+  and the spinner is the only thing that changes on either.
+- **Sign out** in `src/components/layout/sidebar-user.tsx` is a bare
+  `<form action={signOutAction}>` inside a dropdown item, with no pending state
+  at all. Also declined. Worth knowing it is the same one-line fix if it is
+  ever wanted, and that a dropdown closing on click already gives some feedback
+  where the GitHub button gives none.
+
+The GitHub button is the right one to fix first regardless: it is the slowest
+of the three (a full round trip to github.com), and it is the only one where
+nothing at all happens on screen while it works.
 
 ## History
 
