@@ -9,7 +9,11 @@ import {
 } from "@/lib/ai/prompts";
 import { runStructured } from "@/lib/ai/run";
 import { budgetExceededMessage, checkSpend, recordSpend } from "@/lib/ai/spend";
-import { truncateForAi } from "@/lib/ai/truncate";
+import {
+  SUMMARY_CHARACTER_BUDGET,
+  TAG_CHARACTER_BUDGET,
+  truncateForAi,
+} from "@/lib/ai/truncate";
 import { isCodeType, isPromptType } from "@/constants/item-types";
 import { explanationSourceHash } from "@/lib/ai/explanation-cache";
 import {
@@ -137,7 +141,7 @@ async function suggest(source: {
 }): Promise<AiActionResult<string[]>> {
   const result = await runStructured({
     instructions: TAG_PROMPT,
-    input: describeItem(source),
+    input: describeItem(source, TAG_CHARACTER_BUDGET),
     schema: suggestedTagsSchema,
     schemaName: "suggested_tags",
     // Classification, and reasoning tokens bill at the *output* rate — so
@@ -244,7 +248,10 @@ async function summarize(source: {
     // what the item *is*, and feeding it a description it is about to replace
     // invites it to paraphrase that instead of reading the item. That holds
     // for a draft too, where the field may already hold something typed.
-    input: describeItem({ ...source, description: null, tags: [] }),
+    input: describeItem(
+      { ...source, description: null, tags: [] },
+      SUMMARY_CHARACTER_BUDGET,
+    ),
     schema: itemSummarySchema,
     schemaName: "item_summary",
     effort: "low",
@@ -274,10 +281,20 @@ async function summarize(source: {
  * get the Monaco editor, so there is no second list to keep in step, and
  * explaining a note is not a feature worth billing for.
  *
- * `effort` and `verbosity` are both `"medium"` — the highest of the four
- * features, and deliberately. The others produce a value to accept, where the
- * quality of this answer *is* the product; reasoning tokens bill at the output
- * rate, so this is the one place that cost is worth paying.
+ * **`verbosity: "medium"` with `effort: "low"`**, which is the split worth
+ * understanding rather than a compromise between them. Verbosity governs how
+ * much answer is produced, and this is the one feature whose answer *is* the
+ * product, so it keeps the higher setting. Effort governs how long the model
+ * deliberates before writing, it is billed at the output rate, and it was the
+ * single largest contributor to how long this feature took to respond — on a
+ * model this small the extra deliberation was not buying an answer worth the
+ * wait.
+ *
+ * Lowering it does **not** invalidate anything already cached:
+ * `explanationSourceHash` covers the code and the language hint, and
+ * `freshExplanation` also compares `AI_MODEL`, but neither sees `effort`.
+ * Answers produced at the old setting stay served, which is right — they are
+ * still good answers — and Regenerate is there for anyone who disagrees.
  */
 export async function explainCode(
   input: unknown,
@@ -333,7 +350,7 @@ export async function explainCode(
     input: describeCode({ content: item.content, language: item.language }),
     schema: codeExplanationSchema,
     schemaName: "code_explanation",
-    effort: "medium",
+    effort: "low",
     verbosity: "medium",
     cacheKey: "devstash:explain:v1",
   });
@@ -615,12 +632,15 @@ async function allowSpend(
  * cheaper than deduping the answer afterwards, and it produces better
  * suggestions than asking blind.
  */
-function describeItem(item: {
-  title: string;
-  description: string | null;
-  content: string | null;
-  tags: string[];
-}): string {
+function describeItem(
+  item: {
+    title: string;
+    description: string | null;
+    content: string | null;
+    tags: string[];
+  },
+  budget: number,
+): string {
   const parts = [`Title: ${item.title}`];
 
   if (item.description) {
@@ -636,6 +656,8 @@ function describeItem(item: {
   }
 
   // Truncated as one block rather than per field, so a huge content field
-  // cannot push the title out of what is sent.
-  return truncateForAi(parts.join("\n\n"));
+  // cannot push the title out of what is sent. The budget is the caller's
+  // because the two features sharing this helper need different amounts:
+  // tagging reads the opening, summarising reads further in.
+  return truncateForAi(parts.join("\n\n"), budget);
 }

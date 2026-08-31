@@ -10,7 +10,11 @@ import {
 } from "@/actions/ai";
 import { explanationSourceHash } from "@/lib/ai/explanation-cache";
 import { checkSpend, recordSpend } from "@/lib/ai/spend";
-import { AI_CHARACTER_BUDGET } from "@/lib/ai/truncate";
+import {
+  AI_CHARACTER_BUDGET,
+  SUMMARY_CHARACTER_BUDGET,
+  TAG_CHARACTER_BUDGET,
+} from "@/lib/ai/truncate";
 import {
   cacheExplanation,
   getCachedExplanation,
@@ -304,7 +308,10 @@ describe("suggestTags — the call", () => {
     const sent = parse.mock.calls[0][0].input as string;
 
     // The wrapper wraps it in delimiters, so allow for those and the marker.
-    expect(sent.length).toBeLessThan(AI_CHARACTER_BUDGET + 200);
+    expect(sent.length).toBeLessThan(TAG_CHARACTER_BUDGET + 200);
+    // And the point of the tag budget: well under the ceiling the two features
+    // that need a whole artifact still send.
+    expect(sent.length).toBeLessThan(AI_CHARACTER_BUDGET);
   });
 
   it("uses minimal effort, since reasoning bills at the output rate", async () => {
@@ -484,7 +491,9 @@ describe("suggestTagsForDraft — the create dialog's path", () => {
 
     const sent = parse.mock.calls[0][0].input as string;
 
-    expect(sent.length).toBeLessThan(AI_CHARACTER_BUDGET + 200);
+    // The draft path shares `suggest`, so it shares the tag budget — a draft
+    // is not a reason to send more than the stored item would.
+    expect(sent.length).toBeLessThan(TAG_CHARACTER_BUDGET + 200);
   });
 
   /**
@@ -523,6 +532,26 @@ describe("summarizeItem — the call and the answer", () => {
     await summarizeItem({ itemId: "item-1", userId: "someone-else" });
 
     expect(getItemDetailMock).toHaveBeenCalledWith("user-1", "item-1");
+  });
+
+  /**
+   * Between tagging and the ceiling, and the ordering is the assertion worth
+   * having: a summary has to read further in than a classification does, and
+   * still nothing like the whole file the two artifact-shaped features send.
+   */
+  it("sends more than tagging would, and far less than the ceiling", async () => {
+    getItemDetailMock.mockResolvedValue({
+      ...(ITEM as object),
+      content: "x".repeat(200_000),
+    } as never);
+
+    await summarizeItem({ itemId: "item-1" });
+
+    const sent = parse.mock.calls[0][0].input as string;
+
+    expect(sent.length).toBeLessThan(SUMMARY_CHARACTER_BUDGET + 200);
+    expect(sent.length).toBeGreaterThan(TAG_CHARACTER_BUDGET);
+    expect(sent.length).toBeLessThan(AI_CHARACTER_BUDGET);
   });
 
   /**
@@ -696,16 +725,18 @@ const ending = 2;`,
   });
 
   /**
-   * The highest of the four, and the one action that differs: the others
-   * produce a value to accept, where the quality of this answer *is* the
-   * product.
+   * The split is the point: the highest verbosity of the four, because the
+   * others produce a value to accept where the quality of this answer *is* the
+   * product — but low effort, because deliberation is billed at the output rate
+   * and was what made this the slowest feature. Raising it back is a latency
+   * regression this test is here to catch.
    */
-  it("uses medium effort and medium verbosity", async () => {
+  it("asks for a full answer but not a long deliberation", async () => {
     await explainCode({ itemId: "item-1" });
 
     const call = parse.mock.calls[0][0];
 
-    expect(call.reasoning).toEqual({ effort: "medium" });
+    expect(call.reasoning).toEqual({ effort: "low" });
     expect(call.text.verbosity).toBe("medium");
     expect(call.prompt_cache_key).toBe("devstash:explain:v1");
   });
