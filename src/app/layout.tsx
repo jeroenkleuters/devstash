@@ -25,6 +25,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
+      // The marketing page sets `scroll-behavior: smooth` through
+      // `html:has(.marketing)`, which Next cannot see and warns about on every
+      // navigation in development. Declaring it here is Next's own answer, and
+      // does not itself turn smooth scrolling on anywhere.
+      data-scroll-behavior="smooth"
       className={`dark ${geistSans.variable} ${geistMono.variable}`}
     >
       <body>

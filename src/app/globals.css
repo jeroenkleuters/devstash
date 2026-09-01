@@ -349,9 +349,18 @@ body {
   background: var(--sidebar-accent);
 }
 
+/* Active has to differ from hover by more than a shade, because hover already
+   claims --sidebar-accent: with only the text colour between them, the row you
+   are on and the row under the pointer look identical, which is what made the
+   highlighting read as missing. The heavier label below is what separates
+   them — an accent bar was tried here and taken back out as too loud. */
 .sidebar-link[data-active="true"] {
   background: var(--sidebar-accent);
   color: var(--sidebar-accent-foreground);
+}
+
+.sidebar-link[data-active="true"] .sidebar-link-label {
+  font-weight: 600;
 }
 
 /* Shrinks to its text rather than filling the row, so a following badge sits
@@ -422,6 +431,14 @@ body {
 
 .sidebar-view-all:hover {
   color: var(--sidebar-foreground);
+}
+
+/* Muted at rest, so being on /collections is stated by dropping the muting
+   rather than by the accent bar the .sidebar-link rows use — this is a footer
+   link under the list, not a row in it. */
+.sidebar-view-all[data-active="true"] {
+  color: var(--sidebar-foreground);
+  font-weight: 500;
 }
 
 .sidebar-user {
@@ -832,6 +849,13 @@ body {
   gap: 0.375rem;
   font-size: 0.9375rem;
   font-weight: 600;
+  /* `anywhere` rather than `break-word`, and the difference is load-bearing:
+     the title is a bare text node beside the pin and star, so it is an
+     anonymous flex item that cannot be given `min-width: 0` and will not
+     shrink below its min-content width. Only `anywhere` reduces that width,
+     so only `anywhere` stops an unbroken identifier widening the whole list
+     past the viewport. */
+  overflow-wrap: anywhere;
 }
 
 /* The pin and star on a card — controls, not the indicators they used to be, so
