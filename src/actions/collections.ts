@@ -7,7 +7,9 @@ import {
   setCollectionFavorite as setCollectionFavoriteRow,
   updateCollection as updateCollectionRow,
 } from "@/lib/db/collections";
-import { getCurrentUser, getCurrentUserId } from "@/lib/db/user";
+import { withSession, writeFlag } from "@/lib/action-guard";
+import { SIGNED_OUT } from "@/constants/messages";
+import { getCurrentUser } from "@/lib/db/user";
 import { collectionLimitMessage, collectionUsage } from "@/lib/usage-limits";
 import { firstIssueMessage } from "@/lib/validations/auth";
 import {
@@ -20,12 +22,6 @@ import type {
   SetCollectionFavoriteResult,
   UpdateCollectionResult,
 } from "@/types/collection";
-
-/**
- * A session is not the same as a live account: the row can be gone while the
- * JWT still verifies, which is what `getCurrentUserId` returning null means.
- */
-const SIGNED_OUT = "Your session has ended. Sign in again.";
 
 const CREATE_FAILED = "Could not create this collection. Try again.";
 const UPDATE_FAILED = "Could not save this collection. Try again.";
@@ -94,34 +90,29 @@ export async function updateCollection(
   collectionId: string,
   input: unknown,
 ): Promise<UpdateCollectionResult> {
-  const userId = await getCurrentUserId();
-
-  if (!userId) {
-    return { success: false, error: SIGNED_OUT };
-  }
-
   const parsed = updateCollectionSchema.safeParse(input);
 
   if (!parsed.success) {
     return { success: false, error: firstIssueMessage(parsed.error) };
   }
 
-  try {
-    const collection = await updateCollectionRow(
-      userId,
-      collectionId,
-      parsed.data,
-    );
+  return withSession<UpdateCollectionResult>(
+    "updateCollection",
+    UPDATE_FAILED,
+    async (userId) => {
+      const collection = await updateCollectionRow(
+        userId,
+        collectionId,
+        parsed.data,
+      );
 
-    if (!collection) {
-      return { success: false, error: MISSING };
-    }
+      if (!collection) {
+        return { success: false, error: MISSING };
+      }
 
-    return { success: true, data: collection };
-  } catch (error) {
-    console.error("updateCollection failed", error);
-    return { success: false, error: UPDATE_FAILED };
-  }
+      return { success: true, data: collection };
+    },
+  );
 }
 
 /**
@@ -134,24 +125,9 @@ export async function updateCollection(
 export async function deleteCollection(
   collectionId: string,
 ): Promise<DeleteCollectionResult> {
-  const userId = await getCurrentUserId();
-
-  if (!userId) {
-    return { success: false, error: SIGNED_OUT };
-  }
-
-  try {
-    const deleted = await deleteCollectionRow(userId, collectionId);
-
-    if (!deleted) {
-      return { success: false, error: MISSING };
-    }
-
-    return { success: true };
-  } catch (error) {
-    console.error("deleteCollection failed", error);
-    return { success: false, error: DELETE_FAILED };
-  }
+  return writeFlag("deleteCollection", DELETE_FAILED, MISSING, (userId) =>
+    deleteCollectionRow(userId, collectionId),
+  );
 }
 
 /**
@@ -165,26 +141,7 @@ export async function setCollectionFavorite(
   collectionId: string,
   isFavorite: boolean,
 ): Promise<SetCollectionFavoriteResult> {
-  const userId = await getCurrentUserId();
-
-  if (!userId) {
-    return { success: false, error: SIGNED_OUT };
-  }
-
-  try {
-    const written = await setCollectionFavoriteRow(
-      userId,
-      collectionId,
-      isFavorite,
-    );
-
-    if (!written) {
-      return { success: false, error: MISSING };
-    }
-
-    return { success: true };
-  } catch (error) {
-    console.error("setCollectionFavorite failed", error);
-    return { success: false, error: FAVORITE_FAILED };
-  }
+  return writeFlag("setCollectionFavorite", FAVORITE_FAILED, MISSING, (userId) =>
+    setCollectionFavoriteRow(userId, collectionId, isFavorite),
+  );
 }

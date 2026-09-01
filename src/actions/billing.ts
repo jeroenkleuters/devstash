@@ -1,5 +1,6 @@
 "use server";
 
+import { SIGNED_OUT } from "@/constants/messages";
 import { configuredOrigin } from "@/lib/app-url";
 import { getStripeCustomerId, setStripeCustomerId } from "@/lib/db/billing";
 import { getCurrentUser } from "@/lib/db/user";
@@ -7,12 +8,6 @@ import { getStripe, priceIdFor } from "@/lib/stripe";
 import { firstIssueMessage } from "@/lib/validations/auth";
 import { startCheckoutSchema } from "@/lib/validations/billing";
 import type { BillingPortalResult, StartCheckoutResult } from "@/types/billing";
-
-/**
- * A session is not the same as a live account: the row can be gone while the
- * JWT still verifies, which is what `getCurrentUser` returning null means.
- */
-const SIGNED_OUT = "Your session has ended. Sign in again.";
 
 const CHECKOUT_FAILED = "Could not start checkout. Try again.";
 const PORTAL_FAILED = "Could not open billing. Try again.";

@@ -4,6 +4,8 @@
  * or the Redis client into a browser bundle.
  */
 
+import type { WriteResult } from "@/types/action";
+
 /**
  * What one call spent, as the response itself reported it.
  *
@@ -69,9 +71,7 @@ export type AiPreferences = {
  * whole set and already holds it, so the only thing left to say is whether it
  * was stored — the same shape `UpdateUploadPreferencesResult` has.
  */
-export type UpdateAiPreferencesResult =
-  | { success: true }
-  | { success: false; error: string };
+export type UpdateAiPreferencesResult = WriteResult;
 
 /**
  * What an AI server action answers with.

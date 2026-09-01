@@ -7,6 +7,7 @@ import {
   deleteAccount,
   type ChangePasswordOutcome,
 } from "@/lib/account";
+import { SIGNED_OUT } from "@/constants/messages";
 import { getCurrentUserId } from "@/lib/db/user";
 import { rateLimit, tooManyAttemptsMessage } from "@/lib/rate-limit";
 import { changePasswordSchema, firstIssueMessage } from "@/lib/validations/auth";
@@ -15,12 +16,6 @@ import {
   type ChangePasswordState,
   type DeleteAccountState,
 } from "@/types/profile";
-
-/**
- * Both actions are reachable only with a session, but a session is not the same
- * as a live account: the row can be gone while the JWT still verifies.
- */
-const SIGNED_OUT = "Your session has ended. Sign in again.";
 
 /**
  * Each attempt costs two bcrypt hashes, and a stolen session could otherwise
