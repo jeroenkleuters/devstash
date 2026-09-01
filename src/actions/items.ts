@@ -3,7 +3,9 @@
 import { creatableType, isProType } from "@/constants/item-types";
 import { ownsAllCollections } from "@/lib/db/collections";
 import { getItemTypeBySlug } from "@/lib/db/item-types";
-import { getCurrentUser, getCurrentUserId } from "@/lib/db/user";
+import { withSession, writeFlag } from "@/lib/action-guard";
+import { SIGNED_OUT } from "@/constants/messages";
+import { getCurrentUser } from "@/lib/db/user";
 import {
   countItems,
   createItem as createItemRow,
@@ -26,12 +28,6 @@ import type {
   SetItemFlagResult,
   UpdateItemResult,
 } from "@/types/item";
-
-/**
- * A session is not the same as a live account: the row can be gone while the
- * JWT still verifies, which is what `getCurrentUserId` returning null means.
- */
-const SIGNED_OUT = "Your session has ended. Sign in again.";
 
 /** Covers both "no such item" and "not yours" — the query does not tell them apart. */
 const MISSING = "That item no longer exists.";
@@ -214,19 +210,13 @@ export async function updateItem(
   itemId: string,
   input: unknown,
 ): Promise<UpdateItemResult> {
-  const userId = await getCurrentUserId();
-
-  if (!userId) {
-    return { success: false, error: SIGNED_OUT };
-  }
-
   const parsed = updateItemSchema.safeParse(input);
 
   if (!parsed.success) {
     return { success: false, error: firstIssueMessage(parsed.error) };
   }
 
-  try {
+  return withSession<UpdateItemResult>("updateItem", FAILED, async (userId) => {
     // Same rule as create: the item is the caller's, the collections it names
     // are not necessarily.
     if (!(await ownsAllCollections(userId, parsed.data.collectionIds))) {
@@ -240,13 +230,7 @@ export async function updateItem(
     }
 
     return { success: true, data: detail };
-  } catch (error) {
-    // Nothing here is recoverable by the visitor — a dropped connection, or the
-    // item deleted between the ownership read and the write. Log it so it is
-    // not lost, and give the drawer something it can put in a toast.
-    console.error("updateItem failed", error);
-    return { success: false, error: FAILED };
-  }
+  });
 }
 
 /**
@@ -262,45 +246,41 @@ export async function updateItem(
  * it clears, which is the recoverable half of the trade.
  */
 export async function deleteItem(itemId: string): Promise<DeleteItemResult> {
-  const userId = await getCurrentUserId();
+  return withSession<DeleteItemResult>(
+    "deleteItem",
+    DELETE_FAILED,
+    async (userId) => {
+      const file = await getItemFile(userId, itemId);
 
-  if (!userId) {
-    return { success: false, error: SIGNED_OUT };
-  }
+      if (file) {
+        // The key came off the caller's own row, so this holds unless something
+        // wrote a key by hand. Refusing beats deleting an object by that name
+        // in someone else's prefix.
+        if (!ownsObjectKey(userId, file.key)) {
+          console.error("deleteItem refused a foreign object key", file.key);
+          return { success: false, error: FILE_DELETE_FAILED };
+        }
 
-  try {
-    const file = await getItemFile(userId, itemId);
-
-    if (file) {
-      // The key came off the caller's own row, so this holds unless something
-      // wrote a key by hand. Refusing beats deleting an object by that name in
-      // someone else's prefix.
-      if (!ownsObjectKey(userId, file.key)) {
-        console.error("deleteItem refused a foreign object key", file.key);
-        return { success: false, error: FILE_DELETE_FAILED };
+        try {
+          await deleteFile(file.key);
+        } catch (error) {
+          // Caught here rather than by the wrapper so the message says which
+          // half failed: the item is still there, and trying again is worth
+          // something.
+          console.error("deleteItem could not remove the file", error);
+          return { success: false, error: FILE_DELETE_FAILED };
+        }
       }
 
-      try {
-        await deleteFile(file.key);
-      } catch (error) {
-        // Caught here rather than below so the message says which half failed:
-        // the item is still there, and trying again is worth something.
-        console.error("deleteItem could not remove the file", error);
-        return { success: false, error: FILE_DELETE_FAILED };
+      const deleted = await deleteItemRow(userId, itemId);
+
+      if (!deleted) {
+        return { success: false, error: MISSING };
       }
-    }
 
-    const deleted = await deleteItemRow(userId, itemId);
-
-    if (!deleted) {
-      return { success: false, error: MISSING };
-    }
-
-    return { success: true };
-  } catch (error) {
-    console.error("deleteItem failed", error);
-    return { success: false, error: DELETE_FAILED };
-  }
+      return { success: true };
+    },
+  );
 }
 
 /**
@@ -315,10 +295,8 @@ export async function setItemFavorite(
   itemId: string,
   isFavorite: boolean,
 ): Promise<SetItemFlagResult> {
-  return writeItemFlag(
-    (userId) => setItemFavoriteRow(userId, itemId, isFavorite),
-    "setItemFavorite",
-    FAVORITE_FAILED,
+  return writeFlag("setItemFavorite", FAVORITE_FAILED, MISSING, (userId) =>
+    setItemFavoriteRow(userId, itemId, isFavorite),
   );
 }
 
@@ -327,39 +305,7 @@ export async function setItemPinned(
   itemId: string,
   isPinned: boolean,
 ): Promise<SetItemFlagResult> {
-  return writeItemFlag(
-    (userId) => setItemPinnedRow(userId, itemId, isPinned),
-    "setItemPinned",
-    PIN_FAILED,
+  return writeFlag("setItemPinned", PIN_FAILED, MISSING, (userId) =>
+    setItemPinnedRow(userId, itemId, isPinned),
   );
-}
-
-/**
- * The session check, the missing-row answer and the catch, shared by the two
- * flags — they differ only in which column they write and what a failure is
- * called.
- */
-async function writeItemFlag(
-  write: (userId: string) => Promise<boolean>,
-  label: string,
-  failed: string,
-): Promise<SetItemFlagResult> {
-  const userId = await getCurrentUserId();
-
-  if (!userId) {
-    return { success: false, error: SIGNED_OUT };
-  }
-
-  try {
-    const written = await write(userId);
-
-    if (!written) {
-      return { success: false, error: MISSING };
-    }
-
-    return { success: true };
-  } catch (error) {
-    console.error(`${label} failed`, error);
-    return { success: false, error: failed };
-  }
 }

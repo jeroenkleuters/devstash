@@ -33,12 +33,12 @@ import {
   optimizedPromptSchema,
   suggestedTagsSchema,
 } from "@/lib/validations/ai";
+import { SIGNED_OUT } from "@/constants/messages";
 import { firstIssueMessage } from "@/lib/validations/auth";
 import type { z } from "zod";
 import type { AiActionResult } from "@/types/ai";
 import type { OptimizedPrompt } from "@/lib/validations/ai";
 
-const SIGNED_OUT = "Your session has ended. Sign in again.";
 const AI_TURNED_OFF =
   "AI features are switched off for this account. Turn them on in Settings.";
 const AI_PRO_REQUIRED = "AI suggestions need a Pro subscription.";
