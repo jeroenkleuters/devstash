@@ -408,8 +408,12 @@ body {
   background: var(--type-color);
 }
 
+/* A row rather than a block, so the pending spinner sits beside the label
+   instead of under it. */
 .sidebar-view-all {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   padding: 0.5rem;
   font-size: 0.8125rem;
   color: var(--muted-foreground);
@@ -1895,8 +1899,10 @@ a.pagination-page:hover {
    bulk drop zone, the AI suggest button and the GitHub sign-in button, and
    only one of those is an upload. Same move `.dashboard-topbar-action-label`
    made when a third button started sharing it. Lives here rather than beside
-   the upload rules for the same reason. */
-.spinner {
+   the upload rules for the same reason. `.link-spinner` shares the animation
+   and nothing else — its own rules are down with the link pending state. */
+.spinner,
+.link-spinner {
   animation: spin 1s linear infinite;
 }
 
@@ -3285,8 +3291,10 @@ a.pagination-page:hover {
   }
 
   /* The percentage and the bar already say an upload is running, so the spin
-     is decoration. */
-  .spinner {
+     is decoration — and a link spinner has already replaced the icon it stands
+     in for, which is the part that says the click landed. */
+  .spinner,
+  .link-spinner {
     animation: none;
   }
 
@@ -5553,4 +5561,48 @@ button.sidebar-link {
     justify-content: flex-end;
     margin-bottom: 1rem;
   }
+}
+
+/* ---------------------------------------------------- link pending state
+   `useLinkStatus` reports the nearest ancestor Link as pending, and this is
+   what that looks like. Every page is `force-dynamic` with no `loading.tsx`
+   anywhere, so a click always costs a round trip and used to change nothing
+   until it came back.
+
+   Where a link has a leading icon the spinner takes its place, which is why
+   nothing here reserves room — the slot is 1rem either way. Where the link is
+   the empty anchor stretched over a card there is nothing to swap, so the
+   spinner is centred over the card instead. The spin itself is grouped onto
+   `.spinner` further up. */
+.link-spinner {
+  flex-shrink: 0;
+  color: var(--muted-foreground);
+}
+
+/* Empty at rest, so the centring costs nothing until a spinner arrives. */
+.collection-card-open,
+.stat-card-open,
+.item-card-open {
+  display: grid;
+  place-items: center;
+}
+
+/* The scrim is what makes the whole card read as loading rather than one
+   corner of it, and it dims the text the spinner sits over. */
+.collection-card-open:has(.link-spinner),
+.stat-card-open:has(.link-spinner),
+.item-card-open:has(.link-spinner) {
+  background: color-mix(in oklab, var(--background) 65%, transparent);
+}
+
+.collection-card-open .link-spinner,
+.stat-card-open .link-spinner,
+.item-card-open .link-spinner {
+  color: var(--foreground);
+}
+
+/* A numbered page has no icon, so the digit is what gives way. The box is
+   already `min-width: 2rem`, so it keeps its size through the swap. */
+.pagination-page:has(.link-spinner) .pagination-page-number {
+  display: none;
 }

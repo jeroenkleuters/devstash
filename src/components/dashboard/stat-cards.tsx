@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Boxes, Folder, FolderHeart, Star } from "lucide-react";
 
+import { LinkSpinner } from "@/components/layout/link-pending";
+
 import { getCollectionStats } from "@/lib/db/collections";
 import { getItemStats } from "@/lib/db/items";
 import { getCurrentUserId } from "@/lib/db/user";
@@ -56,7 +58,9 @@ export async function StatCards() {
           {/* Stretched over the card rather than wrapping it, so the grid keeps
               its two columns and the icon keeps spanning both rows. */}
           {href && (
-            <Link href={href} className="stat-card-open" aria-label={label} />
+            <Link href={href} className="stat-card-open" aria-label={label}>
+              <LinkSpinner />
+            </Link>
           )}
 
           <span className="stat-card-icon">

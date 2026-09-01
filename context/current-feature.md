@@ -1,12 +1,28 @@
-# Current Feature
+# Current Feature: Navigation Loading Indicator
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
+- Clicking an in-app link gives immediate feedback that the click registered, instead of the page sitting unchanged until the server responds.
+- The indicator shows only while a navigation is genuinely pending, and clears when the new page paints.
+- Covers the places a page is reached from: the sidebar type and collection links, collection cards, the dashboard stat card, pagination steps, the favorites rows, and the account menu links.
+- No layout shift — the indicator must not push a link label around as it appears.
+- Reuses the existing `.spinner` class and the semantic-class convention; no Tailwind utility strings in the JSX, and the existing `prefers-reduced-motion` override still applies.
+
 ## Notes
+
+- **Why it is invisible today:** there is no `loading.tsx` anywhere under `src/app`. Every page is `force-dynamic` and awaits at least some data outside its Suspense boundary (the type page awaits the item type and the page count for its heading and pagination), so the browser stays on the old page with nothing moving until the server answers.
+- **Next 16.3 ships `useLinkStatus()`** from `next/link`, which reports `pending` for the nearest ancestor `<Link>`. It is the natural fit for a per-link spinner, and it only works from a component rendered *inside* that Link.
+- **A global top progress bar was built first and rejected on sight**, and rolled back before it was committed. It worked — one document-level click listener covering every anchor with no link edited — but the feedback landing at the top of the window rather than on the thing that was clicked is what it was rejected for.
+- **Decided: a per-link spinner via `useLinkStatus`.** The hook only reads the nearest ancestor `<Link>`, so the spinner has to be a child of each link, which is why this touches six components where the bar touched one.
+- **Two shapes fall out of that**, and they are the whole design: a link with a leading icon has the icon *swapped* for the spinner, which is why nothing has to reserve room — every one of those slots is 1rem, the recent-collection dot included, since its margins already make it occupy one. A link that is the empty anchor stretched over a card has nothing to swap, so the spinner is centred over the card behind a scrim.
+- **The account menu links are deliberately out of scope.** Radix closes the dropdown on select, so the whole subtree unmounts the instant the link is clicked and a spinner in there could never be seen — the menu closing is already the feedback. The same is true of the sidebar on mobile, where `closeOnMobile` shuts the drawer on the way out.
+- **Cards are a stretched invisible `<Link>` sibling** over the card body (`.collection-card-open`, `.item-card-open`), so a spinner for those needs somewhere to live inside the card rather than inside the anchor.
+- The item drawer opens client-side and is not a navigation, so it is out of scope; it already has its own loading state.
+- Both sign-in buttons already have spinners from an earlier fix — this is the navigation half of the same complaint.
 
 ## History
 
