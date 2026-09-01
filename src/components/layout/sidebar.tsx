@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { ChevronDown, Folder, Layers, Star } from "lucide-react";
 
 import { useBilling } from "@/components/billing/billing-provider";
+import { LinkPendingIcon, LinkSpinner } from "@/components/layout/link-pending";
 import { useSidebar } from "@/components/layout/sidebar-provider";
 import { SidebarUser } from "@/components/layout/sidebar-user";
 import { Badge } from "@/components/ui/badge";
@@ -74,16 +75,20 @@ export function Sidebar({
                 // rather than gating what it can add.
                 const locked = proType && !isPro && type.itemCount === 0;
 
+                const icon = Icon ? (
+                  <Icon
+                    className="sidebar-type-icon"
+                    data-type={type.slug}
+                    size={16}
+                    aria-hidden
+                  />
+                ) : null;
+
+                // The label and everything after it is the same in both
+                // branches; only the leading icon differs, since the locked
+                // button never navigates and has nothing to be pending about.
                 const contents = (
                   <>
-                    {Icon && (
-                      <Icon
-                        className="sidebar-type-icon"
-                        data-type={type.slug}
-                        size={16}
-                        aria-hidden
-                      />
-                    )}
                     <span className="sidebar-link-label">{type.name}</span>
                     {proType && (
                       <Badge variant="outline" className="sidebar-pro-badge">
@@ -109,6 +114,7 @@ export function Sidebar({
                           })
                         }
                       >
+                        {icon}
                         {contents}
                       </button>
                     ) : (
@@ -119,6 +125,7 @@ export function Sidebar({
                         title={type.name}
                         onClick={closeOnMobile}
                       >
+                        <LinkPendingIcon>{icon}</LinkPendingIcon>
                         {contents}
                       </Link>
                     )}
@@ -160,11 +167,13 @@ export function Sidebar({
                             title={collection.name}
                             onClick={closeOnMobile}
                           >
-                            <Folder
-                              className="sidebar-link-icon"
-                              size={16}
-                              aria-hidden
-                            />
+                            <LinkPendingIcon>
+                              <Folder
+                                className="sidebar-link-icon"
+                                size={16}
+                                aria-hidden
+                              />
+                            </LinkPendingIcon>
                             <span className="sidebar-link-label">
                               {collection.name}
                             </span>
@@ -200,11 +209,13 @@ export function Sidebar({
                             title={collection.name}
                             onClick={closeOnMobile}
                           >
-                            <span
-                              className="sidebar-link-dot"
-                              data-type={primaryType?.slug}
-                              aria-hidden
-                            />
+                            <LinkPendingIcon>
+                              <span
+                                className="sidebar-link-dot"
+                                data-type={primaryType?.slug}
+                                aria-hidden
+                              />
+                            </LinkPendingIcon>
                             <span className="sidebar-link-label">
                               {collection.name}
                             </span>
@@ -225,6 +236,7 @@ export function Sidebar({
                 onClick={closeOnMobile}
               >
                 View all collections
+                <LinkSpinner size={14} />
               </Link>
             </>
           )}

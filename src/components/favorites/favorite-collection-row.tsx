@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Folder } from "lucide-react";
 
+import { LinkSpinner } from "@/components/layout/link-pending";
+
 import type { CollectionSummary } from "@/lib/db/collections";
 import { formatRelativeDate } from "@/lib/utils";
 
@@ -28,7 +30,9 @@ export function FavoriteCollectionRow({
         href={`/collections/${collection.id}`}
         className="item-card-open"
         aria-label={`Open ${collection.name}`}
-      />
+      >
+        <LinkSpinner />
+      </Link>
 
       <span className="favorite-row-icon">
         <Folder size={15} aria-hidden />

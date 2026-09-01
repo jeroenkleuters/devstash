@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
+import { LinkPendingIcon, LinkSpinner } from "@/components/layout/link-pending";
+
 import { pageLinks } from "@/lib/pagination";
 
 interface PaginationProps {
@@ -38,7 +40,9 @@ export function Pagination({ page, totalPages, basePath }: PaginationProps) {
     <nav className="pagination" aria-label="Pagination">
       {previous >= 1 ? (
         <Link className="pagination-step" href={hrefFor(previous)} rel="prev">
-          <ChevronLeft size={16} aria-hidden />
+          <LinkPendingIcon>
+            <ChevronLeft size={16} aria-hidden />
+          </LinkPendingIcon>
           <span className="action-label">Previous</span>
         </Link>
       ) : (
@@ -63,7 +67,8 @@ export function Pagination({ page, totalPages, basePath }: PaginationProps) {
                 </span>
               ) : (
                 <Link className="pagination-page" href={hrefFor(link)}>
-                  {link}
+                  <span className="pagination-page-number">{link}</span>
+                  <LinkSpinner size={14} />
                 </Link>
               )}
             </li>
@@ -74,7 +79,9 @@ export function Pagination({ page, totalPages, basePath }: PaginationProps) {
       {next <= totalPages ? (
         <Link className="pagination-step" href={hrefFor(next)} rel="next">
           <span className="action-label">Next</span>
-          <ChevronRight size={16} aria-hidden />
+          <LinkPendingIcon>
+            <ChevronRight size={16} aria-hidden />
+          </LinkPendingIcon>
         </Link>
       ) : (
         <span className="pagination-step" data-disabled aria-disabled="true">

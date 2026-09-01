@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Star } from "lucide-react";
 
 import { CollectionCardMenu } from "@/components/collections/collection-card-menu";
+import { LinkSpinner } from "@/components/layout/link-pending";
 import { TYPE_ICONS } from "@/constants/item-types";
 import type { CollectionSummary } from "@/lib/db/collections";
 
@@ -23,7 +24,9 @@ export function CollectionCard({ collection }: CollectionCardProps) {
         href={`/collections/${collection.id}`}
         className="collection-card-open"
         aria-label={`Open ${collection.name}`}
-      />
+      >
+        <LinkSpinner />
+      </Link>
 
       <CollectionCardMenu
         collection={{
