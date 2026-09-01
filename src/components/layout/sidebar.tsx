@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown, Folder, Layers, Star } from "lucide-react";
+import { ChevronDown, Folder, LayoutDashboard, Layers, Star } from "lucide-react";
 
 import { useBilling } from "@/components/billing/billing-provider";
 import { LinkPendingIcon, LinkSpinner } from "@/components/layout/link-pending";
@@ -15,6 +15,12 @@ import { PRO_TYPE_SLUGS, TYPE_ICONS } from "@/constants/item-types";
 import type { CollectionSummary } from "@/lib/db/collections";
 import type { ItemTypeWithCount } from "@/lib/db/items";
 import type { CurrentUser } from "@/lib/db/user";
+
+/** The two destinations that are not a type or a collection. */
+const MAIN_LINKS = [
+  { href: "/dashboard", label: "Dashboard", Icon: LayoutDashboard },
+  { href: "/favorites", label: "Favorites", Icon: Star },
+] as const;
 
 interface SidebarProps {
   types: ItemTypeWithCount[];
@@ -50,6 +56,34 @@ export function Sidebar({
       </Link>
 
       <div className="sidebar-scroll">
+        {/* Dashboard and Favorites had no sidebar row at all: the brand was the
+            only route to one and a dashboard stat card the only route to the
+            other, so both pages left the whole sidebar with nothing marked.
+            Profile and Settings deliberately stay in the account menu at the
+            bottom rather than being duplicated here. */}
+        <nav className="sidebar-section" aria-label="Main">
+          <ul className="sidebar-list">
+            {MAIN_LINKS.map(({ href, label, Icon }) => (
+              <li key={href}>
+                <Link
+                  href={href}
+                  className="sidebar-link"
+                  data-active={pathname === href}
+                  title={label}
+                  onClick={closeOnMobile}
+                >
+                  <LinkPendingIcon>
+                    <Icon className="sidebar-link-icon" size={16} aria-hidden />
+                  </LinkPendingIcon>
+                  <span className="sidebar-link-label">{label}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
+
+        <Separator />
+
         <nav className="sidebar-section" aria-label="Item types">
           <button
             type="button"
@@ -233,6 +267,7 @@ export function Sidebar({
               <Link
                 href="/collections"
                 className="sidebar-view-all"
+                data-active={pathname === "/collections"}
                 onClick={closeOnMobile}
               >
                 View all collections

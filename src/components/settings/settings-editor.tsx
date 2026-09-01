@@ -54,7 +54,7 @@ export function SettingsEditor() {
             Font size
           </Label>
           <p className="settings-row-description">
-            The size code is set in, in pixels
+            How large code text appears, in pixels.
           </p>
         </div>
 

@@ -19,11 +19,15 @@ const FREE = [
   "Dark mode",
 ];
 
+// One feature per line, and named the way the AI section above names it. The
+// prompt optimizer used to arrive as the second half of the explain-this-code
+// bullet, which sold the newest AI feature as an afterthought to another one.
 const PRO = [
   "Unlimited items and collections",
   "File, image and book uploads",
   "AI auto-tagging and summaries",
-  "Explain this code, prompt optimizer",
+  "Explain this code",
+  "Prompt optimizer that sharpens what you wrote",
   "Data export (JSON / ZIP)",
   "Priority support",
 ];

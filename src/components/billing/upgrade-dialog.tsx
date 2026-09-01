@@ -39,7 +39,7 @@ const BENEFITS = [
   "File, image and book uploads",
   // The marketing pricing section already promises these, so an upsell that
   // omits them undersells the product it is selling.
-  "AI tags, summaries, code explanations and prompt rewriting",
+  "AI tags, summaries, code explanations and the prompt optimizer",
   "Everything you have already saved stays as it is",
 ];
 

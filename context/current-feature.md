@@ -1,12 +1,58 @@
-# Current Feature
+# Current Feature: Findings — UI Layout Review
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
+- **Sidebar active state reads as active.** `[data-active="true"]` currently shares
+  `--sidebar-accent` with `:hover` and adds only a text-colour change, so the current
+  page is indistinguishable from whatever the pointer is over. Give it a cue of its own.
+- **Every page the sidebar can reach highlights something.** `/dashboard`, `/favorites`,
+  `/profile`, `/settings` and `/collections` have no row that ever lights up.
+- **`/register` offers GitHub.** It has no divider and no GitHub button, while `/sign-in`
+  has both, so someone wanting GitHub has to guess their way across.
+- **A long unbroken title stops overflowing the item list.** `.item-card-title` has
+  `white-space: normal` and no `overflow-wrap`, so the seeded `AiExplanationPanelProps`
+  pushes `.dashboard-main` to `scrollWidth 416` against `clientWidth 375` at 390px.
+- **Settings → Editor font-size copy reads correctly.** Currently "The size code is set
+  in, in pixels".
+- **The dev-mode `scroll-behavior: smooth` warning stops firing** on every navigation.
+- **The prompt optimizer is sold properly in the pricing section.** It is mentioned, but
+  as the tail of another bullet, and named three different ways across three surfaces.
+
 ## Notes
+
+From a Playwright UI review of the running app (2026-09-01), signed in as demo, walked at
+1440px and 390px across the marketing home, both auth pages, dashboard, three type pages,
+collections index and detail, favorites, profile, settings, the item drawer and the search
+palette.
+
+**The sidebar finding is narrower than it was first reported.** Highlighting is not
+missing — `data-active` is set correctly in `sidebar.tsx` and does render, confirmed live
+on `/items/snippets` and in the collapsed rail. The defect is that
+`globals.css` gives active and hover the *same* background, so at a glance, against the
+coloured type icons and PRO badges, it reads as nothing at all.
+
+**The prompt optimizer is likewise already mentioned**, so this is prominence and naming
+rather than an omission:
+
+| Surface | Wording today |
+| --- | --- |
+| `ai-section.tsx` | "**Prompt optimizer** that sharpens what you wrote" |
+| `pricing-cards.tsx` | "Explain this code, prompt optimizer" — two features, one bullet |
+| `upgrade-dialog.tsx` | "AI tags, summaries, code explanations and prompt rewriting" |
+
+Three names for one feature. The pricing bullet is the one that undersells it: the newest
+AI feature arrives as the second half of a line about a different one.
+
+Verified clean and deliberately out of scope: zero console errors on every page visited;
+no overflow at 390px on the dashboard, marketing home or the mobile drawer; icon-only
+controls sampled all carry accessible names; the drawer and ⌘K palette both behave. The
+black `/items/images` tile is the known `object-cover` crop on a very tall screenshot and
+is recorded in the history as an accepted trade-off. Contrast ratios were not measured
+numerically and the full tab order was not walked on every page.
 
 ## History
 
