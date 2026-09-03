@@ -5,6 +5,7 @@ import { useRef, useState, type DragEvent } from "react";
 
 import { CameraButton } from "@/components/items/camera-button";
 import { Button } from "@/components/ui/button";
+import { UNREACHABLE } from "@/constants/messages";
 import {
   acceptAttribute,
   uploadConstraint,
@@ -19,7 +20,6 @@ import {
 import {
   uploadFile,
   UploadError,
-  UPLOAD_UNREACHABLE,
   type UploadedFile,
 } from "@/lib/upload-file";
 import { formatFileSize } from "@/lib/utils";
@@ -118,7 +118,7 @@ export function FileUpload({
       // Anything that is not an `UploadError` is a throw we did not plan for —
       // a TypeError out of `fetch`, say — whose message is no use to a visitor.
       setError(
-        failure instanceof UploadError ? failure.message : UPLOAD_UNREACHABLE,
+        failure instanceof UploadError ? failure.message : UNREACHABLE,
       );
     }
   }

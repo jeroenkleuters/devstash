@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { UNREACHABLE } from "@/constants/messages";
 import { toastIfRateLimited } from "@/lib/rate-limit-toast";
 import { firstIssueMessage, resetPasswordSchema } from "@/lib/validations/auth";
 
@@ -20,7 +21,6 @@ interface ResetPasswordResponse {
   error?: string;
 }
 
-const NETWORK_ERROR = "Could not reach the server. Try again.";
 const UNKNOWN_ERROR = "Could not reset the password.";
 
 export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
@@ -73,7 +73,7 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
       // back button off a form whose link no longer works.
       router.replace("/sign-in?reset=1");
     } catch {
-      setError(NETWORK_ERROR);
+      setError(UNREACHABLE);
       setIsPending(false);
     }
   }

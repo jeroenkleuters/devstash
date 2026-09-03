@@ -592,10 +592,17 @@ async function allowSpend(
   feature: string,
   limit: number,
 ): Promise<AiActionResult<never> | null> {
-  const [perFeature, combined] = [
-    await rateLimit(`ai:${feature}:${userId}`, limit, HOUR),
-    await rateLimit(`ai:all:${userId}`, COMBINED_LIMIT, HOUR),
-  ];
+  // `Promise.all`, not an array of awaits: an array literal evaluates left to
+  // right, so awaiting inside one is two sequential round trips wearing the
+  // shape of a parallel pair. The two windows are independent — neither result
+  // decides whether the other is worth checking — and this sits on the hot path
+  // of every AI action, before the model is reached. Safe because `rateLimit`
+  // catches its own failures and fails open, so there is no sibling rejection
+  // to go unhandled. Same shape the two-window auth routes already use.
+  const [perFeature, combined] = await Promise.all([
+    rateLimit(`ai:${feature}:${userId}`, limit, HOUR),
+    rateLimit(`ai:all:${userId}`, COMBINED_LIMIT, HOUR),
+  ]);
 
   if (!perFeature.success || !combined.success) {
     // Quotes only the window that actually failed, so an action checking two

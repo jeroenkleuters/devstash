@@ -8,6 +8,7 @@ import { GitHubAuthForm } from "@/components/auth/github-auth-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { UNREACHABLE } from "@/constants/messages";
 import { toastIfRateLimited } from "@/lib/rate-limit-toast";
 import { firstIssueMessage, registerSchema } from "@/lib/validations/auth";
 
@@ -18,7 +19,6 @@ interface RegisterResponse {
   data?: { verificationRequired?: boolean; emailSent?: boolean };
 }
 
-const NETWORK_ERROR = "Could not reach the server. Try again.";
 const UNKNOWN_ERROR = "Could not create the account.";
 
 export function RegisterForm() {
@@ -90,7 +90,7 @@ export function RegisterForm() {
         `/verify?status=${status}&email=${encodeURIComponent(parsed.data.email)}`,
       );
     } catch {
-      setError(NETWORK_ERROR);
+      setError(UNREACHABLE);
       setIsPending(false);
     }
   }

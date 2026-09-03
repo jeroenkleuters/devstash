@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { UNREACHABLE } from "@/constants/messages";
 import { toastIfRateLimited } from "@/lib/rate-limit-toast";
 import { firstIssueMessage, forgotPasswordSchema } from "@/lib/validations/auth";
 
@@ -15,7 +16,6 @@ interface ForgotPasswordResponse {
   error?: string;
 }
 
-const NETWORK_ERROR = "Could not reach the server. Try again.";
 const UNKNOWN_ERROR = "Could not send a reset link.";
 
 export function ForgotPasswordForm() {
@@ -55,7 +55,7 @@ export function ForgotPasswordForm() {
         setError(body.error ?? UNKNOWN_ERROR);
       }
     } catch {
-      setError(NETWORK_ERROR);
+      setError(UNREACHABLE);
     }
 
     setIsPending(false);

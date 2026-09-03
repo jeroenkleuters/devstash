@@ -12,6 +12,7 @@ import {
 import { toast } from "sonner";
 
 import { saveEditorPreferences } from "@/actions/editor-preferences";
+import { UNREACHABLE } from "@/constants/messages";
 import type { EditorPreferences } from "@/lib/validations/editor-preferences";
 
 interface EditorPreferencesContextValue {
@@ -39,8 +40,6 @@ export function useEditorPreferences(): EditorPreferencesContextValue {
 
   return context;
 }
-
-const UNREACHABLE = "Could not reach the server. Try again.";
 
 /**
  * Holds the account's editor settings for the client components that read them

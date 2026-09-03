@@ -1,12 +1,50 @@
-# Current Feature
+# Current Feature: Audit step 1 — shared unreachable message, and a parallel spend check
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
+- `"Could not reach the server. Try again."` is declared exactly once, in `src/constants/messages.ts`. The 17 local declarations are gone and every caller imports `UNREACHABLE`.
+- `src/lib/upload-file.ts` no longer exports `UPLOAD_UNREACHABLE`; its two external consumers import `UNREACHABLE` instead.
+- `allowSpend` in `src/actions/ai.ts` runs its two rate-limit checks in parallel rather than one after the other.
+- No behaviour changes: the same strings are shown in the same places, and the same two windows are checked before the same spend cap.
+- `npm test` stays at 672 passing, with `tsc`, `eslint` and the build clean.
+
 ## Notes
+
+The first two items from @docs/audit-results/project-refactoring.md — its findings **B1** and **C**, which the document puts first on the grounds that both are zero-risk and one is a real latency win.
+
+**B1 — the 17 declarations.** `src/constants/messages.ts` already exports `UNREACHABLE` and its doc comment already describes this situation; only new callers ever used it. The 17 sites carry three different local names for one string: `NETWORK_ERROR` in the four `src/components/auth/` forms, `UNREACHABLE` in eleven others, and `CREATE_UNREACHABLE` in `item-drop-zone.tsx`.
+
+One of them is not a local rename and needs care: **`src/lib/upload-file.ts:17` *exports* its copy** as `UPLOAD_UNREACHABLE`, with four uses inside the module and two importers (`file-upload.tsx`, `item-drop-zone.tsx`). Removing the export is the right end state — a module that owns a network helper does not also need to own the copy for it — but it means eight call sites rather than one deletion.
+
+`item-drop-zone.tsx` ends up simplified twice over: it currently holds `CREATE_UNREACHABLE` *and* imports `UPLOAD_UNREACHABLE`, two names for one string used four lines apart, one on a failed create and one on a failed upload. Both become `UNREACHABLE`, which is correct — the message never differed.
+
+The doc comment on `UNREACHABLE` should lose its "currently declared in seventeen separate files ... collapsing the other seventeen is a mechanical change of its own" paragraph, which is what this change is.
+
+**C — the sequential await.** `allowSpend` at `src/actions/ai.ts:591` reads:
+
+```ts
+const [perFeature, combined] = [
+  await rateLimit(`ai:${feature}:${userId}`, limit, HOUR),
+  await rateLimit(`ai:all:${userId}`, COMBINED_LIMIT, HOUR),
+];
+```
+
+An array literal evaluates left to right, so this is two **sequential** Redis round trips wearing the shape of a parallel pair. It sits on the hot path of all six AI actions, before the model is reached, and the AI latency pass in @docs/ai-latency-improvements.md did not cover it.
+
+Two things checked before writing this down, both of which make the fix safe:
+
+- **`rateLimit` cannot reject.** It has a try/catch and fails open (`src/lib/rate-limit.ts:132`), so `Promise.all` cannot leave a sibling rejection unhandled.
+- **No test depends on the ordering.** The assertions in `src/actions/ai.test.ts` are all `toHaveBeenCalledWith`, which is order-independent. The two API routes that already run this shape in parallel (`forgot-password`, `resend-verification`) are the house precedent.
+
+The result is used the same way afterwards — `tooManyAttemptsMessage(perFeature, combined)` already quotes only the window that actually failed, so nothing about the message changes.
+
+**Scope discipline.** The audit lists twelve findings and says each is its own change; this is deliberately the first two and nothing else. No hook extraction, no file split, no route group.
+
+**Verification is `npm test` plus the build**, and the suite should not move: nothing here is importable logic that did not exist before. The one thing worth an eye afterwards is that no `grep` for the literal string survives outside `src/constants/messages.ts`.
 
 ## History
 
