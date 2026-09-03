@@ -77,7 +77,7 @@ Prisma 7 no longer reads `.env` files itself, so [prisma.config.ts](prisma.confi
 
 ### Email (Resend)
 
-`onboarding@resend.dev` needs no domain setup but **only delivers to the address that owns the Resend account** — registering any other address creates an account that can never be verified. `EMAIL_VERIFICATION_ENABLED=false` is the escape hatch until a domain is verified; accounts registered while it is off are stored as already-verified, so turning it back on does not lock them out.
+`RESEND_FROM` must be an address on a domain verified at [resend.com/domains](https://resend.com/domains). Resend's shared `onboarding@resend.dev` needs no setup but **only delivers to the address that owns the Resend account**, so registering any other address creates an account that can never be mailed — `EMAIL_VERIFICATION_ENABLED=false` is the escape hatch if you are ever in that position. Accounts registered while it is off are stored as already-verified, so turning it back on does not lock *them* out; an account left unverified from a period when it was **on** still is, and is refused at sign-in as soon as it goes back on.
 
 ### Rate limiting (Upstash Redis)
 

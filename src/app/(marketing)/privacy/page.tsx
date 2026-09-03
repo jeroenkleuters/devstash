@@ -325,7 +325,7 @@ export default function PrivacyPage() {
 
         <p>
           Questions about this policy, or about the data we hold:{" "}
-          <a href="mailto:jkleuters@broadsight.nl">jkleuters@broadsight.nl</a>
+          <a href="mailto:devsquirrel@broadsight.nl">devsquirrel@broadsight.nl</a>
         </p>
       </section>
     </article>

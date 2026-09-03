@@ -22,9 +22,14 @@ export function getResend(): Resend {
 }
 
 /**
- * Who verification mail comes from. `onboarding@resend.dev` is Resend's shared
- * sender: it needs no domain setup, but it only delivers to the address that
- * owns the Resend account. Point this at a verified domain before anyone else
- * can register.
+ * Who verification and password-reset mail comes from.
+ *
+ * The fallback is a real address on a verified domain rather than Resend's
+ * shared `onboarding@resend.dev`, which needs no setup but delivers only to the
+ * address owning the Resend account — so an unconfigured environment used to
+ * mail one person and silently fail for everyone else. Delivery still depends
+ * on this domain staying verified at https://resend.com/domains; if it lapses,
+ * `RESEND_FROM` is the override.
  */
-export const MAIL_FROM = process.env.RESEND_FROM ?? "DevStash <onboarding@resend.dev>";
+export const MAIL_FROM =
+  process.env.RESEND_FROM ?? "DevSquirrel <devsquirrel@broadsight.nl>";

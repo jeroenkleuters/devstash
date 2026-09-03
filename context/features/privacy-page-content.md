@@ -184,4 +184,4 @@ Rate-limit counters expire within hours.
 
 Questions about this policy, or about the data we hold:
 
-**[privacy@example.com — decide this before publishing]**
+devsquirrel@broadsight.nl
