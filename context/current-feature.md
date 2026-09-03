@@ -1,12 +1,33 @@
-# Current Feature
+# Current Feature: Right-click paste in the code editor
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
+- Right-click > Paste in the Monaco code editor (snippets, commands) inserts the clipboard at the cursor, in edit mode.
+- Exactly one Paste entry in the menu, not two.
+- Ctrl+V and Cmd+V keep working, unchanged.
+- Cut, Copy, Command Palette and Change All Occurrences stay in the menu.
+- The read-only editor is untouched: it still has no context menu at all.
+
 ## Notes
+
+Reproduced by the user. Scope is the code editor **only** - native inputs and text areas were checked and paste works there, so there is no second bug hiding under this report.
+
+Cause: `src/components/items/code-editor.tsx` passes `contextmenu: !readOnly` to Monaco, so in edit mode Monaco draws its own menu instead of the browser one. Monaco Paste is a no-op in a browser - the menu item cannot read the clipboard, because `document.execCommand("paste")` is forbidden and the synthetic menu item carries no clipboard-read permission. Ctrl+V bypasses the menu entirely, which is why it works and the menu does not. This is a known limitation of every web-hosted Monaco, VS Code for the Web included.
+
+Approach chosen: **override the built-in Paste action**. Register an action with the built-in id `editor.action.clipboardPasteAction` that reads the clipboard with `navigator.clipboard.readText()` and inserts at the cursor, keeping the rest of the Monaco menu.
+
+Two things to know before starting:
+
+- Registering over a built-in id is expected to **replace** the entry rather than append to it. That is the load-bearing assumption of this approach and it is unverified. If it appends, the menu shows two Paste entries, one of them still broken - visible on the very first right-click, and the point at which to fall back to `contextmenu: false` or to accepting the limitation.
+- `navigator.clipboard.readText()` prompts for clipboard-read permission in Chrome the first time. A refusal must fail quietly - the paste simply does not happen - and must never throw into the editor or leave the action wedged.
+
+Verification is the user right-clicking in a snippet editor. A native context menu is drawn by the OS and is invisible to Playwright, so no automated check can prove this one either way.
+
+Do not touch the read-only branch: `contextmenu` stays false there, and this editor is also the one the explain and optimize bars sit on, so the frame and its slots must be left alone.
 
 ## History
 
