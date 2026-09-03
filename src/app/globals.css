@@ -264,14 +264,14 @@ body {
   text-decoration: none;
 }
 
+/* The artwork is a self-contained tile carrying its own rounded frame and
+   background, so nothing is drawn behind it and no `border-radius` is applied
+   on top -- rounding an already-rounded corner would clip its border. */
 .sidebar-brand-mark {
-  display: grid;
-  place-items: center;
+  display: block;
+  flex-shrink: 0;
   width: 2rem;
   height: 2rem;
-  border-radius: var(--radius-md);
-  background: linear-gradient(135deg, var(--type-snippet), var(--type-prompt));
-  color: #fff;
 }
 
 .sidebar-brand-name {
@@ -3683,29 +3683,19 @@ html:has(.marketing) {
     gap: 0.625rem;
   }
 
-  /* The same mark the sidebar draws — see `.sidebar-brand-mark` above. The
-     gradient is the brand's blue-to-purple rather than the site accent, so the
-     logo reads the same here as it does inside the app. */
+  /* The same mark the sidebar draws — see `.sidebar-brand-mark` above, which
+     is also where the no-`border-radius` reasoning lives. */
   .brand-mark {
-    display: grid;
-    place-items: center;
+    display: block;
+    flex-shrink: 0;
     width: 2rem;
     height: 2rem;
-    border-radius: var(--radius-md);
-    background: linear-gradient(135deg, var(--type-snippet), var(--type-prompt));
-    color: #fff;
   }
 
   /* The copy inside the dashboard preview, scaled to the mockup. */
   .brand-mark.small {
     width: 1.125rem;
     height: 1.125rem;
-    border-radius: 0.3125rem;
-  }
-
-  .brand-mark.small .icon {
-    width: 0.6875rem;
-    height: 0.6875rem;
   }
 
   .brand-name {

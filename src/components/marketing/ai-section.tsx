@@ -47,7 +47,7 @@ export function AiSection() {
           <h2>Let the model do the filing</h2>
           <p className="lede">
             Capturing is easy. Describing what you captured is the part nobody
-            does. CodeSquirrel handles it for you.
+            does. DevSquirrel handles it for you.
           </p>
           <ul className="checklist">
             {CAPABILITIES.map((line, index) => (

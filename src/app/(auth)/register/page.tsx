@@ -6,7 +6,7 @@ import { RegisterForm } from "@/components/auth/register-form";
 import { getCurrentUser } from "@/lib/db/user";
 
 export const metadata: Metadata = {
-  title: "Create an account · CodeSquirrel",
+  title: "Create an account · DevSquirrel",
 };
 
 // Reads the session on every request, so it must not be prerendered.

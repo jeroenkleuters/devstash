@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown, Folder, LayoutDashboard, Layers, Star } from "lucide-react";
+import { ChevronDown, Folder, LayoutDashboard, Star } from "lucide-react";
 
 import { useBilling } from "@/components/billing/billing-provider";
 import { LinkPendingIcon, LinkSpinner } from "@/components/layout/link-pending";
@@ -12,6 +13,7 @@ import { SidebarUser } from "@/components/layout/sidebar-user";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { PRO_TYPE_SLUGS, TYPE_ICONS } from "@/constants/item-types";
+import logo from "@/img/logo.png";
 import type { CollectionSummary } from "@/lib/db/collections";
 import type { ItemTypeWithCount } from "@/lib/db/items";
 import type { CurrentUser } from "@/lib/db/user";
@@ -46,13 +48,17 @@ export function Sidebar({
       <Link
         href="/dashboard"
         className="sidebar-brand"
-        title="CodeSquirrel"
+        title="DevSquirrel"
         onClick={closeOnMobile}
       >
-        <span className="sidebar-brand-mark">
-          <Layers size={18} aria-hidden />
-        </span>
-        <span className="sidebar-brand-name">CodeSquirrel</span>
+        <Image
+          className="sidebar-brand-mark"
+          src={logo}
+          alt=""
+          width={32}
+          height={32}
+        />
+        <span className="sidebar-brand-name">DevSquirrel</span>
       </Link>
 
       <div className="sidebar-scroll">

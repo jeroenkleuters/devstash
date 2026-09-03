@@ -8,7 +8,7 @@ import { PricingSection } from "@/components/marketing/pricing-section";
 import { getCurrentUser } from "@/lib/db/user";
 
 export const metadata: Metadata = {
-  title: "CodeSquirrel — One home for everything you know",
+  title: "DevSquirrel — One home for everything you know",
   description:
     "Snippets, prompts, commands, notes, files and links in one fast, searchable, AI-enhanced hub.",
 };

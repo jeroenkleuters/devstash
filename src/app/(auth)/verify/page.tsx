@@ -9,7 +9,7 @@ import { firstParam } from "@/lib/search-params";
 import { VERIFY_STATUSES, type VerifyStatus } from "@/types/auth";
 
 export const metadata: Metadata = {
-  title: "Verify your email · CodeSquirrel",
+  title: "Verify your email · DevSquirrel",
 };
 
 // Reads the query string on every request, and follows a write that just

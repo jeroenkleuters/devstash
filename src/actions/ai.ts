@@ -138,7 +138,7 @@ async function suggest(source: {
     // minimal effort here is the largest per-call saving available.
     effort: "minimal",
     verbosity: "low",
-    cacheKey: "CodeSquirrel:tags:v1",
+    cacheKey: "devstash:tags:v1",
   });
 
   if (!result.ok) {
@@ -246,7 +246,7 @@ async function summarize(source: {
     schemaName: "item_summary",
     effort: "low",
     verbosity: "low",
-    cacheKey: "CodeSquirrel:summary:v1",
+    cacheKey: "devstash:summary:v1",
   });
 
   if (!result.ok) {
@@ -342,7 +342,7 @@ export async function explainCode(
     schemaName: "code_explanation",
     effort: "low",
     verbosity: "medium",
-    cacheKey: "CodeSquirrel:explain:v1",
+    cacheKey: "devstash:explain:v1",
   });
 
   if (!result.ok) {
@@ -435,7 +435,7 @@ export async function optimizePrompt(
     schemaName: "optimized_prompt",
     effort: "low",
     verbosity: "medium",
-    cacheKey: "CodeSquirrel:optimize:v1",
+    cacheKey: "devstash:optimize:v1",
   });
 
   if (!result.ok) {

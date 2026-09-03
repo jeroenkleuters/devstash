@@ -6,7 +6,7 @@ import { checkPasswordResetToken } from "@/lib/password-reset";
 import { firstParam } from "@/lib/search-params";
 
 export const metadata: Metadata = {
-  title: "Choose a new password · CodeSquirrel",
+  title: "Choose a new password · DevSquirrel",
 };
 
 // Reads the query string and the token behind it on every request.

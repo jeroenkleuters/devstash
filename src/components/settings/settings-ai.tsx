@@ -75,7 +75,7 @@ export function SettingsAi({ preferences }: SettingsAiProps) {
             AI features
           </Label>
           <p className="settings-row-description">
-            Let CodeSquirrel send an item&apos;s content to OpenAI when you ask for
+            Let DevSquirrel send an item&apos;s content to OpenAI when you ask for
             tags, a summary or an explanation. Nothing is sent unless you click.{" "}
             <Link href="/privacy" className="settings-row-link">
               What we share

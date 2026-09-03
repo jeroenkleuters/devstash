@@ -7,7 +7,7 @@ import { getCurrentUser } from "@/lib/db/user";
 import { firstParam } from "@/lib/search-params";
 
 export const metadata: Metadata = {
-  title: "Sign in · CodeSquirrel",
+  title: "Sign in · DevSquirrel",
 };
 
 // Reads the session on every request, so it must not be prerendered.

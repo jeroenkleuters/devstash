@@ -6,7 +6,7 @@ import { ForgotPasswordForm } from "@/components/auth/forgot-password-form";
 import { getCurrentUser } from "@/lib/db/user";
 
 export const metadata: Metadata = {
-  title: "Reset your password · CodeSquirrel",
+  title: "Reset your password · DevSquirrel",
 };
 
 // Reads the session on every request, so it must not be prerendered.
