@@ -1,3 +1,4 @@
+import { UNREACHABLE } from "@/constants/messages";
 import type { UploadKind } from "@/lib/file-constraints";
 
 /**
@@ -12,9 +13,6 @@ import type { UploadKind } from "@/lib/file-constraints";
  * Browser-only — `XMLHttpRequest` and a relative `fetch` — so nothing on the
  * server may import this.
  */
-
-/** Said when the request never reached the route, so it named no reason. */
-export const UPLOAD_UNREACHABLE = "Could not reach the server. Try again.";
 
 /**
  * Said when R2 refused the PUT.
@@ -70,7 +68,7 @@ export interface UploadedFile {
  * Throws an `UploadError` for a failure with a message worth showing. Anything
  * else that comes out of here is a throw we did not plan for — a `TypeError`
  * out of `fetch`, say — whose message is no use to a visitor, so a caller
- * should fall back to `UPLOAD_UNREACHABLE` for those.
+ * should fall back to `UNREACHABLE` for those.
  */
 export async function uploadFile(
   kind: UploadKind,
@@ -127,19 +125,19 @@ async function authorise(kind: UploadKind, file: File): Promise<Authorised> {
     .catch(() => null)) as AuthoriseResponse | null;
 
   if (response.status === 403) {
-    throw new UploadNotAllowedError(payload?.error || UPLOAD_UNREACHABLE);
+    throw new UploadNotAllowedError(payload?.error || UNREACHABLE);
   }
 
   if (response.status === 429) {
-    throw new UploadRateLimitedError(payload?.error || UPLOAD_UNREACHABLE);
+    throw new UploadRateLimitedError(payload?.error || UNREACHABLE);
   }
 
   if (!response.ok) {
-    throw new UploadError(payload?.error || UPLOAD_UNREACHABLE);
+    throw new UploadError(payload?.error || UNREACHABLE);
   }
 
   if (!payload?.url || !payload.key || !payload.contentType) {
-    throw new UploadError(UPLOAD_UNREACHABLE);
+    throw new UploadError(UNREACHABLE);
   }
 
   return {

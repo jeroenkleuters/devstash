@@ -11,12 +11,10 @@ import {
   itemFormValuesFrom,
 } from "@/components/items/item-form-fields";
 import { SheetHeader } from "@/components/ui/sheet";
+import { UNREACHABLE } from "@/constants/messages";
 import { updateItemSchema } from "@/lib/validations/item";
 import { firstIssueMessage } from "@/lib/validations/auth";
 import type { ItemDetail } from "@/types/item";
-
-/** Said when the request never reached the action, so it named no reason. */
-const UNREACHABLE = "Could not reach the server. Try again.";
 
 interface ItemDrawerEditProps {
   detail: ItemDetail;

@@ -16,9 +16,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-
-/** Said when the request never reached the action, so it named no reason. */
-const UNREACHABLE = "Could not reach the server. Try again.";
+import { UNREACHABLE } from "@/constants/messages";
 
 interface ItemDeleteDialogProps {
   itemId: string;

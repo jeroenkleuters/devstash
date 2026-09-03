@@ -10,14 +10,12 @@ import { DialogClose, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { UNREACHABLE } from "@/constants/messages";
 import { firstIssueMessage } from "@/lib/validations/auth";
 import {
   createCollectionSchema,
   updateCollectionSchema,
 } from "@/lib/validations/collection";
-
-/** Said when the request never reached the action, so it named no reason. */
-const UNREACHABLE = "Could not reach the server. Try again.";
 
 /** The metadata both dialogs edit — every column a collection form writes. */
 export interface CollectionFormCollection {

@@ -3,11 +3,14 @@
  *
  * `UNREACHABLE` is the one that matters: a server action answers a failed
  * *write* with `{ success: false }` but **rejects** when the request itself
- * cannot complete, so every caller needs a `.catch` and something to say. That
- * string is currently declared in seventeen separate files under
- * `src/components/` and `src/lib/`, which is how it came to be worth naming
- * once. Only new callers use this so far — collapsing the other seventeen is a
- * mechanical change of its own and does not belong inside a feature.
+ * cannot complete, so every caller needs a `.catch` and something to say. It
+ * spent a while declared in seventeen separate files under `src/components/`,
+ * `src/hooks/` and `src/lib/` — under three different local names, since
+ * nothing forced them to agree — and every one of those now imports this.
+ *
+ * `src/lib/upload-file.ts` was the odd one out: it *exported* its copy, so
+ * removing it meant updating importers rather than deleting a local. Nothing
+ * exports this string but this file.
  */
 export const UNREACHABLE = "Could not reach the server. Try again.";
 

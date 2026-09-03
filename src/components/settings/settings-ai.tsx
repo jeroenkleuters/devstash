@@ -6,10 +6,8 @@ import { toast } from "sonner";
 
 import { saveAiPreferences } from "@/actions/ai-preferences";
 import { Label } from "@/components/ui/label";
+import { UNREACHABLE } from "@/constants/messages";
 import type { AiPreferences } from "@/types/ai";
-
-/** Said when the action never answered, so it named no reason. */
-const UNREACHABLE = "Could not reach the server. Try again.";
 
 interface SettingsAiProps {
   /** What the account has stored, already defaulted. */

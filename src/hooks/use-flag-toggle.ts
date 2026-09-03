@@ -4,11 +4,10 @@ import { useRouter } from "next/navigation";
 import { useOptimistic, useTransition } from "react";
 import { toast } from "sonner";
 
+import { UNREACHABLE } from "@/constants/messages";
+
 /** Shared by the item and collection actions — both answer in this shape. */
 type FlagResult = { success: true } | { success: false; error: string };
-
-/** A rejected request, as opposed to a refused write. */
-const UNREACHABLE = "Could not reach the server. Try again.";
 
 /**
  * The toggle behind every one of an item's or collection's boolean flags: the

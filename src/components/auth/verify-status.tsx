@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { UNREACHABLE } from "@/constants/messages";
 import { toastIfRateLimited } from "@/lib/rate-limit-toast";
 import { firstIssueMessage, resendVerificationSchema } from "@/lib/validations/auth";
 import type { VerifyStatus } from "@/types/auth";
@@ -70,7 +71,6 @@ const COPY: Record<VerifyStatus, Copy> = {
   },
 };
 
-const NETWORK_ERROR = "Could not reach the server. Try again.";
 const UNKNOWN_ERROR = "Could not send a new link.";
 
 /** The shape `POST /api/auth/resend-verification` answers with, either way. */
@@ -117,7 +117,7 @@ export function VerifyStatusPanel({ status, email }: VerifyStatusPanelProps) {
         setError(body.error ?? UNKNOWN_ERROR);
       }
     } catch {
-      setError(NETWORK_ERROR);
+      setError(UNREACHABLE);
     }
 
     setIsPending(false);

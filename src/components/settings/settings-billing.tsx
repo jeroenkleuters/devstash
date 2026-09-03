@@ -6,10 +6,8 @@ import { toast } from "sonner";
 import { openBillingPortal } from "@/actions/billing";
 import { useBilling } from "@/components/billing/billing-provider";
 import { Button } from "@/components/ui/button";
+import { UNREACHABLE } from "@/constants/messages";
 import { FREE_COLLECTION_LIMIT, FREE_ITEM_LIMIT } from "@/lib/usage-limits";
-
-/** Said when an action never answered, so it named no reason. */
-const UNREACHABLE = "Could not reach the server. Try again.";
 
 interface SettingsBillingProps {
   isPro: boolean;

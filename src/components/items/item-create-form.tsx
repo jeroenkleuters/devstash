@@ -26,12 +26,10 @@ import {
   isProType,
   uploadKindFor,
 } from "@/constants/item-types";
+import { UNREACHABLE } from "@/constants/messages";
 import { titleFromFileName } from "@/lib/file-title";
 import { firstIssueMessage } from "@/lib/validations/auth";
 import { createItemSchema } from "@/lib/validations/item";
-
-/** Said when the request never reached the action, so it named no reason. */
-const UNREACHABLE = "Could not reach the server. Try again.";
 
 interface ItemCreateFormProps {
   /** Type to open on. Falls back to the first creatable one. */

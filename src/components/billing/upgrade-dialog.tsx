@@ -13,12 +13,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { UNREACHABLE } from "@/constants/messages";
 import { PLAN_PRICING } from "@/constants/pricing";
 import { FREE_COLLECTION_LIMIT, FREE_ITEM_LIMIT } from "@/lib/usage-limits";
 import { BILLING_PLANS, type BillingPlan } from "@/types/billing";
-
-/** Said when the action never answered, so it named no reason. */
-const UNREACHABLE = "Could not reach the server. Try again.";
 
 /**
  * Why the dialog was opened. A Pro type carries its own label ("Files"), since

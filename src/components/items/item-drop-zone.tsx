@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { createItem } from "@/actions/items";
 import { CameraButton } from "@/components/items/camera-button";
 import { Button } from "@/components/ui/button";
+import { UNREACHABLE } from "@/constants/messages";
 import {
   uploadConstraint,
   validateUpload,
@@ -24,11 +25,7 @@ import {
   UploadError,
   UploadNotAllowedError,
   UploadRateLimitedError,
-  UPLOAD_UNREACHABLE,
 } from "@/lib/upload-file";
-
-/** Said when the create action never answered, so it named no reason. */
-const CREATE_UNREACHABLE = "Could not reach the server. Try again.";
 
 /** Said for a file the batch stopped before reaching. */
 const NOT_ATTEMPTED = "Not uploaded — the batch stopped first.";
@@ -235,7 +232,7 @@ export function ItemDropZone({ kind, typeSlug, children }: ItemDropZoneProps) {
         if (!result?.success) {
           update(entry.id, {
             status: "failed",
-            error: result?.error ?? CREATE_UNREACHABLE,
+            error: result?.error ?? UNREACHABLE,
           });
           continue;
         }
@@ -259,7 +256,7 @@ export function ItemDropZone({ kind, typeSlug, children }: ItemDropZoneProps) {
           error:
             failure instanceof UploadError
               ? failure.message
-              : UPLOAD_UNREACHABLE,
+              : UNREACHABLE,
         });
       }
     }

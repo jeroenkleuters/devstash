@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import { saveUploadPreferences } from "@/actions/upload-preferences";
 import { Label } from "@/components/ui/label";
+import { UNREACHABLE } from "@/constants/messages";
 import {
   UPLOAD_COUNTS,
   UPLOAD_WINDOWS,
@@ -13,9 +14,6 @@ import {
   type UploadPreferences,
   type UploadWindow,
 } from "@/lib/validations/upload-preferences";
-
-/** Said when the action never answered, so it named no reason. */
-const UNREACHABLE = "Could not reach the server. Try again.";
 
 interface SettingsUploadProps {
   /** What the account has stored, already defaulted. */
