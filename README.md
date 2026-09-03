@@ -1,4 +1,4 @@
-# DevStash
+# DevSquirrel
 
 One fast, searchable, AI-enhanced hub for all developer knowledge & resources — snippets, prompts, commands, notes, files, images, links and books, organised into collections.
 
@@ -51,7 +51,7 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-The seed creates `demo@devstash.io` (password `12345678`) with the eight system item types and five collections holding 18 items. The demo account is seeded `isPro: true`, since five collections would otherwise sit over the free tier's cap of three.
+The seed creates `demo@DevSquirrel.io` (password `12345678`) with the eight system item types and five collections holding 18 items. The demo account is seeded `isPro: true`, since five collections would otherwise sit over the free tier's cap of three.
 
 Only `DATABASE_URL` and `DIRECT_URL` are needed to get the app running. Everything else in `.env.example` unlocks one feature at a time — Resend for the mail flows, R2 for uploads, Upstash for rate limiting, Stripe for billing — and each is documented in place with what breaks when it is absent.
 
@@ -163,7 +163,7 @@ Never use `prisma db push` or edit the database directly.
 
 `db:test` is a data integrity script against a live database, **not** part of the unit suite — that is `npm test`.
 
-`db:prune` is destructive: it deletes every user except `demo@devstash.io` and
+`db:prune` is destructive: it deletes every user except `demo@DevSquirrel.io` and
 everything they own, including the `VerificationToken` rows that have no relation
 to `User` and so never cascade. It refuses to run when `NODE_ENV=production` or
 when the demo account is missing, and it is a **dry run** unless you pass

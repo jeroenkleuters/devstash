@@ -16,8 +16,20 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "DevStash",
+  title: "DevSquirrel",
   description: "Your developer knowledge hub",
+  // The icon set lives in `public/` and is declared here rather than through
+  // Next's `app/icon.*` file convention, because the manifest already refers to
+  // the same files by root path and one source for them is easier to keep true.
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/favicon-32x32.png", type: "image/png", sizes: "32x32" },
+      { url: "/favicon-16x16.png", type: "image/png", sizes: "16x16" },
+    ],
+    apple: "/apple-touch-icon.png",
+  },
+  manifest: "/site.webmanifest",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

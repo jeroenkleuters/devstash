@@ -24,7 +24,7 @@ export async function generateMetadata({
   const collection = user ? await getCollection(user.id, id) : null;
 
   return {
-    title: collection ? `${collection.name} · DevStash` : "DevStash",
+    title: collection ? `${collection.name} · DevSquirrel` : "DevSquirrel",
   };
 }
 

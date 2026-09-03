@@ -1,7 +1,6 @@
 import {
   Code,
   FileImage,
-  Layers,
   Link as LinkIcon,
   Search,
   Sparkles,
@@ -9,9 +8,12 @@ import {
   Terminal,
   type LucideIcon,
 } from "lucide-react";
+import Image from "next/image";
+
+import logo from "@/img/logo.png";
 
 /**
- * The "...with DevStash" half of the hero: a still of the real dashboard.
+ * The "...with DevSquirrel" half of the hero: a still of the real dashboard.
  *
  * Presentational only — no query, no data. `data-type` carries the plural
  * `ItemType.slug` because that is what the `[data-type]` map in globals.css is
@@ -38,14 +40,18 @@ const CARDS: { slug: string; title: string; icon: LucideIcon }[] = [
 export function DashboardPreview() {
   return (
     <figure className="panel preview">
-      <figcaption className="panel-label">...with DevStash</figcaption>
+      <figcaption className="panel-label">...with DevSquirrel</figcaption>
       <div className="mock">
         <div className="mock-sidebar">
           <div className="mock-brand">
-            <span className="brand-mark small">
-              <Layers className="icon" aria-hidden />
-            </span>
-            <span className="mock-label strong">DevStash</span>
+            <Image
+              className="brand-mark small"
+              src={logo}
+              alt=""
+              width={18}
+              height={18}
+            />
+            <span className="mock-label strong">DevSquirrel</span>
           </div>
           <div className="mock-nav">
             {NAV.map(({ slug, label, icon: Icon }) => (

@@ -63,7 +63,7 @@ export async function issueEmailVerification({
     const { error } = await getResend().emails.send({
       from: MAIL_FROM,
       to: [email],
-      subject: "Verify your DevStash email",
+      subject: "Verify your DevSquirrel email",
       text: verificationText(name, url),
       html: verificationHtml(name, url),
     });
@@ -154,7 +154,7 @@ function verificationText(name: string | null, url: string): string {
   return [
     greeting(name),
     "",
-    "Confirm your email address to finish setting up your DevStash account:",
+    "Confirm your email address to finish setting up your DevSquirrel account:",
     url,
     "",
     "The link expires in 24 hours. If you didn't create an account, ignore this email.",
@@ -168,10 +168,10 @@ function verificationHtml(name: string | null, url: string): string {
 <html>
   <body style="margin:0;padding:24px;background:#0b0b0e;font-family:ui-sans-serif,system-ui,sans-serif;color:#e5e5e8">
     <table role="presentation" style="max-width:480px;margin:0 auto;border-collapse:collapse">
-      <tr><td style="padding-bottom:24px;font-size:18px;font-weight:600">DevStash</td></tr>
+      <tr><td style="padding-bottom:24px;font-size:18px;font-weight:600">DevSquirrel</td></tr>
       <tr><td style="font-size:14px;line-height:1.6">
         <p style="margin:0 0 16px">${escapeHtml(greeting(name))}</p>
-        <p style="margin:0 0 24px">Confirm your email address to finish setting up your DevStash account.</p>
+        <p style="margin:0 0 24px">Confirm your email address to finish setting up your DevSquirrel account.</p>
         <p style="margin:0 0 24px">
           <a href="${url}" style="display:inline-block;padding:10px 18px;border-radius:8px;background:#3b82f6;color:#fff;font-weight:500;text-decoration:none">Verify email</a>
         </p>

@@ -11,7 +11,7 @@ import { getCurrentUser } from "@/lib/db/user";
 // Reads the session and the user's favorites on every request.
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = { title: "Favorites · DevStash" };
+export const metadata: Metadata = { title: "Favorites · DevSquirrel" };
 
 /**
  * Everything the user has starred, items above collections.

@@ -13,7 +13,7 @@ import { RecentItemsSection } from "@/components/dashboard/recent-items-section"
 import { StatCards } from "@/components/dashboard/stat-cards";
 
 export const metadata: Metadata = {
-  title: "Dashboard · DevStash",
+  title: "Dashboard · DevSquirrel",
 };
 
 // Collections are read per request — don't prerender them at build time.

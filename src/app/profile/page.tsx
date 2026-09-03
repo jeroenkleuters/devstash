@@ -9,7 +9,7 @@ import { ProfileUsageSkeleton } from "@/components/profile/profile-usage-skeleto
 import { getCurrentUser } from "@/lib/db/user";
 
 export const metadata: Metadata = {
-  title: "Profile · DevStash",
+  title: "Profile · DevSquirrel",
 };
 
 // Reads the session and the account behind it on every request.

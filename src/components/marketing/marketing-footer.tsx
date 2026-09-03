@@ -37,7 +37,7 @@ export function MarketingFooter() {
         </nav>
       </div>
       <div className="shell footer-bottom">
-        <p>&copy; {new Date().getFullYear()} DevStash. All rights reserved.</p>
+        <p>&copy; {new Date().getFullYear()} DevSquirrel. All rights reserved.</p>
         <p>Built for developers who are tired of looking for things.</p>
       </div>
     </footer>

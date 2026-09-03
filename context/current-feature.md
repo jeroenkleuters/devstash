@@ -1,12 +1,48 @@
 # Current Feature
 
+Rebrand to DevSquirrel
+
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
+- Every user-visible string reads **DevSquirrel**. The committed find/replace used
+  "CodeSquirrel", so that is what has to change, not "DevStash".
+- The squirrel logo replaces the brand mark **entirely** -- the gradient square and
+  its lucide `Layers` glyph both go, in all four places that draw one:
+  `sidebar.tsx`, `sidebar-skeleton.tsx`, `marketing/brand.tsx` and the
+  `dashboard-preview.tsx` mockup.
+- The favicon set and `site.webmanifest` are actually served, and the manifest
+  carries the app name.
+- Nothing that is data changes: `demo@devstash.io`, the Redis prefixes
+  (`devstash:rl`, `devstash:ai:spend`) and the `RESEND_FROM` fallback stay.
+
 ## Notes
+
+Loaded inline, and part of the work was already committed outside this workflow on
+branch `rename-devsquirrel`:
+
+- `7c5ba77` added the favicon set, `site.webmanifest`, `designs/LogoDevSquirrel.png`
+  and `.psd`, and `src/img/LogoDevSquirrel.svg`.
+- `9cba417` was a blanket find/replace across 32 files that wrote **CodeSquirrel**.
+
+Three findings from the survey that shape the work:
+
+1. **There is no `public/` directory.** The favicons and `site.webmanifest` sit at the
+   repo root, which Next does not serve, so none of them are reachable today. They
+   have to move, and `layout.tsx` has no icon metadata at all.
+2. **`src/img/LogoDevSquirrel.svg` is not a vector.** It is a 1006x1009 PNG wrapped in
+   an `<svg>` as a base64 `<image>`, 732KB -- larger than the 508KB source PNG. Use a
+   real raster asset rather than inlining that.
+3. `site.webmanifest` has empty `name` and `short_name`, and its theme colours are
+   white against an app that hardcodes dark mode.
+
+Identifiers were considered and deliberately left alone. Renaming the Redis spend key
+would reset the monthly AI budget ledger to zero mid-month; renaming the demo address
+would orphan the seeded demo account in both dev and production, since `seed.ts` finds
+it by email and `prune-users.ts` keeps it by name.
 
 ## History
 

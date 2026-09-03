@@ -1,7 +1,8 @@
-import { Layers } from "lucide-react";
+import Image from "next/image";
 
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import logo from "@/img/logo.png";
 
 /** How many rows each list stands in for: the seven system types, five collections. */
 const TYPE_ROW_COUNT = 7;
@@ -20,10 +21,14 @@ export function SidebarSkeleton() {
   return (
     <aside className="dashboard-sidebar" aria-label="Sidebar" aria-busy="true">
       <div className="sidebar-brand">
-        <span className="sidebar-brand-mark">
-          <Layers size={18} aria-hidden />
-        </span>
-        <span className="sidebar-brand-name">DevStash</span>
+        <Image
+          className="sidebar-brand-mark"
+          src={logo}
+          alt=""
+          width={32}
+          height={32}
+        />
+        <span className="sidebar-brand-name">DevSquirrel</span>
       </div>
 
       <div className="sidebar-scroll">
