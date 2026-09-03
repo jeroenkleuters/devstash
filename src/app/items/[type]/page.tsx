@@ -32,7 +32,7 @@ export async function generateMetadata({
   const itemType = await getItemTypeBySlug(type);
 
   return {
-    title: itemType ? `${typeLabel(itemType.slug)} · DevStash` : "DevStash",
+    title: itemType ? `${typeLabel(itemType.slug)} · CodeSquirrel` : "CodeSquirrel",
   };
 }
 

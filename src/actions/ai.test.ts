@@ -738,7 +738,7 @@ const ending = 2;`,
 
     expect(call.reasoning).toEqual({ effort: "low" });
     expect(call.text.verbosity).toBe("medium");
-    expect(call.prompt_cache_key).toBe("devstash:explain:v1");
+    expect(call.prompt_cache_key).toBe("CodeSquirrel:explain:v1");
   });
 
   it("records what the call reported spending", async () => {
@@ -910,7 +910,7 @@ describe("summarizeDraft — the create dialog's path", () => {
     const call = parse.mock.calls[0][0];
 
     expect(call.reasoning).toEqual({ effort: "low" });
-    expect(call.prompt_cache_key).toBe("devstash:summary:v1");
+    expect(call.prompt_cache_key).toBe("CodeSquirrel:summary:v1");
   });
 
   it("records what the call reported spending", async () => {
@@ -1263,7 +1263,7 @@ describe("optimizePrompt — the call and the answer", () => {
 
     expect(call.reasoning).toEqual({ effort: "low" });
     expect(call.text.verbosity).toBe("medium");
-    expect(call.prompt_cache_key).toBe("devstash:optimize:v1");
+    expect(call.prompt_cache_key).toBe("CodeSquirrel:optimize:v1");
   });
 
   it("records what the call spent, as the response reported it", async () => {

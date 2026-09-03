@@ -14,7 +14,7 @@ import { pageCount, parsePageParam, rowsOnPage } from "@/lib/pagination";
 // Reads the session and the user's collections on every request.
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = { title: "Collections · DevStash" };
+export const metadata: Metadata = { title: "Collections · CodeSquirrel" };
 
 export default async function CollectionsPage({
   searchParams,

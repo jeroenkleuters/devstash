@@ -46,13 +46,13 @@ export function Sidebar({
       <Link
         href="/dashboard"
         className="sidebar-brand"
-        title="DevStash"
+        title="CodeSquirrel"
         onClick={closeOnMobile}
       >
         <span className="sidebar-brand-mark">
           <Layers size={18} aria-hidden />
         </span>
-        <span className="sidebar-brand-name">DevStash</span>
+        <span className="sidebar-brand-name">CodeSquirrel</span>
       </Link>
 
       <div className="sidebar-scroll">

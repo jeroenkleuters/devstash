@@ -16,7 +16,7 @@ export function MarketingBrand() {
       <span className="brand-mark">
         <Layers size={18} aria-hidden />
       </span>
-      <span className="brand-name">DevStash</span>
+      <span className="brand-name">CodeSquirrel</span>
     </Link>
   );
 }

@@ -1,4 +1,4 @@
-/* DevStash homepage mockup — chaos animation, scroll reveal, nav state,
+/* CodeSquirrel homepage mockup — chaos animation, scroll reveal, nav state,
    billing toggle, footer year. No dependencies; the page opens from disk. */
 
 (function () {

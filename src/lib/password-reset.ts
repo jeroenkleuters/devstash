@@ -106,7 +106,7 @@ export async function issuePasswordReset({
     const { error } = await getResend().emails.send({
       from: MAIL_FROM,
       to: [email],
-      subject: "Reset your DevStash password",
+      subject: "Reset your CodeSquirrel password",
       text: resetText(name, url),
       html: resetHtml(name, url),
     });
@@ -233,7 +233,7 @@ function resetText(name: string | null, url: string): string {
   return [
     greeting(name),
     "",
-    "Use this link to choose a new DevStash password:",
+    "Use this link to choose a new CodeSquirrel password:",
     url,
     "",
     "The link expires in 1 hour. If you didn't ask to reset your password, ignore this email — your current one still works.",
@@ -247,10 +247,10 @@ function resetHtml(name: string | null, url: string): string {
 <html>
   <body style="margin:0;padding:24px;background:#0b0b0e;font-family:ui-sans-serif,system-ui,sans-serif;color:#e5e5e8">
     <table role="presentation" style="max-width:480px;margin:0 auto;border-collapse:collapse">
-      <tr><td style="padding-bottom:24px;font-size:18px;font-weight:600">DevStash</td></tr>
+      <tr><td style="padding-bottom:24px;font-size:18px;font-weight:600">CodeSquirrel</td></tr>
       <tr><td style="font-size:14px;line-height:1.6">
         <p style="margin:0 0 16px">${escapeHtml(greeting(name))}</p>
-        <p style="margin:0 0 24px">Choose a new password for your DevStash account.</p>
+        <p style="margin:0 0 24px">Choose a new password for your CodeSquirrel account.</p>
         <p style="margin:0 0 24px">
           <a href="${url}" style="display:inline-block;padding:10px 18px;border-radius:8px;background:#3b82f6;color:#fff;font-weight:500;text-decoration:none">Reset password</a>
         </p>

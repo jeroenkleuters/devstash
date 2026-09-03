@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Privacy · DevStash",
+  title: "Privacy · CodeSquirrel",
   description:
-    "What DevStash stores, what the AI features send to OpenAI, and how to turn them off.",
+    "What CodeSquirrel stores, what the AI features send to OpenAI, and how to turn them off.",
 };
 
 /**
@@ -32,7 +32,7 @@ export default function PrivacyPage() {
       <header className="legal-header">
         <h1>Privacy Policy</h1>
         <p className="legal-lede">
-          What DevStash stores, who else touches it, and what the AI features
+          What CodeSquirrel stores, who else touches it, and what the AI features
           send. Written to be read rather than to be comprehensive — if
           anything here is unclear, ask.
         </p>
@@ -58,7 +58,7 @@ export default function PrivacyPage() {
         <p>
           <strong>Files you upload.</strong> Files, images and book covers are
           stored in Cloudflare R2. They are served back to you through
-          DevStash rather than from a public URL, so a file is reachable only
+          CodeSquirrel rather than from a public URL, so a file is reachable only
           by the account that owns it.
         </p>
 
@@ -82,7 +82,7 @@ export default function PrivacyPage() {
         <h2>2. AI features</h2>
 
         <p>
-          AI features are part of DevStash Pro. They are{" "}
+          AI features are part of CodeSquirrel Pro. They are{" "}
           <strong>off unless you use them</strong>, and this section is the
           reason this page exists.
         </p>
@@ -173,7 +173,7 @@ export default function PrivacyPage() {
         <h2>3. Who else processes your data</h2>
 
         <p>
-          DevStash is built on services that each handle one part of it:
+          CodeSquirrel is built on services that each handle one part of it:
         </p>
 
         <div className="legal-table-scroll">
@@ -243,7 +243,7 @@ export default function PrivacyPage() {
 
         <p>
           Subscriptions are handled by Stripe.{" "}
-          <strong>Card details never reach DevStash</strong> — you enter them
+          <strong>Card details never reach CodeSquirrel</strong> — you enter them
           on Stripe&apos;s own checkout page. We store only the identifiers
           Stripe gives us for your customer and subscription records, which is
           what lets us know whether your account is on Pro.

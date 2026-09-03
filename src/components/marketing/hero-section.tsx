@@ -20,7 +20,7 @@ export function HeroSection() {
           </h1>
           <p className="lede">
             Snippets in VS Code. Prompts in a chat history. Commands in a scratch
-            file. Links in a folder of bookmarks you never open again. DevStash
+            file. Links in a folder of bookmarks you never open again. CodeSquirrel
             puts all of it in one fast, searchable place.
           </p>
           <div className="hero-actions">

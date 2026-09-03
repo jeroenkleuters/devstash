@@ -23,7 +23,7 @@ export function SidebarSkeleton() {
         <span className="sidebar-brand-mark">
           <Layers size={18} aria-hidden />
         </span>
-        <span className="sidebar-brand-name">DevStash</span>
+        <span className="sidebar-brand-name">CodeSquirrel</span>
       </div>
 
       <div className="sidebar-scroll">

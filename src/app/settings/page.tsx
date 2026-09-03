@@ -11,7 +11,7 @@ import { getCurrentUser } from "@/lib/db/user";
 import { firstParam } from "@/lib/search-params";
 
 export const metadata: Metadata = {
-  title: "Settings · DevStash",
+  title: "Settings · CodeSquirrel",
 };
 
 // Reads the session and the account behind it on every request.
