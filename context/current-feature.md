@@ -1,12 +1,24 @@
-# Current Feature
+# Refactoring audit step 2: AI gate machinery and prompt builders into lib
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
+- Move the gate machinery out of `src/actions/ai.ts` into `src/lib/ai/guard.ts`: the `Guarded` type, `guard`, `authorize`, `allowSpend`, and the constants only they use (`AI_TURNED_OFF`, `AI_PRO_REQUIRED`, `HOUR`, `COMBINED_LIMIT`).
+- Move the two prompt-input builders into `src/lib/ai/describe.ts`: `describeItem` and `describeCode`.
+- Keep every action's behaviour byte-identical. This is a pure move — the existing 672 tests must pass untouched, and that green suite is what covers it.
+- Add direct tests for `describeItem` and `describeCode`, which is the payoff: `describeItem` is what keeps the privacy page's claim true and is currently reachable only through the actions.
+
 ## Notes
+
+- Audit item **A2** from @docs/audit-results/project-refactoring.md. Step 1 (**B1** shared unreachable message, **C** parallel spend check) is already merged.
+- `src/actions/ai.ts` is 670 lines, of which roughly 250 are not actions.
+- A `"use server"` module may only export async functions — the same reason `savePreferences` and `withSession` already live in `src/lib/`. `Guarded` is a type and `describeItem` / `describeCode` are sync, so none of them can be exported from an action file anyway.
+- `vitest.config.mts` collects `src/lib/**` and `src/actions/**`, so the moved code becomes directly importable rather than reachable only through an action.
+- The existing mocks in `src/actions/ai.test.ts` are on `@/lib/db/user`, `@/lib/rate-limit` and `@/lib/ai/spend`. Vitest mocks the module registry, so they still apply once the guard imports those from its new home — no test file change should be needed.
+- Per-feature limits (`TAG_LIMIT`, `SUMMARY_LIMIT`, `EXPLAIN_LIMIT`, `OPTIMIZE_LIMIT`) stay in `src/actions/ai.ts`: they are per-action configuration passed *into* the guard, unlike `COMBINED_LIMIT`, which is the guard's own ceiling.
 
 ## History
 
