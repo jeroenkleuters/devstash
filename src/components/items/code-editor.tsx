@@ -142,8 +142,62 @@ export function CodeEditor({
 
       editor.onDidContentSizeChange(applyHeight);
       applyHeight();
+
+      // A read-only editor has no context menu and nothing to paste into.
+      if (readOnly) return;
+
+      // Monaco draws its own context menu, and its built-in Paste is a no-op in
+      // a browser: the menu item cannot reach the clipboard, because
+      // `document.execCommand("paste")` is forbidden and a synthetic menu click
+      // carries no clipboard-read permission. Registering over the built-in id
+      // replaces that entry with one that reads the clipboard properly.
+      //
+      // Deliberately no `keybindings` here. Ctrl+V already works, through the
+      // browser paste event rather than through this action, so claiming the
+      // shortcut would route the one path that works through the one that needs
+      // a permission prompt.
+      editor.addAction({
+        id: "editor.action.clipboardPasteAction",
+        label: "Paste",
+        contextMenuGroupId: "9_cutcopypaste",
+        contextMenuOrder: 3,
+        run: async (target) => {
+          let text: string;
+
+          try {
+            text = await navigator.clipboard.readText();
+          } catch {
+            // Denied permission, an insecure origin, or a browser that does not
+            // implement `readText` for pages at all. The keyboard still pastes,
+            // so say so rather than failing silently into an empty menu click.
+            toast.error(
+              "Could not read the clipboard. Paste with the keyboard instead.",
+            );
+            return;
+          }
+
+          if (!text) return;
+
+          const selections = target.getSelections();
+          if (!selections?.length) return;
+
+          // `executeEdits` rather than the `type` command: typing re-indents and
+          // auto-closes brackets, which mangles pasted code. An undo stop either
+          // side makes the whole paste one step to undo.
+          target.pushUndoStop();
+          target.executeEdits(
+            "clipboard-paste",
+            selections.map((selection) => ({
+              range: selection,
+              text,
+              forceMoveMarkers: true,
+            })),
+          );
+          target.pushUndoStop();
+        },
+      });
     },
-    [minHeight],
+    [minHeight, readOnly],
   );
 
   const options = useMemo<NonNullable<EditorProps["options"]>>(
