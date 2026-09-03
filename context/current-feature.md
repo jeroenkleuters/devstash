@@ -1,12 +1,54 @@
 # Current Feature
 
+Send mail from devsquirrel@broadsight.nl
+
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
+- Verification and password-reset mail is sent from **`DevSquirrel
+  <devsquirrel@broadsight.nl>`** rather than `DevStash <onboarding@resend.dev>`:
+  `RESEND_FROM` in all three env files, and the `MAIL_FROM` fallback in
+  `src/lib/resend.ts` that applies when the variable is unset.
+- **`EMAIL_VERIFICATION_ENABLED=true` in production.** It is `false` there today
+  only because the old sender could not reach anyone but the Resend account
+  owner, which the verified domain fixes. Note it is already `true` in `.env`.
+- The privacy page's contact address becomes `devsquirrel@broadsight.nl`.
+- The `.env.example` comments stop describing `onboarding@resend.dev` as the
+  current state, since two of them explain a constraint that no longer holds.
+- `demo@devstash.io` stays. It is an identifier, not a sender.
+
 ## Notes
+
+Loaded inline. `broadsight.nl` is confirmed verified at resend.com/domains, which
+is what makes this safe -- and it retires the "a verified Resend sending domain is
+still what makes the mail flows usable" line that every entry has carried since
+the email-verification feature.
+
+It also kills the last **DevStash** string reachable in the running app: the
+sender name. The rebrand left it deliberately, as an identifier the user had
+chosen not to touch.
+
+Three things to be careful about:
+
+1. **`.env` and `.env.production` are gitignored** -- only `.env.example` is
+   tracked. So the two changes that actually matter in production are *not* in
+   the commit, and **Vercel's own environment has to be edited by hand**, both
+   `RESEND_FROM` and `EMAIL_VERIFICATION_ENABLED`.
+2. **Flipping verification on can strand an existing production account.** An
+   account whose `emailVerified` is null but which has a `passwordHash` will be
+   refused at sign-in the moment the flag is true. The flag was designed for
+   this -- accounts registered *while it was off* were stored already verified,
+   which is exactly why turning it back on was meant to be safe -- but an
+   account created before the flag existed, or while it was true and never
+   confirmed, would be locked out. CLAUDE.md forbids reading production, so this
+   has to be checked by the user against the production branch before the flag
+   flips. The query is `WHERE "emailVerified" IS NULL AND "passwordHash" IS NOT
+   NULL`; a previous backfill against development found 7 such rows.
+3. The address must actually receive mail, since it becomes the published
+   privacy contact as well as the sender.
 
 ## History
 
