@@ -1,14 +1,15 @@
 "use server";
 
 import {
-  EXISTING_TAGS_LABEL,
   EXPLAIN_PROMPT,
   OPTIMIZE_PROMPT,
   SUMMARY_PROMPT,
   TAG_PROMPT,
 } from "@/lib/ai/prompts";
+import { describeCode, describeItem } from "@/lib/ai/describe";
+import { allowSpend, authorize, guard } from "@/lib/ai/guard";
 import { runStructured } from "@/lib/ai/run";
-import { budgetExceededMessage, checkSpend, recordSpend } from "@/lib/ai/spend";
+import { recordSpend } from "@/lib/ai/spend";
 import {
   SUMMARY_CHARACTER_BUDGET,
   TAG_CHARACTER_BUDGET,
@@ -22,8 +23,6 @@ import {
 } from "@/lib/db/explanations";
 import { AI_MODEL } from "@/lib/openai";
 import { getItemDetail } from "@/lib/db/items";
-import { getCurrentUser } from "@/lib/db/user";
-import { rateLimit, tooManyAttemptsMessage } from "@/lib/rate-limit";
 import {
   aiDraftRequestSchema,
   aiItemRequestSchema,
@@ -33,15 +32,9 @@ import {
   optimizedPromptSchema,
   suggestedTagsSchema,
 } from "@/lib/validations/ai";
-import { SIGNED_OUT } from "@/constants/messages";
-import { firstIssueMessage } from "@/lib/validations/auth";
-import type { z } from "zod";
 import type { AiActionResult } from "@/types/ai";
 import type { OptimizedPrompt } from "@/lib/validations/ai";
 
-const AI_TURNED_OFF =
-  "AI features are switched off for this account. Turn them on in Settings.";
-const AI_PRO_REQUIRED = "AI suggestions need a Pro subscription.";
 const MISSING = "That item no longer exists.";
 const NOT_CODE = "Only snippets and commands can be explained.";
 /** Same reasoning as the draft schema's refine: a call that can only
@@ -50,14 +43,11 @@ const NOTHING_TO_EXPLAIN = "This item has no code to explain.";
 const NOT_PROMPT = "Only prompts can be optimized.";
 const NOTHING_TO_OPTIMIZE = "This prompt is empty.";
 
-const HOUR = 60 * 60 * 1000;
-
-/** Per feature, and across all of them. See `guard` for why both. */
+/** Per feature. The ceiling across all four lives with the guard. */
 const TAG_LIMIT = 30;
 const SUMMARY_LIMIT = 30;
 const EXPLAIN_LIMIT = 30;
 const OPTIMIZE_LIMIT = 30;
-const COMBINED_LIMIT = 60;
 
 /**
  * Suggests tags for one of the caller's items.
@@ -455,216 +445,4 @@ export async function optimizePrompt(
   await recordSpend(result.usage).catch(() => {});
 
   return { success: true, data: result.data };
-}
-
-/**
- * The code as the model sees it: the code, and the language hint when the item
- * carries one.
- *
- * No title and no description — an explanation is supposed to come from reading
- * the code, and a title saying what the snippet is for is exactly the thing a
- * model will paraphrase instead of doing the work. The hint goes in because
- * `Item.language` is free text a person chose, and it disambiguates syntax that
- * several languages share.
- *
- * Truncated as one block, so the hint cannot be pushed out by a long file, and
- * `truncateForAi` takes the **head** — a file's imports and top-level structure
- * are where an explanation starts.
- */
-function describeCode(item: { content: string; language: string | null }): string {
-  const parts = item.language ? [`Language: ${item.language}`] : [];
-
-  parts.push(`Code:\n${item.content}`);
-
-  return truncateForAi(parts.join("\n\n"));
-}
-
-/** What a gate refused, or the caller and their validated request. */
-type Guarded<T> =
-  | { ok: true; user: { id: string }; data: T }
-  | { ok: false; failure: AiActionResult<never> };
-
-/**
- * The checks every AI action makes, in the order they have to happen.
- *
- * **The order is the security and cost property**, not house style, and each
- * position earns itself:
- *
- * 1. **Session** first — `getCurrentUser` is `cache()`d, so this is free if
- *    anything in the request already asked, and it carries `aiPreferences` and
- *    `isPro` so the next two checks cost no query either.
- * 2. **The off switch before the Pro check.** Selling an upgrade for a feature
- *    someone deliberately switched off is nonsense, and it sells at the worst
- *    possible moment.
- * 3. **Pro before the rate limit**, the ordering `POST /api/upload` already
- *    establishes: a free account should be told it needs Pro rather than told to
- *    wait for a window that will refuse it again.
- * 4. **Shape before the limiters**, so a malformed request does not spend one of
- *    the caller's own attempts.
- * 5. **Both limits before the spend cap.** The limiter keeps an in-memory cache
- *    of identifiers it has already rejected, so a repeat offender is answered
- *    with no round trip at all. The combined ceiling is the one that protects
- *    the budget — four separate windows would let a determined caller make 100
- *    calls an hour whatever the mix.
- * 6. **The spend cap last**, so a caller in a loop is stopped before anything
- *    it does costs a database query, let alone an API call. Reading the item
- *    happens *after* this returns, in the action that needs one — which is why
- *    the draft path can share every check without pretending to have a row.
- *
- * Generic over the request schema so both entry points run the same sequence
- * in the same order. That ordering is the security and cost property, and the
- * tests assert it by the absence of the later calls.
- */
-async function guard<T>(
-  input: unknown,
-  schema: { safeParse: (value: unknown) => z.ZodSafeParseResult<T> },
-  feature: string,
-  limit: number,
-): Promise<Guarded<T>> {
-  const auth = await authorize(input, schema);
-
-  if (!auth.ok) {
-    return auth;
-  }
-
-  const spend = await allowSpend(auth.user.id, feature, limit);
-
-  if (spend) {
-    return { ok: false, failure: spend };
-  }
-
-  return auth;
-}
-
-/**
- * Steps 1 to 4 — who is asking, whether they have AI on, whether they are Pro,
- * and whether the request is even the right shape.
- *
- * Split from the two that follow so an action can do something in between.
- * `explainCode` is the one that does: a cached answer costs nothing, so it
- * reads the item and consults the cache here, and only reaches `allowSpend` on
- * a miss. Everything else runs the two halves back to back through `guard`.
- */
-async function authorize<T>(
-  input: unknown,
-  schema: { safeParse: (value: unknown) => z.ZodSafeParseResult<T> },
-): Promise<Guarded<T>> {
-  const refuse = (error: string): Guarded<T> => ({
-    ok: false,
-    failure: { success: false, error },
-  });
-
-  const user = await getCurrentUser();
-
-  if (!user) {
-    return refuse(SIGNED_OUT);
-  }
-
-  if (!user.aiPreferences.enabled) {
-    return refuse(AI_TURNED_OFF);
-  }
-
-  if (!user.isPro) {
-    return refuse(AI_PRO_REQUIRED);
-  }
-
-  const parsed = schema.safeParse(input);
-
-  if (!parsed.success) {
-    return refuse(firstIssueMessage(parsed.error));
-  }
-
-  return { ok: true, user, data: parsed.data };
-}
-
-/**
- * Steps 5 and 6 of the sequence above, on their own so an action can do
- * something between them and the checks before them.
- *
- * `explainCode` is why: a cached answer costs nothing, so it must not spend one
- * of the caller's hourly attempts, which means the cache is consulted first and
- * this runs only on a miss.
- *
- * Answers `null` when the call may proceed, and the refusal otherwise.
- */
-async function allowSpend(
-  userId: string,
-  feature: string,
-  limit: number,
-): Promise<AiActionResult<never> | null> {
-  // `Promise.all`, not an array of awaits: an array literal evaluates left to
-  // right, so awaiting inside one is two sequential round trips wearing the
-  // shape of a parallel pair. The two windows are independent — neither result
-  // decides whether the other is worth checking — and this sits on the hot path
-  // of every AI action, before the model is reached. Safe because `rateLimit`
-  // catches its own failures and fails open, so there is no sibling rejection
-  // to go unhandled. Same shape the two-window auth routes already use.
-  const [perFeature, combined] = await Promise.all([
-    rateLimit(`ai:${feature}:${userId}`, limit, HOUR),
-    rateLimit(`ai:all:${userId}`, COMBINED_LIMIT, HOUR),
-  ]);
-
-  if (!perFeature.success || !combined.success) {
-    // Quotes only the window that actually failed, so an action checking two
-    // never overstates the wait.
-    return {
-      success: false,
-      error: tooManyAttemptsMessage(perFeature, combined),
-    };
-  }
-
-  const budget = await checkSpend();
-
-  if (!budget.allowed) {
-    // The flag is what lets `BillingProvider` hold this for the session, so a
-    // second click does not spend a round trip discovering the same thing.
-    return {
-      success: false,
-      error: budgetExceededMessage(budget),
-      budgetExceeded: true,
-    };
-  }
-
-  return null;
-}
-
-/**
- * The item as the model sees it: what the user wrote, and nothing else.
- *
- * No id, no owner, no collection names, no filename — the privacy page says
- * only the title, description and content are sent, and this is the function
- * that has to keep that true.
- *
- * Existing tags go too, and the prompt tells the model not to repeat them:
- * cheaper than deduping the answer afterwards, and it produces better
- * suggestions than asking blind.
- */
-function describeItem(
-  item: {
-    title: string;
-    description: string | null;
-    content: string | null;
-    tags: string[];
-  },
-  budget: number,
-): string {
-  const parts = [`Title: ${item.title}`];
-
-  if (item.description) {
-    parts.push(`Description: ${item.description}`);
-  }
-
-  if (item.tags.length > 0) {
-    parts.push(`${EXISTING_TAGS_LABEL}: ${item.tags.join(", ")}`);
-  }
-
-  if (item.content) {
-    parts.push(`Content:\n${item.content}`);
-  }
-
-  // Truncated as one block rather than per field, so a huge content field
-  // cannot push the title out of what is sent. The budget is the caller's
-  // because the two features sharing this helper need different amounts:
-  // tagging reads the opening, summarising reads further in.
-  return truncateForAi(parts.join("\n\n"), budget);
 }
