@@ -34,5 +34,7 @@ export const config = {
     "/collections/:path*",
     "/favorites",
     "/favorites/:path*",
+    "/favorite-collections",
+    "/favorite-collections/:path*",
   ],
 };

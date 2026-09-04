@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { Boxes, Folder } from "lucide-react";
 
+import { LinkSpinner } from "@/components/layout/link-pending";
 import { TYPE_ICONS } from "@/constants/item-types";
 import { getCollectionStats } from "@/lib/db/collections";
 import { getItemStats, getItemTypesWithCounts } from "@/lib/db/items";
@@ -25,7 +27,13 @@ export async function ProfileUsage({ userId }: ProfileUsageProps) {
       <h2 className="profile-card-title">Usage Statistics</h2>
 
       <ul className="stat-cards profile-usage-totals">
+        {/* Stretched over the card rather than wrapping it, so the grid keeps
+            its two columns and the icon keeps spanning both rows — the same
+            shape the dashboard's cards use. */}
         <li data-stat="items" className="stat-card">
+          <Link href="/items" className="stat-card-open" aria-label="Total Items">
+            <LinkSpinner />
+          </Link>
           <span className="stat-card-icon">
             <Boxes size={16} aria-hidden />
           </span>
@@ -33,6 +41,13 @@ export async function ProfileUsage({ userId }: ProfileUsageProps) {
           <span className="stat-card-label">Total Items</span>
         </li>
         <li data-stat="collections" className="stat-card">
+          <Link
+            href="/collections"
+            className="stat-card-open"
+            aria-label="Collections"
+          >
+            <LinkSpinner />
+          </Link>
           <span className="stat-card-icon">
             <Folder size={16} aria-hidden />
           </span>
@@ -41,7 +56,7 @@ export async function ProfileUsage({ userId }: ProfileUsageProps) {
         </li>
       </ul>
 
-      <h3 className="profile-subheading">Items by Type</h3>
+      <h2 className="profile-subheading">Items by Type</h2>
 
       <ul className="profile-type-list">
         {types.map((type) => {

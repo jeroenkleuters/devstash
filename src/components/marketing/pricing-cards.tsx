@@ -16,7 +16,7 @@ const FREE = [
   `${FREE_COLLECTION_LIMIT} collections`,
   "Snippets, prompts, notes, commands, links",
   "Full search",
-  "Dark mode",
+  "Dark and light mode, switchable",
 ];
 
 // One feature per line, and named the way the AI section above names it. The

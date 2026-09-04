@@ -20,8 +20,8 @@ import type { CurrentUser } from "@/lib/db/user";
 
 /** The two destinations that are not a type or a collection. */
 const MAIN_LINKS = [
-  { href: "/dashboard", label: "Dashboard", Icon: LayoutDashboard },
-  { href: "/favorites", label: "Favorites", Icon: Star },
+  { href: "/dashboard", label: "Dashboard", Icon: LayoutDashboard, main: "dashboard" },
+  { href: "/favorites", label: "Favorites", Icon: Star, main: "favorites" },
 ] as const;
 
 interface SidebarProps {
@@ -69,7 +69,7 @@ export function Sidebar({
             bottom rather than being duplicated here. */}
         <nav className="sidebar-section" aria-label="Main">
           <ul className="sidebar-list">
-            {MAIN_LINKS.map(({ href, label, Icon }) => (
+            {MAIN_LINKS.map(({ href, label, Icon, main }) => (
               <li key={href}>
                 <Link
                   href={href}
@@ -79,7 +79,12 @@ export function Sidebar({
                   onClick={closeOnMobile}
                 >
                   <LinkPendingIcon>
-                    <Icon className="sidebar-link-icon" size={16} aria-hidden />
+                    <Icon
+                      className="sidebar-link-icon"
+                      data-main={main}
+                      size={16}
+                      aria-hidden
+                    />
                   </LinkPendingIcon>
                   <span className="sidebar-link-label">{label}</span>
                 </Link>
@@ -102,77 +107,89 @@ export function Sidebar({
           </button>
 
           {typesOpen && (
-            <ul className="sidebar-list">
-              {types.map((type) => {
-                const Icon = TYPE_ICONS[type.icon];
-                const href = `/items/${type.slug}`;
-                const proType = PRO_TYPE_SLUGS.has(type.slug);
+            <>
+              <ul className="sidebar-list">
+                {types.map((type) => {
+                  const Icon = TYPE_ICONS[type.icon];
+                  const href = `/items/${type.slug}`;
+                  const proType = PRO_TYPE_SLUGS.has(type.slug);
 
-                // A free account is sent to the upsell rather than to an empty
-                // Pro listing — but only when the listing really is empty. An
-                // account that was Pro and lapsed still owns its files, and
-                // hiding the one page they are on would be taking them away
-                // rather than gating what it can add.
-                const locked = proType && !isPro && type.itemCount === 0;
+                  // A free account is sent to the upsell rather than to an empty
+                  // Pro listing — but only when the listing really is empty. An
+                  // account that was Pro and lapsed still owns its files, and
+                  // hiding the one page they are on would be taking them away
+                  // rather than gating what it can add.
+                  const locked = proType && !isPro && type.itemCount === 0;
 
-                const icon = Icon ? (
-                  <Icon
-                    className="sidebar-type-icon"
-                    data-type={type.slug}
-                    size={16}
-                    aria-hidden
-                  />
-                ) : null;
+                  const icon = Icon ? (
+                    <Icon
+                      className="sidebar-type-icon"
+                      data-type={type.slug}
+                      size={16}
+                      aria-hidden
+                    />
+                  ) : null;
 
-                // The label and everything after it is the same in both
-                // branches; only the leading icon differs, since the locked
-                // button never navigates and has nothing to be pending about.
-                const contents = (
-                  <>
-                    <span className="sidebar-link-label">{type.name}</span>
-                    {proType && (
-                      <Badge variant="outline" className="sidebar-pro-badge">
-                        PRO
-                      </Badge>
-                    )}
-                    <span className="sidebar-link-count">{type.itemCount}</span>
-                  </>
-                );
+                  // The label and everything after it is the same in both
+                  // branches; only the leading icon differs, since the locked
+                  // button never navigates and has nothing to be pending about.
+                  const contents = (
+                    <>
+                      <span className="sidebar-link-label">{type.name}</span>
+                      {proType && (
+                        <Badge variant="outline" className="sidebar-pro-badge">
+                          PRO
+                        </Badge>
+                      )}
+                      <span className="sidebar-link-count">{type.itemCount}</span>
+                    </>
+                  );
 
-                return (
-                  <li key={type.id}>
-                    {locked ? (
-                      <button
-                        type="button"
-                        className="sidebar-link"
-                        data-locked
-                        title={`${type.name} — requires Pro`}
-                        onClick={() =>
-                          requestUpgrade({
-                            kind: "type",
-                            label: `${type.name}s`,
-                          })
-                        }
-                      >
-                        {icon}
-                        {contents}
-                      </button>
-                    ) : (
-                      <Link
-                        href={href}
-                        className="sidebar-link"
-                        data-active={pathname === href}
-                        title={type.name}
-                        onClick={closeOnMobile}
-                      >
-                        <LinkPendingIcon>{icon}</LinkPendingIcon>
-                        {contents}
-                      </Link>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
+                  return (
+                    <li key={type.id}>
+                      {locked ? (
+                        <button
+                          type="button"
+                          className="sidebar-link"
+                          data-locked
+                          title={`${type.name} — requires Pro`}
+                          onClick={() =>
+                            requestUpgrade({
+                              kind: "type",
+                              label: `${type.name}s`,
+                            })
+                          }
+                        >
+                          {icon}
+                          {contents}
+                        </button>
+                      ) : (
+                        <Link
+                          href={href}
+                          className="sidebar-link"
+                          data-active={pathname === href}
+                          title={type.name}
+                          onClick={closeOnMobile}
+                        >
+                          <LinkPendingIcon>{icon}</LinkPendingIcon>
+                          {contents}
+                        </Link>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+
+              <Link
+                href="/items"
+                className="sidebar-view-all"
+                data-active={pathname === "/items"}
+                onClick={closeOnMobile}
+              >
+                View all types
+                <LinkSpinner size={14} />
+              </Link>
+            </>
           )}
         </nav>
 

@@ -31,7 +31,7 @@ export function ProfileUsageSkeleton() {
         ))}
       </ul>
 
-      <h3 className="profile-subheading">Items by Type</h3>
+      <h2 className="profile-subheading">Items by Type</h2>
 
       <ul className="profile-type-list" aria-busy="true">
         {placeholders(TYPE_ROW_COUNT).map((index) => (

@@ -98,6 +98,26 @@ export async function getFavoriteItems(userId: string): Promise<ItemSummary[]> {
 }
 
 /**
+ * Every item the account owns, pinned first and then most recently updated —
+ * the `/items` list.
+ *
+ * Unbounded, like the favorites and pinned reads it sits beside, and this is
+ * the largest of the three by definition: a Pro stash is uncapped, so this is
+ * the one place that assumption is worth revisiting if a listing ever drags.
+ * The page shows them all and sorts them in the browser, so there is no page
+ * to slice to.
+ */
+export async function getAllItems(userId: string): Promise<ItemSummary[]> {
+  const items = await prisma.item.findMany({
+    where: { userId },
+    orderBy: [{ isPinned: "desc" }, { updatedAt: "desc" }],
+    select: itemSelect,
+  });
+
+  return items.map(toSummary);
+}
+
+/**
  * The dashboard's Recent list — pinned first, then most recently updated.
  *
  * A pinned item therefore heads this list as well as appearing in the Pinned

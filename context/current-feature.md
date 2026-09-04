@@ -1,12 +1,47 @@
-# Current Feature
+# Current Feature: Findings fixes & visual improvements
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
+**General**
+
+- Add a `--type-main-support` colour token with the value `#99d7f8`.
+- Set `h2` font-size to 1.5rem app-wide.
+- New page `/items` — the `/favorites` layout reused with the heading **Items**.
+- New page `/favorite-collections` — the `/collections` layout reused with the heading **Favorite collections**.
+
+**Dashboard**
+
+- Link the Items stat card to `/items`.
+- Link the Collections stat card to `/collections`.
+- Link the Favorite collections stat card to `/favorite-collections`.
+
+**Sidebar**
+
+- Add a **View all types** link under the Types section, matching the existing "View all collections" link — hidden in the collapsed rail, destination `/items`.
+- Colour the Dashboard icon with `var(--type-main-support)`.
+- Colour the Favorites icon with `var(--type-favorite)`.
+
+**Settings**
+
+- Fix the vertical centring of the dot in the settings switch — it sits too high.
+- Disable the AI features section for a non-Pro account and route it to the upgrade dialog.
+- Add an **Appearance** section between Plan and Editor with a dark-mode switch that toggles the `dark` class on `<html>`.
+- Keep the marketing page out of the theme switch, and note in the pricing section that light/dark is switchable in the app.
+
+**Profile**
+
+- Render "Items by Type" as an `h2`.
+- Link each stat card to the page it represents.
+
 ## Notes
+
+- **`--type-main` is deliberately not created.** The spec asked for all `h1` elements to take `var(--type-main)`; confirmed at load that this is dropped — only the sidebar Dashboard icon takes the new support colour for now. The spec value `#99d7f` was a typo for `#99d7f8`.
+- **The dark-mode switch here is the simple version, on purpose.** @context/features/light-mode-spec.md is a full 214-line feature covering `next-themes`, the Monaco theme, the seven `--type-*` colours and the marketing page. Confirmed at load: build the simple class toggle now and leave that spec as the follow-up that does it properly. Expect the known gaps a light background exposes — Monaco stays dark, the type colours are unchecked on white — since closing them is exactly what the other spec is for.
+- The two new pages reuse existing page components rather than introducing new list or grid shapes.
 
 ## History
 

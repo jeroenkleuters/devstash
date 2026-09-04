@@ -5,6 +5,7 @@ import { useId, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { saveAiPreferences } from "@/actions/ai-preferences";
+import { useBilling } from "@/components/billing/billing-provider";
 import { Label } from "@/components/ui/label";
 import { UNREACHABLE } from "@/constants/messages";
 import type { AiPreferences } from "@/types/ai";
@@ -28,10 +29,18 @@ interface SettingsAiProps {
  * cards. It holds its own state rather than reading `BillingProvider`, which
  * carries the value *down* to the controls that hide themselves; the round trip
  * back up would be a second source of truth for one boolean.
+ *
+ * AI is a Pro feature, so a free account gets the card inert and pointed at the
+ * upsell. The switch is `aria-disabled` and never `disabled`, for the reason
+ * every gated control in the app is: a truly disabled control takes no click,
+ * and the upsell would then be unreachable. `preventDefault` on the click is
+ * what stops the box actually toggling — it covers the keyboard too, since
+ * space on a checkbox fires a click.
  */
 export function SettingsAi({ preferences }: SettingsAiProps) {
   const [enabled, setEnabled] = useState(preferences.enabled);
   const [saving, startSaving] = useTransition();
+  const { isPro, requestUpgrade } = useBilling();
 
   const switchId = useId();
 
@@ -58,7 +67,11 @@ export function SettingsAi({ preferences }: SettingsAiProps) {
   }
 
   return (
-    <section className="settings-card" aria-busy={saving}>
+    <section
+      className="settings-card"
+      data-locked={!isPro || undefined}
+      aria-busy={saving}
+    >
       <div className="settings-row">
         <div className="settings-row-text">
           <h2 className="settings-card-title">AI</h2>
@@ -81,6 +94,19 @@ export function SettingsAi({ preferences }: SettingsAiProps) {
               What we share
             </Link>
           </p>
+
+          {!isPro && (
+            <p className="settings-row-note">
+              AI features are part of Pro.{" "}
+              <button
+                type="button"
+                className="settings-row-upgrade"
+                onClick={() => requestUpgrade({ kind: "ai", label: "AI features" })}
+              >
+                See what Pro includes
+              </button>
+            </p>
+          )}
         </div>
 
         <input
@@ -88,7 +114,14 @@ export function SettingsAi({ preferences }: SettingsAiProps) {
           type="checkbox"
           role="switch"
           className="settings-switch"
-          checked={enabled}
+          checked={isPro && enabled}
+          aria-disabled={!isPro || undefined}
+          onClick={(event) => {
+            if (isPro) return;
+
+            event.preventDefault();
+            requestUpgrade({ kind: "ai", label: "AI features" });
+          }}
           onChange={(event) => save(event.target.checked)}
         />
       </div>
