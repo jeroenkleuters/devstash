@@ -26,7 +26,7 @@ export function FavoriteSection({
     <section className="favorite-section">
       <div className="favorite-section-header">
         <h2 className="favorite-section-title">
-          {title} <span className="favorite-section-count">({count})</span>
+          {title} <span>({count})</span>
         </h2>
 
         {action}

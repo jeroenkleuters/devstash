@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
 import { Toaster } from "@/components/ui/sonner";
+import { THEME_SCRIPT } from "@/lib/theme";
 
 import "./globals.css";
 
@@ -33,17 +34,29 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
-  // Dark mode is the default; a light-mode toggle comes later.
   return (
     <html
       lang="en"
+      // The head script takes the `dark` class off before React hydrates, so
+      // the class it finds is not the one the server sent. This is the only
+      // way to say that is intended: it covers this element's own attributes
+      // and nothing deeper, so a real mismatch anywhere else still reports.
+      suppressHydrationWarning
       // The marketing page sets `scroll-behavior: smooth` through
       // `html:has(.marketing)`, which Next cannot see and warns about on every
       // navigation in development. Declaring it here is Next's own answer, and
       // does not itself turn smooth scrolling on anywhere.
       data-scroll-behavior="smooth"
+      // Dark is the default and is rendered on the server; the script in the
+      // head below takes the class off before paint if the visitor chose light.
       className={`dark ${geistSans.variable} ${geistMono.variable}`}
     >
+      <head>
+        {/* Blocking and inline on purpose: a theme applied after hydration
+            flashes the wrong one on every load. It only ever removes the class,
+            so a browser with no stored choice gets the server's dark. */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
       <body>
         {children}
         {/* Every route can raise one, so it is mounted once at the root rather

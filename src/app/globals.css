@@ -52,6 +52,13 @@ body {
   font-family: var(--font-sans);
 }
 
+/* Every h2 in the app is a section heading and they are all this size. Stated
+   once as a bare element rule rather than repeated across the five title
+   classes, which is what let them drift to 0.75rem, 1rem and 1.125rem. */
+h2 {
+  font-size: 1.5rem;
+}
+
 :root {
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
@@ -96,9 +103,19 @@ body {
   --type-link: #10b981;
   --type-book: #06b6d4;
   --type-favorite: #facc15;
+
+  /* Not an item type: the accent the sidebar's Dashboard icon takes, so it
+     reads as a destination rather than as one more coloured type row. */
+  --type-main-support: #99d7f8;
 }
 
-.dark {
+/* `.marketing` is grouped in deliberately: the marketing and auth pages are
+   excluded from the theme switch and always render dark, and redefining the
+   tokens on their own wrapper is what makes that true whatever class `<html>`
+   carries. The wrapper paints its own ground below, or the light body would
+   show through around it. */
+.dark,
+.marketing {
   color-scheme: dark;
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
@@ -397,6 +414,14 @@ body {
   color: var(--muted-foreground);
 }
 
+.sidebar-link-icon[data-main="dashboard"] {
+  color: var(--type-main-support);
+}
+
+.sidebar-link-icon[data-main="favorites"] {
+  color: var(--type-favorite);
+}
+
 .sidebar-link-star {
   margin-left: auto;
   color: var(--type-favorite);
@@ -548,7 +573,6 @@ body {
   align-items: center;
   gap: 0.5rem;
   margin-bottom: 1rem;
-  font-size: 1.125rem;
   font-weight: 600;
 }
 
@@ -1268,6 +1292,11 @@ body {
   color: var(--type-favorite);
 }
 
+/* `/items` reuses the favorites heading; only the icon's colour differs. */
+.items-title-icon {
+  color: var(--type-main-support);
+}
+
 .favorites-title-count {
   font-size: 1.25rem;
   font-weight: 400;
@@ -1296,15 +1325,8 @@ body {
 }
 
 .favorite-section-title {
-  font-size: 0.75rem;
   font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   color: var(--muted-foreground);
-}
-
-.favorite-section-count {
-  letter-spacing: normal;
 }
 
 /* A native select, as `.settings-select` is, sized down to sit inside a section
@@ -2762,7 +2784,6 @@ a.pagination-page:hover {
 
 .profile-card-title,
 .settings-card-title {
-  font-size: 1rem;
   font-weight: 600;
 }
 
@@ -2835,7 +2856,6 @@ a.pagination-page:hover {
 
 .profile-subheading {
   margin: 1.5rem 0 0.75rem;
-  font-size: 0.8125rem;
   color: var(--muted-foreground);
 }
 
@@ -3028,7 +3048,7 @@ a.pagination-page:hover {
   display: block;
   width: 0.875rem;
   height: 0.875rem;
-  margin-left: 0.125rem;
+  margin: 0.125rem;
   border-radius: 999px;
   background: var(--muted-foreground);
   transition:
@@ -3069,6 +3089,27 @@ a.pagination-page:hover {
 
 .settings-row-link:hover {
   color: var(--marketing-accent, var(--type-snippet));
+}
+
+/* The upsell out of a gated card. A button rather than a link: it opens the
+   shared dialog, which is not a destination. */
+.settings-row-upgrade {
+  color: var(--marketing-accent, var(--type-snippet));
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+/* A Pro-gated card reads as unavailable without going invisible — the copy
+   still has to be readable, since it is what explains the gate. The upsell and
+   the note it sits in are deliberately excluded from the dimming. */
+.settings-card[data-locked] :is(.settings-row-title, .settings-row-description) {
+  opacity: 0.6;
+}
+
+.settings-card[data-locked] .settings-switch {
+  cursor: pointer;
+  opacity: 0.5;
 }
 
 /* ---------- Loading skeletons ----------
@@ -3604,6 +3645,12 @@ html:has(.marketing) {
   --marketing-accent: var(--type-snippet);
   --marketing-accent-light: #60a5fa;
   --shell: 72rem;
+
+  /* Its own ground, since the tokens above are redefined here rather than on
+     `<html>` — in light mode the body behind this is white. */
+  min-height: 100%;
+  background: var(--background);
+  color: var(--foreground);
 
   /* The nav is fixed and 4rem tall, so a jump to #features or #pricing would
      otherwise land with the heading underneath it. */
