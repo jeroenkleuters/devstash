@@ -1,6 +1,7 @@
 "use server";
 
 import {
+  DETECT_LANGUAGE_PROMPT,
   EXPLAIN_PROMPT,
   OPTIMIZE_PROMPT,
   SUMMARY_PROMPT,
@@ -15,7 +16,11 @@ import {
   TAG_CHARACTER_BUDGET,
   truncateForAi,
 } from "@/lib/ai/truncate";
-import { isCodeType, isPromptType } from "@/constants/item-types";
+import {
+  LANGUAGE_TYPE_SLUGS,
+  isCodeType,
+  isPromptType,
+} from "@/constants/item-types";
 import { explanationSourceHash } from "@/lib/ai/explanation-cache";
 import {
   cacheExplanation,
@@ -27,6 +32,8 @@ import {
   aiDraftRequestSchema,
   aiItemRequestSchema,
   codeExplanationSchema,
+  detectLanguageDraftSchema,
+  detectedLanguageSchema,
   explainRequestSchema,
   itemSummarySchema,
   optimizedPromptSchema,
@@ -42,12 +49,15 @@ const NOT_CODE = "Only snippets and commands can be explained.";
 const NOTHING_TO_EXPLAIN = "This item has no code to explain.";
 const NOT_PROMPT = "Only prompts can be optimized.";
 const NOTHING_TO_OPTIMIZE = "This prompt is empty.";
+const NO_LANGUAGE_FIELD = "Only snippets and commands have a language.";
+const NOTHING_TO_DETECT = "This item has no code to read.";
 
 /** Per feature. The ceiling across all four lives with the guard. */
 const TAG_LIMIT = 30;
 const SUMMARY_LIMIT = 30;
 const EXPLAIN_LIMIT = 30;
 const OPTIMIZE_LIMIT = 30;
+const DETECT_LIMIT = 30;
 
 /**
  * Suggests tags for one of the caller's items.
@@ -445,4 +455,100 @@ export async function optimizePrompt(
   await recordSpend(result.usage).catch(() => {});
 
   return { success: true, data: result.data };
+}
+
+/**
+ * Identifies the language of one of the caller's snippets or commands.
+ *
+ * **It writes nothing**, like every AI action here: the id comes back as a
+ * string, the form selects it, and the existing `updateItem` stores it on Save.
+ *
+ * The answer is constrained to `detectedLanguageSchema`, an enum over the ids
+ * the dropdown offers. That is the load-bearing part rather than a nicety:
+ * `Item.language` is free text and `languageOptions` carries an unrecognised
+ * hint through as its own option, so an unconstrained answer would add a bogus
+ * entry to the dropdown and then be saved with the item.
+ */
+export async function detectLanguage(
+  input: unknown,
+): Promise<AiActionResult<string>> {
+  const gate = await guard(input, aiItemRequestSchema, "detect", DETECT_LIMIT);
+
+  if (!gate.ok) {
+    return gate.failure;
+  }
+
+  const item = await getItemDetail(gate.user.id, gate.data.itemId);
+
+  if (!item) {
+    return { success: false, error: MISSING };
+  }
+
+  // The same set the Language field itself renders from, so a type that grows
+  // a language later gets detection without a second list to remember.
+  if (!LANGUAGE_TYPE_SLUGS.has(item.type.slug)) {
+    return { success: false, error: NO_LANGUAGE_FIELD };
+  }
+
+  if (!item.content) {
+    return { success: false, error: NOTHING_TO_DETECT };
+  }
+
+  return detect(item.content);
+}
+
+/**
+ * The same, for a snippet still being written.
+ *
+ * The trade is `suggestTagsForDraft`'s and its reasoning applies unchanged: the
+ * content crosses the wire because there is no stored row to read it back
+ * from, and what bounds the cost is the preamble this shares rather than where
+ * the text came from. The create dialog is the moment the language is least
+ * likely to have been set by hand, so leaving it out would miss the case the
+ * feature is most useful for.
+ */
+export async function detectLanguageForDraft(
+  input: unknown,
+): Promise<AiActionResult<string>> {
+  const gate = await guard(
+    input,
+    detectLanguageDraftSchema,
+    // The same window as the stored path, deliberately: a draft detection and
+    // an item detection cost the same call, so giving the draft its own budget
+    // would quietly double what one account can spend on this in an hour.
+    "detect",
+    DETECT_LIMIT,
+  );
+
+  if (!gate.ok) {
+    return gate.failure;
+  }
+
+  return detect(gate.data.content);
+}
+
+/** The call itself, once there is code to read. */
+async function detect(content: string): Promise<AiActionResult<string>> {
+  const result = await runStructured({
+    instructions: DETECT_LANGUAGE_PROMPT,
+    // `language: null` on purpose: sending the hint the field already holds
+    // would anchor the model to the value it is being asked to replace, which
+    // is the same reason the summary strips the description it overwrites.
+    input: describeCode({ content, language: null }),
+    schema: detectedLanguageSchema,
+    schemaName: "detected_language",
+    // Classification, like tagging, and reasoning tokens bill at the *output*
+    // rate — so minimal effort is the largest per-call saving available.
+    effort: "minimal",
+    verbosity: "low",
+    cacheKey: "devstash:detect:v1",
+  });
+
+  if (!result.ok) {
+    return { success: false, error: result.error };
+  }
+
+  await recordSpend(result.usage).catch(() => {});
+
+  return { success: true, data: result.data.language };
 }

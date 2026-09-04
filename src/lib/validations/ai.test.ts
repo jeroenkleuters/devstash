@@ -3,12 +3,15 @@ import { describe, expect, it } from "vitest";
 import {
   aiItemRequestSchema,
   codeExplanationSchema,
+  detectLanguageDraftSchema,
+  detectedLanguageSchema,
   itemSummarySchema,
   MAX_SUGGESTED_TAGS,
   MAX_OPTIMIZER_NOTES,
   optimizedPromptSchema,
   suggestedTagsSchema,
 } from "@/lib/validations/ai";
+import { DEFAULT_LANGUAGE, OFFERED_IDS } from "@/lib/code-language";
 import {
   DESCRIPTION_MAX_LENGTH,
   TAG_MAX_LENGTH,
@@ -204,5 +207,84 @@ describe("optimizedPromptSchema", () => {
         notes: [],
       }).success,
     ).toBe(false);
+  });
+});
+
+describe("detectedLanguageSchema", () => {
+  /**
+   * The rule the language-detection feature turns on, and the reason the output
+   * is an enum rather than a string. `Item.language` is free text and
+   * `languageOptions` carries an unrecognised hint through as its own dropdown
+   * option — so an answer outside the offered set would not fail visibly. It
+   * would add a bogus entry to the dropdown and then be stored on save.
+   */
+  it("refuses a language the dropdown does not offer", () => {
+    for (const language of ["TypeScript React", "ts", "Python", "cobol", ""]) {
+      expect(detectedLanguageSchema.safeParse({ language }).success).toBe(false);
+    }
+  });
+
+  it("accepts every id the dropdown offers", () => {
+    for (const language of OFFERED_IDS) {
+      expect(detectedLanguageSchema.safeParse({ language }).success).toBe(true);
+    }
+  });
+
+  /**
+   * A constrained enum forces a choice, so the model needs somewhere to go when
+   * it cannot tell. `plaintext` being a member is what makes "I cannot tell" a
+   * sayable answer rather than a confident wrong one.
+   */
+  it("offers plaintext as the escape hatch", () => {
+    expect(OFFERED_IDS).toContain(DEFAULT_LANGUAGE);
+    expect(
+      detectedLanguageSchema.safeParse({ language: DEFAULT_LANGUAGE }).success,
+    ).toBe(true);
+  });
+});
+
+describe("detectLanguageDraftSchema", () => {
+  it("takes the content", () => {
+    const parsed = detectLanguageDraftSchema.parse({ content: "print(1)" });
+
+    expect(parsed).toEqual({ content: "print(1)" });
+  });
+
+  /**
+   * A title and a description say what a snippet is *for*, which is what a
+   * model paraphrases instead of reading the code. Stripping them is what stops
+   * a caller naming the language they want back.
+   */
+  it("drops everything but the content", () => {
+    const parsed = detectLanguageDraftSchema.parse({
+      content: "print(1)",
+      title: "A Ruby script",
+      tags: ["ruby"],
+    });
+
+    expect(parsed).toEqual({ content: "print(1)" });
+  });
+
+  it("refuses content that is empty or only whitespace", () => {
+    for (const content of ["", "   ", "\n\t "]) {
+      expect(detectLanguageDraftSchema.safeParse({ content }).success).toBe(
+        false,
+      );
+    }
+  });
+
+  it("refuses a body far larger than anything that could be sent", () => {
+    const parsed = detectLanguageDraftSchema.safeParse({
+      content: "x".repeat(200_000),
+    });
+
+    expect(parsed.success).toBe(false);
+  });
+
+  /** Inner whitespace is code, so it survives — only the emptiness check trims. */
+  it("keeps the content exactly as written", () => {
+    const content = "def f():\n    return 1\n";
+
+    expect(detectLanguageDraftSchema.parse({ content }).content).toBe(content);
   });
 });

@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { OFFERED_IDS } from "@/lib/code-language";
 import {
   DESCRIPTION_MAX_LENGTH,
   TAG_MAX_LENGTH,
@@ -82,6 +83,50 @@ export const aiDraftRequestSchema = z
   });
 
 export type AiDraftRequest = z.infer<typeof aiDraftRequestSchema>;
+
+/**
+ * What a *draft* sends for language detection: the code, and nothing else.
+ *
+ * Narrower than `aiDraftRequestSchema` on purpose. A title and a description
+ * say what a snippet is *for*, which is what a model paraphrases instead of
+ * reading the code — and the language is in the code or it is nowhere. The
+ * same `DRAFT_MAX_LENGTH` cap applies, since the trade about content crossing
+ * the wire is identical.
+ *
+ * Empty content is refused rather than sent: there is nothing to detect from,
+ * and a call that can only disappoint should not be billed.
+ */
+export const detectLanguageDraftSchema = z.object({
+  content: z
+    .string()
+    .max(DRAFT_MAX_LENGTH)
+    .refine((content) => content.trim() !== "", {
+      error: "Add some code first.",
+    }),
+});
+
+export type DetectLanguageDraft = z.infer<typeof detectLanguageDraftSchema>;
+
+/**
+ * The language the model may answer with — one of the ids the dropdown offers,
+ * and nothing else.
+ *
+ * An enum rather than a string, and this is the rule the whole feature turns
+ * on: `Item.language` is free text and `languageOptions` carries an
+ * unrecognised hint through as its own dropdown option, so `TypeScript React`
+ * or `ts` would not fail visibly — it would add a bogus option and then be
+ * stored on save. `zodTextFormat` puts this in the request, so the model cannot
+ * return anything else, and the parse enforces it again on the way back.
+ *
+ * `plaintext` is a member, which is what gives the model somewhere to go when
+ * it cannot tell. Without an escape hatch a constrained enum forces a confident
+ * wrong answer.
+ */
+export const detectedLanguageSchema = z.object({
+  language: z.enum(OFFERED_IDS),
+});
+
+export type DetectedLanguage = z.infer<typeof detectedLanguageSchema>;
 
 /** At most 8, because an output cap is also an output-token cap. */
 export const MAX_SUGGESTED_TAGS = 8;
