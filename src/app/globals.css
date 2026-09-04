@@ -3830,7 +3830,7 @@ html:has(.marketing) {
 
   .hero-intro {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: auto minmax(0, 1fr);
     align-items: center;
     gap: 3rem;
   }
@@ -3839,23 +3839,15 @@ html:has(.marketing) {
     max-width: 46rem;
   }
 
-  /* Sized by width, with the height following from the aspect ratio next/image
-     puts on the element. Capping the *height* instead does not work: with
-     `height: auto` the rendered size follows the served variant's intrinsic
-     height rather than the cap, and a fixed height plus `max-width: 100%`
-     leaves the box taller than the art once the width clamps — a 352x327 box
-     at 390px, so 25px of dead space under the squirrel. The art is square, so
-     40.5rem across is the ~650px high this hero was asked for.
-
-     No `100%` term here, unlike the stacked rule below: this column is an
-     `auto` grid track, so a percentage width resolves against a track that is
-     itself sized by this image, and the browser falls back to the served
-     variant's intrinsic width — which came out 612px rather than 648px. The
-     track cannot overflow, since the two-column layout only applies above
-     80rem. */
+  /* Set the height, not a max: `max-height` with `height: auto` does nothing
+     here, because the rendered size then follows the served variant's intrinsic
+     height rather than the cap — which came out 608px against a 650px cap when
+     this was first built. Nothing clamps the width in this column, so there is
+     no letterboxing to guard against; the stacked rule below is width-driven
+     instead, because there the width is what has to give. */
   .hero-mascot-image {
-    width: 40.5rem;
-    height: auto;
+    width: auto;
+    height: 26rem;
   }
 
   .eyebrow {
@@ -3879,7 +3871,7 @@ html:has(.marketing) {
 
   .hero h1 {
     margin: 1.25rem 0 0;
-    font-size: clamp(2.25rem, 3.4vw, 3rem);
+    font-size: clamp(2.25rem, 5vw, 3.5rem);
     font-weight: 700;
   }
 
@@ -4685,11 +4677,7 @@ html:has(.marketing) {
 
   /* ---------- Responsive ---------- */
 
-  /* The hero stacks well before the breakpoint the rest of the marketing page
-     uses: a 648px mascot against a 72rem shell leaves the text 265px at
-     1024px, which is too narrow to read. 80rem is where both halves still have
-     room, so the two-column hero has its own query. */
-  @media (max-width: 79.99rem) {
+  @media (max-width: 63.99rem) {
     .hero-intro {
       grid-template-columns: 1fr;
       gap: 2.5rem;
@@ -4716,18 +4704,15 @@ html:has(.marketing) {
       font-size: clamp(2.25rem, 6vw, 3.75rem);
     }
 
-    /* The mascot leads on a stacked hero, so it sits above the headline rather
-       than below the call to action. */
-    .hero-mascot {
-      order: -1;
-    }
-
+    /* Width-driven here so it shrinks with the viewport, and `height: auto` to
+       undo the fixed height above — a fixed height plus a clamped width leaves
+       the box taller than the art, which measured as 25px of dead space under
+       the squirrel at 390px. */
     .hero-mascot-image {
       width: min(22rem, 100%);
+      height: auto;
     }
-  }
 
-  @media (max-width: 63.99rem) {
     .feature-grid {
       grid-template-columns: repeat(2, 1fr);
     }
