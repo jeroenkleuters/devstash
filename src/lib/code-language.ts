@@ -106,8 +106,15 @@ export function languageLabel(id: string): string {
  * something the list cannot express.
  *
  * Ordered by label rather than by id, since the label is what is read.
+ *
+ * Exported and `as const` because it is also the set AI language detection may
+ * answer from. `Item.language` is free text and `languageOptions` below carries
+ * an unrecognised hint through as its own option, so a model answering
+ * something outside this list would not fail visibly — it would add a bogus
+ * option and then be stored on save. Constraining the model's output to this
+ * tuple is what stops that.
  */
-const OFFERED_IDS = [
+export const OFFERED_IDS = [
   "bat",
   "c",
   "clojure",
@@ -147,7 +154,7 @@ const OFFERED_IDS = [
   "typescript",
   "xml",
   "yaml",
-];
+] as const;
 
 export interface LanguageOption {
   /** Stored verbatim in `Item.language`; the empty string means no hint. */
@@ -168,8 +175,10 @@ export interface LanguageOption {
 export function languageOptions(
   current?: string | null,
 ): readonly LanguageOption[] {
-  const options = OFFERED_IDS.map((id) => ({
-    value: id,
+  // Annotated, or the `as const` on OFFERED_IDS narrows `value` to a union of
+  // the offered ids and the unrecognised hint below cannot be pushed onto it.
+  const options: LanguageOption[] = OFFERED_IDS.map((id) => ({
+    value: id as string,
     label: languageLabel(id),
   })).sort((a, b) => a.label.localeCompare(b.label, "en"));
 

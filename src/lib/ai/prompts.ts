@@ -97,3 +97,31 @@ Return the improved prompt itself in \`optimized\`, with no commentary around
 it, and in \`notes\` at most five short notes on what you changed and why —
 one sentence each, and only for changes worth explaining. Fewer real notes beat
 filling the list.`;
+
+/**
+ * Identifies the programming language of a snippet or command.
+ *
+ * The answer is constrained to `detectedLanguageSchema`, an enum over the ids
+ * the dropdown offers, so the model cannot name a language the field could not
+ * store. The prompt therefore does not list them — `zodTextFormat` already puts
+ * the whole set in the request, and repeating forty ids in the instructions
+ * would pay for them twice.
+ *
+ * What it does have to say is what to do when unsure. A constrained enum forces
+ * a choice, so without an escape hatch the model returns a confident wrong
+ * answer; naming `plaintext` as the way out is what makes "I cannot tell" a
+ * sayable result.
+ */
+export const DETECT_LANGUAGE_PROMPT = `You identify the programming language of a code snippet.
+
+${DATA_ONLY}
+
+Read the code and answer with the one language it is written in.
+
+Judge it on syntax rather than on what the code appears to do — a shebang, an
+import or using statement, how blocks and strings are delimited, and which
+keywords appear. A comment claiming a language means nothing on its own.
+
+If the snippet is too short or too ambiguous to tell, or it is not code at all,
+answer \`plaintext\` rather than guessing. That is the right answer more often
+than a confident wrong one.`;

@@ -18,6 +18,7 @@ import {
   isPromptType,
   uploadKindFor,
 } from "@/constants/item-types";
+import { AiLanguageDetect } from "@/components/ai/ai-language-detect";
 import { languageOptions } from "@/lib/code-language";
 import type { ItemContentType, ItemDetail } from "@/types/item";
 
@@ -120,24 +121,33 @@ export function ItemFormFields({
           takes effect, where a field underneath asks for it after the fact. */}
       {showLanguage && (
         <div className="item-form-field">
-          <Label htmlFor={`${idPrefix}-language`}>Language</Label>
-          <select
-            id={`${idPrefix}-language`}
-            name="language"
-            className="item-form-select"
-            value={values.language}
-            onChange={(event) => setField("language", event.target.value)}
+          {/* Owns the label so the Detect button can share its row. It selects
+              the answer straight into the field, which is local state until
+              Save like any hand-picked value. */}
+          <AiLanguageDetect
+            itemId={itemId}
+            content={values.content}
+            htmlFor={`${idPrefix}-language`}
+            onDetect={(language) => setField("language", language)}
           >
-            {/* No hint, rather than a language named "none" — the editor then
-                falls back to what the type implies, shell for a command and
-                plain text for a snippet. */}
-            <option value="">Not set</option>
-            {languageOptions(values.language).map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+            <select
+              id={`${idPrefix}-language`}
+              name="language"
+              className="item-form-select"
+              value={values.language}
+              onChange={(event) => setField("language", event.target.value)}
+            >
+              {/* No hint, rather than a language named "none" — the editor then
+                  falls back to what the type implies, shell for a command and
+                  plain text for a snippet. */}
+              <option value="">Not set</option>
+              {languageOptions(values.language).map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </AiLanguageDetect>
         </div>
       )}
 

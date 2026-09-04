@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  detectLanguage,
+  detectLanguageForDraft,
   explainCode,
   optimizePrompt,
   suggestTags,
@@ -133,6 +135,7 @@ describe.each([
   ["summarizeItem", summarizeItem, "ai:summary:user-1"],
   ["explainCode", explainCode, "ai:explain:user-1"],
   ["optimizePrompt", optimizePrompt, "ai:optimize:user-1"],
+  ["detectLanguage", detectLanguage, "ai:detect:user-1"],
 ] as const)("%s — the shared gates, in order", (_name, action, featureKey) => {
   it("refuses a signed-out caller", async () => {
     getCurrentUserMock.mockResolvedValue(null);
@@ -935,6 +938,7 @@ describe.each([
   ["suggestTags", suggestTags],
   ["summarizeItem", summarizeItem],
   ["optimizePrompt", optimizePrompt],
+  ["detectLanguage", detectLanguage],
 ] as const)("%s — the item is read last", (_name, action) => {
   it("does not read the item when rate limited", async () => {
     rateLimitMock.mockResolvedValue({ success: false, remaining: 0, reset: 0 });
@@ -1291,5 +1295,157 @@ describe("optimizePrompt — the call and the answer", () => {
 
     expect(result.success).toBe(false);
     expect(recordSpendMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("detectLanguage — the call and the answer", () => {
+  beforeEach(() => {
+    parse.mockResolvedValue({
+      output_parsed: { language: "typescript" },
+      usage: usage(),
+    });
+  });
+
+  it("answers the language id as a plain string", async () => {
+    const result = await detectLanguage({ itemId: "item-1" });
+
+    expect(result).toEqual({ success: true, data: "typescript" });
+  });
+
+  it("reads the item as the session's user, never the payload's", async () => {
+    await detectLanguage({ itemId: "item-1", userId: "someone-else" });
+
+    expect(getItemDetailMock).toHaveBeenCalledWith("user-1", "item-1");
+  });
+
+  /**
+   * The one rule this feature turns on. Sending the hint the field already
+   * holds would anchor the model to the value it is being asked to replace —
+   * the same reason the summary strips the description it overwrites. The
+   * fixture carries `language: "typescript"`, so a leak would show here.
+   */
+  it("does not send the language the item already has", async () => {
+    await detectLanguage({ itemId: "item-1" });
+
+    const sent = parse.mock.calls[0][0].input as string;
+
+    expect(sent).toContain("export function useDebounce() {}");
+    expect(sent).not.toContain("Language:");
+    expect(sent).not.toContain("typescript");
+  });
+
+  it("refuses a type that has no language field", async () => {
+    getItemDetailMock.mockResolvedValue({
+      ...(ITEM as object),
+      type: { slug: "notes" },
+    } as never);
+
+    const result = await detectLanguage({ itemId: "item-1" });
+
+    expect(result).toEqual({
+      success: false,
+      error: "Only snippets and commands have a language.",
+    });
+    expect(parse).not.toHaveBeenCalled();
+  });
+
+  it("offers it for commands as well as snippets", async () => {
+    getItemDetailMock.mockResolvedValue({
+      ...(ITEM as object),
+      type: { slug: "commands" },
+    } as never);
+
+    const result = await detectLanguage({ itemId: "item-1" });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("refuses an item with no content rather than billing for it", async () => {
+    getItemDetailMock.mockResolvedValue({
+      ...(ITEM as object),
+      content: null,
+    } as never);
+
+    const result = await detectLanguage({ itemId: "item-1" });
+
+    expect(result).toEqual({
+      success: false,
+      error: "This item has no code to read.",
+    });
+    expect(parse).not.toHaveBeenCalled();
+  });
+
+  /** Classification, like tagging: reasoning tokens bill at the output rate. */
+  it("asks for minimal effort", async () => {
+    await detectLanguage({ itemId: "item-1" });
+
+    expect(parse.mock.calls[0][0].reasoning).toEqual({ effort: "minimal" });
+    expect(parse.mock.calls[0][0].prompt_cache_key).toBe("devstash:detect:v1");
+  });
+
+  /**
+   * The raw counts. `recordSpend` is what subtracts the cached share before
+   * pricing it — the API reports cached tokens as a *detail of* the input
+   * count rather than in addition to it, so doing it twice would bill that
+   * share at both rates.
+   */
+  it("records what the call cost", async () => {
+    await detectLanguage({ itemId: "item-1" });
+
+    expect(recordSpend).toHaveBeenCalledWith({
+      input: 100,
+      cached: 10,
+      output: 20,
+    });
+  });
+});
+
+describe("detectLanguageForDraft — the create dialog's path", () => {
+  beforeEach(() => {
+    parse.mockResolvedValue({
+      output_parsed: { language: "python" },
+      usage: usage(),
+    });
+  });
+
+  it("reads nothing, because nothing is stored yet", async () => {
+    const result = await detectLanguageForDraft({ content: "print(1)" });
+
+    expect(result).toEqual({ success: true, data: "python" });
+    expect(getItemDetailMock).not.toHaveBeenCalled();
+  });
+
+  /**
+   * The same window as the stored path, deliberately: a draft detection and an
+   * item detection cost the same call, so a window of its own would quietly
+   * double what one account can spend on this in an hour.
+   */
+  it("counts against the same hourly window as the stored path", async () => {
+    await detectLanguageForDraft({ content: "print(1)" });
+
+    expect(rateLimit).toHaveBeenCalledWith("ai:detect:user-1", 30, 3_600_000);
+  });
+
+  it("refuses an empty draft without calling the model", async () => {
+    const result = await detectLanguageForDraft({ content: "   " });
+
+    expect(result.success).toBe(false);
+    expect(parse).not.toHaveBeenCalled();
+  });
+
+  /**
+   * The schema takes content and nothing else, so a title cannot be smuggled
+   * in to say what the code is — the language is in the code or it is nowhere.
+   */
+  it("drops anything beyond the content", async () => {
+    await detectLanguageForDraft({
+      content: "print(1)",
+      title: "A Ruby script",
+      userId: "someone-else",
+    });
+
+    const sent = parse.mock.calls[0][0].input as string;
+
+    expect(sent).not.toContain("Ruby");
   });
 });
