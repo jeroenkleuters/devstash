@@ -13,6 +13,20 @@ export function HeroSection() {
     <section className="hero">
       <div className="shell">
         <div className="hero-intro">
+          <Reveal className="hero-mascot">
+            {/* Decorative: the headline beside it already says what the product
+                is, so an alt would only repeat it to a screen reader. `priority`
+                because it is the largest thing above the fold and is the likely
+                LCP element. */}
+            <Image
+              className="hero-mascot-image"
+              src={squirrel}
+              alt=""
+              sizes="(max-width: 63.99rem) 22rem, 26rem"
+              priority
+            />
+          </Reveal>
+
           <Reveal className="hero-text">
             <p className="eyebrow">
               <span className="eyebrow-dot" aria-hidden />
@@ -41,20 +55,6 @@ export function HeroSection() {
             <p className="hero-note">
               Free forever for 50 items. No card required.
             </p>
-          </Reveal>
-
-          <Reveal className="hero-mascot">
-            {/* Decorative: the headline beside it already says what the product
-                is, so an alt would only repeat it to a screen reader. `priority`
-                because it is the largest thing above the fold and is the likely
-                LCP element. */}
-            <Image
-              className="hero-mascot-image"
-              src={squirrel}
-              alt=""
-              sizes="(max-width: 63.99rem) 22rem, 41rem"
-              priority
-            />
           </Reveal>
         </div>
 
